@@ -43,6 +43,7 @@ Project documentation:
 - [Benchmark methodology and results](docs/performance.md)
 - [Porting plan](docs/port/porting-plan.md)
 - [Port compatibility](docs/port/compatibility.md)
+- [Architecture postmortem](docs/port/postmortem.md)
 - [C++ issues and audit](docs/port/cpp-gd-issues.md)
 - [Source size and complexity](docs/port/source-stats.md)
 
