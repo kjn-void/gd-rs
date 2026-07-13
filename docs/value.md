@@ -5,7 +5,7 @@ variant discriminant and payload cannot disagree.
 
 ```mermaid
 flowchart LR
-    Value["Value\nowned payloads"] -->|"as_ref(), O(1)"| Ref["ValueRef<'a>\nborrowed strings/bytes"]
+    Value["Value\nowned payloads"] -->|"as_ref(), O(1)"| Ref["ValueRef&lt;'a&gt;\nborrowed strings/bytes"]
     Ref -->|"to_owned(), O(payload size)"| Value
 ```
 

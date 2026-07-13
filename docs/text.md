@@ -9,13 +9,13 @@ operation.
 
 ```mermaid
 flowchart LR
-    Bytes["&[u8]"] -->|"validate_utf8"| Text["&str"]
-    Utf16["&[u16]"] -->|"decode_utf16"| Owned["String"]
+    Bytes["&amp;[u8]"] -->|"validate_utf8"| Text["&amp;str"]
+    Utf16["&amp;[u16]"] -->|"decode_utf16"| Owned["String"]
     Text -->|"encode_json_string"| Json["JSON string literal"]
     Json -->|"decode_json_string"| Owned
     Text -->|"encode_percent_component"| Uri["URI component"]
-    Uri -->|"decode_percent_component"| Borrowed["Cow<'a, str>"]
-    Text -->|"escape_xml"| Xml["Cow<'a, str>"]
+    Uri -->|"decode_percent_component"| Borrowed["Cow&lt;'a, str&gt;"]
+    Text -->|"escape_xml"| Xml["Cow&lt;'a, str&gt;"]
 ```
 
 `validate_utf8` is a named boundary around `std::str::from_utf8` and borrows the

@@ -20,7 +20,7 @@ flowchart LR
     GD["Value"] --> Context["ExpressionContext"]
     Context --> Evaluate["ExpressionEngine::evaluate"]
     Program --> Evaluate
-    Evaluate --> Result["Result<Value, ExpressionError>"]
+    Evaluate --> Result["Result&lt;Value, ExpressionError&gt;"]
 ```
 
 Compilation is separate from evaluation so repeated formulas do not repeat parsing

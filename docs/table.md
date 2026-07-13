@@ -6,11 +6,11 @@
 ```mermaid
 flowchart TD
     Schema["Schema\nColumnSpec + ahash name/alias map"] --> Table
-    Table --> C0["Vec<Option<T0>>"]
-    Table --> C1["Vec<Option<T1>>"]
-    Table --> CN["Vec<Option<Tn>>"]
-    Table -->|"immutable borrow"| Index["ColumnIndex\ntyped AHashMap<key, rows>"]
-    Table -->|"immutable borrow"| Order["RowOrder\nstable Vec<row position>"]
+    Table --> C0["Vec&lt;Option&lt;T0&gt;&gt;"]
+    Table --> C1["Vec&lt;Option&lt;T1&gt;&gt;"]
+    Table --> CN["Vec&lt;Option&lt;Tn&gt;&gt;"]
+    Table -->|"immutable borrow"| Index["ColumnIndex\ntyped AHashMap&lt;key, rows&gt;"]
+    Table -->|"immutable borrow"| Order["RowOrder\nstable Vec&lt;row position&gt;"]
 ```
 
 This is different from the C++ `table_column_buffer`, whose fixed payload buffer is

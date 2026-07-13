@@ -5,8 +5,8 @@ duplicate names and unnamed positional entries are both valid and preserved.
 
 ```mermaid
 flowchart LR
-    Args["Arguments\nVec<Argument>"] --> Linear["get_named\nlinear scan"]
-    Args -->|"immutable borrow"| Index["ArgumentIndex\nAHashMap<&str, SmallVec<position>>"]
+    Args["Arguments\nVec&lt;Argument&gt;"] --> Linear["get_named\nlinear scan"]
+    Args -->|"immutable borrow"| Index["ArgumentIndex\nAHashMap&lt;&amp;str, SmallVec&lt;position&gt;&gt;&gt;"]
     Index --> Indexed["get_named / get_nth_named\nexpected hash lookup"]
 ```
 
