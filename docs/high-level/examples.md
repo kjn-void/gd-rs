@@ -510,4 +510,4 @@ Iteration is O(rows) and does not move unrelated column payloads.
 
 See [dynamic values](value.md), [arguments](arguments.md), and [tables](table.md) for
 the complete contracts and complexity notes. Intentional behavior differences are
-listed in [port compatibility](port/compatibility.md).
+listed in [port compatibility](../port/compatibility.md).

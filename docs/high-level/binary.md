@@ -25,7 +25,7 @@ assert_eq!(reader.read_f32(Endian::Little)?, 1.5);
 # Ok::<(), BinaryError>(())
 ```
 
-Integer methods accept [`Endian`](../src/binary.rs). Floating-point values are
+Integer methods accept [`Endian`](../../src/binary.rs). Floating-point values are
 transferred through `to_bits` and `from_bits`, preserving NaN payloads, infinities,
 and signed zero. No alignment assumption is made about the input buffer.
 

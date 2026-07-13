@@ -42,7 +42,7 @@ immutable metadata from mutable row storage so the two cannot silently diverge.
 There are deliberately no parallel `OwnedValue`, `TypedValue`, `ArgumentsBuilder`,
 `TableMut`, `RowMut`, `Cell`, or `CellMut` families. Mutation remains directly on
 `Arguments` and `Table`; ordinary construction does not require builders. The
-[ownership model](../architecture.md#ownership-model) shows how these types remain
+[ownership model](../high-level/architecture.md#ownership-model) shows how these types remain
 centered on the three roots.
 
 ## Current public surface
@@ -123,7 +123,7 @@ The matched benchmarks show a mixed result rather than an automatic Rust advanta
 The row-order comparison is particularly important: most of the gain comes from a
 different algorithm and post-sort contract, not from translating identical code into
 Rust. The complete methodology and caveats are in
-[the performance report](../performance.md).
+[the performance report](../high-level/performance.md).
 
 No retained-memory or allocation-count conclusion follows from the timing results.
 Those measurements are still required before claiming that either representation is
