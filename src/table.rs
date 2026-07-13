@@ -1,0 +1,1129 @@
+//! Schema-driven typed column storage.
+
+use std::{cmp::Ordering, fmt};
+
+use ahash::AHashMap;
+use compact_str::CompactString;
+use smallvec::SmallVec;
+use thiserror::Error;
+use uuid::Uuid;
+
+use crate::{DataType, Value, ValueRef};
+
+/// A schema column's name, optional alias, type, and nullability.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ColumnSpec {
+    name: CompactString,
+    alias: Option<CompactString>,
+    data_type: DataType,
+    nullable: bool,
+}
+
+impl ColumnSpec {
+    /// Creates a non-nullable column, except that a `Null` column is always nullable.
+    pub fn new(name: impl Into<CompactString>, data_type: DataType) -> Self {
+        Self {
+            name: name.into(),
+            alias: None,
+            data_type,
+            nullable: data_type == DataType::Null,
+        }
+    }
+
+    /// Sets an alternate lookup name.
+    #[must_use]
+    pub fn with_alias(mut self, alias: impl Into<CompactString>) -> Self {
+        self.alias = Some(alias.into());
+        self
+    }
+
+    /// Sets whether this column accepts [`Value::Null`].
+    ///
+    /// A column whose type is [`DataType::Null`] remains nullable.
+    #[must_use]
+    pub const fn nullable(mut self, nullable: bool) -> Self {
+        self.nullable = nullable || matches!(self.data_type, DataType::Null);
+        self
+    }
+
+    /// Returns the primary column name.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns the optional alternate lookup name.
+    #[must_use]
+    pub fn alias(&self) -> Option<&str> {
+        self.alias.as_deref()
+    }
+
+    /// Returns the column's logical value type.
+    #[must_use]
+    pub const fn data_type(&self) -> DataType {
+        self.data_type
+    }
+
+    /// Returns whether the column accepts null values.
+    #[must_use]
+    pub const fn is_nullable(&self) -> bool {
+        self.nullable
+    }
+}
+
+/// An immutable table schema with O(1)-expected name and alias lookup.
+#[derive(Clone, Debug)]
+pub struct Schema {
+    columns: Vec<ColumnSpec>,
+    by_name: AHashMap<CompactString, usize>,
+}
+
+impl Schema {
+    /// Validates and constructs a schema.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::DuplicateColumnName`] if a name or alias is already
+    /// assigned to a different column.
+    pub fn new(columns: impl IntoIterator<Item = ColumnSpec>) -> Result<Self, TableError> {
+        let columns: Vec<_> = columns.into_iter().collect();
+        let mut by_name = AHashMap::with_capacity(columns.len().saturating_mul(2));
+        for (position, column) in columns.iter().enumerate() {
+            insert_schema_name(&mut by_name, column.name(), position)?;
+            if let Some(alias) = column.alias() {
+                insert_schema_name(&mut by_name, alias, position)?;
+            }
+        }
+        Ok(Self { columns, by_name })
+    }
+
+    /// Returns the number of columns.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.columns.len()
+    }
+
+    /// Returns whether the schema contains no columns.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.columns.is_empty()
+    }
+
+    /// Returns a column definition by position.
+    #[must_use]
+    pub fn column(&self, position: usize) -> Option<&ColumnSpec> {
+        self.columns.get(position)
+    }
+
+    /// Resolves a primary name or alias in expected O(name length).
+    #[must_use]
+    pub fn column_index(&self, name_or_alias: &str) -> Option<usize> {
+        self.by_name.get(name_or_alias).copied()
+    }
+
+    /// Returns column definitions in positional order.
+    #[must_use]
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &ColumnSpec> + DoubleEndedIterator {
+        self.columns.iter()
+    }
+}
+
+fn insert_schema_name(
+    names: &mut AHashMap<CompactString, usize>,
+    name: &str,
+    position: usize,
+) -> Result<(), TableError> {
+    if let Some(previous) = names.get(name) {
+        if *previous != position {
+            return Err(TableError::DuplicateColumnName(name.into()));
+        }
+        return Ok(());
+    }
+    names.insert(name.into(), position);
+    Ok(())
+}
+
+/// A table schema, storage, or access error.
+#[derive(Clone, Debug, Error, PartialEq)]
+pub enum TableError {
+    /// Two columns claim the same name or alias.
+    #[error("duplicate column name or alias: {0}")]
+    DuplicateColumnName(CompactString),
+    /// A row contains a different number of values than the schema.
+    #[error("expected {expected} row values, found {actual}")]
+    RowWidth {
+        /// Required value count.
+        expected: usize,
+        /// Supplied value count.
+        actual: usize,
+    },
+    /// A cell value does not match its column type.
+    #[error("column {column} expects {expected}, found {actual}")]
+    TypeMismatch {
+        /// Positional column index.
+        column: usize,
+        /// Schema type.
+        expected: DataType,
+        /// Supplied type.
+        actual: DataType,
+    },
+    /// A null value was supplied to a non-nullable column.
+    #[error("column {column} is not nullable")]
+    NullNotAllowed {
+        /// Positional column index.
+        column: usize,
+    },
+    /// A row position is outside the table.
+    #[error("row {row} is out of bounds for {row_count} rows")]
+    RowOutOfBounds {
+        /// Requested row.
+        row: usize,
+        /// Current row count.
+        row_count: usize,
+    },
+    /// A column position is outside the schema.
+    #[error("column {column} is out of bounds for {column_count} columns")]
+    ColumnOutOfBounds {
+        /// Requested column.
+        column: usize,
+        /// Current column count.
+        column_count: usize,
+    },
+    /// No primary name or alias matches the query.
+    #[error("column not found: {0}")]
+    ColumnNotFound(CompactString),
+    /// Hash indexes do not support this logical type.
+    #[error("columns of type {0} cannot be indexed")]
+    UnsupportedIndexType(DataType),
+}
+
+/// Direction used when ordering table rows.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum SortDirection {
+    /// Smaller non-null values precede larger values.
+    Ascending,
+    /// Larger non-null values precede smaller values.
+    Descending,
+}
+
+/// Placement of null cells in an ordered row view.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum NullOrder {
+    /// Null cells precede every non-null value.
+    First,
+    /// Null cells follow every non-null value.
+    Last,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ColumnStorage {
+    Null(usize),
+    Bool(Vec<Option<bool>>),
+    I8(Vec<Option<i8>>),
+    I16(Vec<Option<i16>>),
+    I32(Vec<Option<i32>>),
+    I64(Vec<Option<i64>>),
+    U8(Vec<Option<u8>>),
+    U16(Vec<Option<u16>>),
+    U32(Vec<Option<u32>>),
+    U64(Vec<Option<u64>>),
+    F32(Vec<Option<f32>>),
+    F64(Vec<Option<f64>>),
+    String(Vec<Option<CompactString>>),
+    Bytes(Vec<Option<Box<[u8]>>>),
+    Uuid(Vec<Option<Uuid>>),
+}
+
+impl ColumnStorage {
+    fn new(data_type: DataType, capacity: usize) -> Self {
+        match data_type {
+            DataType::Null => Self::Null(0),
+            DataType::Bool => Self::Bool(Vec::with_capacity(capacity)),
+            DataType::I8 => Self::I8(Vec::with_capacity(capacity)),
+            DataType::I16 => Self::I16(Vec::with_capacity(capacity)),
+            DataType::I32 => Self::I32(Vec::with_capacity(capacity)),
+            DataType::I64 => Self::I64(Vec::with_capacity(capacity)),
+            DataType::U8 => Self::U8(Vec::with_capacity(capacity)),
+            DataType::U16 => Self::U16(Vec::with_capacity(capacity)),
+            DataType::U32 => Self::U32(Vec::with_capacity(capacity)),
+            DataType::U64 => Self::U64(Vec::with_capacity(capacity)),
+            DataType::F32 => Self::F32(Vec::with_capacity(capacity)),
+            DataType::F64 => Self::F64(Vec::with_capacity(capacity)),
+            DataType::String => Self::String(Vec::with_capacity(capacity)),
+            DataType::Bytes => Self::Bytes(Vec::with_capacity(capacity)),
+            DataType::Uuid => Self::Uuid(Vec::with_capacity(capacity)),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Null(len) => *len,
+            Self::Bool(values) => values.len(),
+            Self::I8(values) => values.len(),
+            Self::I16(values) => values.len(),
+            Self::I32(values) => values.len(),
+            Self::I64(values) => values.len(),
+            Self::U8(values) => values.len(),
+            Self::U16(values) => values.len(),
+            Self::U32(values) => values.len(),
+            Self::U64(values) => values.len(),
+            Self::F32(values) => values.len(),
+            Self::F64(values) => values.len(),
+            Self::String(values) => values.len(),
+            Self::Bytes(values) => values.len(),
+            Self::Uuid(values) => values.len(),
+        }
+    }
+
+    fn get(&self, row: usize) -> Option<ValueRef<'_>> {
+        macro_rules! copied {
+            ($values:expr, $variant:ident) => {
+                $values.get(row).map(|value| match value {
+                    Some(value) => ValueRef::$variant(*value),
+                    None => ValueRef::Null,
+                })
+            };
+        }
+        match self {
+            Self::Null(len) => (row < *len).then_some(ValueRef::Null),
+            Self::Bool(values) => copied!(values, Bool),
+            Self::I8(values) => copied!(values, I8),
+            Self::I16(values) => copied!(values, I16),
+            Self::I32(values) => copied!(values, I32),
+            Self::I64(values) => copied!(values, I64),
+            Self::U8(values) => copied!(values, U8),
+            Self::U16(values) => copied!(values, U16),
+            Self::U32(values) => copied!(values, U32),
+            Self::U64(values) => copied!(values, U64),
+            Self::F32(values) => copied!(values, F32),
+            Self::F64(values) => copied!(values, F64),
+            Self::String(values) => values.get(row).map(|value| match value {
+                Some(value) => ValueRef::String(value),
+                None => ValueRef::Null,
+            }),
+            Self::Bytes(values) => values.get(row).map(|value| match value {
+                Some(value) => ValueRef::Bytes(value),
+                None => ValueRef::Null,
+            }),
+            Self::Uuid(values) => copied!(values, Uuid),
+        }
+    }
+
+    fn push_validated(&mut self, value: Value) {
+        macro_rules! push {
+            ($values:expr, $value:expr, $variant:ident) => {
+                match $value {
+                    Value::Null => $values.push(None),
+                    Value::$variant(value) => $values.push(Some(value)),
+                    _ => unreachable!("value was validated against its column"),
+                }
+            };
+        }
+        match self {
+            Self::Null(len) => {
+                debug_assert_eq!(value, Value::Null);
+                *len += 1;
+            }
+            Self::Bool(values) => push!(values, value, Bool),
+            Self::I8(values) => push!(values, value, I8),
+            Self::I16(values) => push!(values, value, I16),
+            Self::I32(values) => push!(values, value, I32),
+            Self::I64(values) => push!(values, value, I64),
+            Self::U8(values) => push!(values, value, U8),
+            Self::U16(values) => push!(values, value, U16),
+            Self::U32(values) => push!(values, value, U32),
+            Self::U64(values) => push!(values, value, U64),
+            Self::F32(values) => push!(values, value, F32),
+            Self::F64(values) => push!(values, value, F64),
+            Self::String(values) => push!(values, value, String),
+            Self::Bytes(values) => push!(values, value, Bytes),
+            Self::Uuid(values) => push!(values, value, Uuid),
+        }
+    }
+
+    fn set_validated(&mut self, row: usize, value: Value) {
+        macro_rules! set {
+            ($values:expr, $value:expr, $variant:ident) => {
+                $values[row] = match $value {
+                    Value::Null => None,
+                    Value::$variant(value) => Some(value),
+                    _ => unreachable!("value was validated against its column"),
+                }
+            };
+        }
+        match self {
+            Self::Null(_) => debug_assert_eq!(value, Value::Null),
+            Self::Bool(values) => set!(values, value, Bool),
+            Self::I8(values) => set!(values, value, I8),
+            Self::I16(values) => set!(values, value, I16),
+            Self::I32(values) => set!(values, value, I32),
+            Self::I64(values) => set!(values, value, I64),
+            Self::U8(values) => set!(values, value, U8),
+            Self::U16(values) => set!(values, value, U16),
+            Self::U32(values) => set!(values, value, U32),
+            Self::U64(values) => set!(values, value, U64),
+            Self::F32(values) => set!(values, value, F32),
+            Self::F64(values) => set!(values, value, F64),
+            Self::String(values) => set!(values, value, String),
+            Self::Bytes(values) => set!(values, value, Bytes),
+            Self::Uuid(values) => set!(values, value, Uuid),
+        }
+    }
+
+    fn pop(&mut self) {
+        match self {
+            Self::Null(len) => *len -= 1,
+            Self::Bool(values) => drop(values.pop()),
+            Self::I8(values) => drop(values.pop()),
+            Self::I16(values) => drop(values.pop()),
+            Self::I32(values) => drop(values.pop()),
+            Self::I64(values) => drop(values.pop()),
+            Self::U8(values) => drop(values.pop()),
+            Self::U16(values) => drop(values.pop()),
+            Self::U32(values) => drop(values.pop()),
+            Self::U64(values) => drop(values.pop()),
+            Self::F32(values) => drop(values.pop()),
+            Self::F64(values) => drop(values.pop()),
+            Self::String(values) => drop(values.pop()),
+            Self::Bytes(values) => drop(values.pop()),
+            Self::Uuid(values) => drop(values.pop()),
+        }
+    }
+
+    fn compare_rows(
+        &self,
+        left: usize,
+        right: usize,
+        direction: SortDirection,
+        null_order: NullOrder,
+    ) -> Ordering {
+        macro_rules! ordered {
+            ($values:expr) => {
+                compare_optional(
+                    $values[left].as_ref(),
+                    $values[right].as_ref(),
+                    direction,
+                    null_order,
+                    Ord::cmp,
+                )
+            };
+        }
+        match self {
+            Self::Null(_) => Ordering::Equal,
+            Self::Bool(values) => ordered!(values),
+            Self::I8(values) => ordered!(values),
+            Self::I16(values) => ordered!(values),
+            Self::I32(values) => ordered!(values),
+            Self::I64(values) => ordered!(values),
+            Self::U8(values) => ordered!(values),
+            Self::U16(values) => ordered!(values),
+            Self::U32(values) => ordered!(values),
+            Self::U64(values) => ordered!(values),
+            Self::F32(values) => compare_optional(
+                values[left].as_ref(),
+                values[right].as_ref(),
+                direction,
+                null_order,
+                f32::total_cmp,
+            ),
+            Self::F64(values) => compare_optional(
+                values[left].as_ref(),
+                values[right].as_ref(),
+                direction,
+                null_order,
+                f64::total_cmp,
+            ),
+            Self::String(values) => ordered!(values),
+            Self::Bytes(values) => ordered!(values),
+            Self::Uuid(values) => ordered!(values),
+        }
+    }
+}
+
+fn compare_optional<T>(
+    left: Option<&T>,
+    right: Option<&T>,
+    direction: SortDirection,
+    null_order: NullOrder,
+    compare: impl FnOnce(&T, &T) -> Ordering,
+) -> Ordering {
+    match (left, right) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => match null_order {
+            NullOrder::First => Ordering::Less,
+            NullOrder::Last => Ordering::Greater,
+        },
+        (Some(_), None) => match null_order {
+            NullOrder::First => Ordering::Greater,
+            NullOrder::Last => Ordering::Less,
+        },
+        (Some(left), Some(right)) => match direction {
+            SortDirection::Ascending => compare(left, right),
+            SortDirection::Descending => compare(left, right).reverse(),
+        },
+    }
+}
+
+/// A schema-driven table whose columns store their primitive types directly.
+///
+/// Each column is contiguous and uses `Option<T>` for nulls. That representation
+/// is intentionally straightforward; it can be replaced by a validity bitmap if
+/// retained-memory measurements justify the additional machinery.
+#[derive(Clone, Debug)]
+pub struct Table {
+    schema: Schema,
+    columns: Vec<ColumnStorage>,
+    row_count: usize,
+}
+
+impl Table {
+    /// Creates an empty table.
+    #[must_use]
+    pub fn new(schema: Schema) -> Self {
+        Self::with_capacity(schema, 0)
+    }
+
+    /// Creates an empty table with per-column capacity for `capacity` rows.
+    #[must_use]
+    pub fn with_capacity(schema: Schema, capacity: usize) -> Self {
+        let columns = schema
+            .iter()
+            .map(|column| ColumnStorage::new(column.data_type(), capacity))
+            .collect();
+        Self {
+            schema,
+            columns,
+            row_count: 0,
+        }
+    }
+
+    /// Returns the immutable schema.
+    #[must_use]
+    pub const fn schema(&self) -> &Schema {
+        &self.schema
+    }
+
+    /// Returns the number of rows.
+    #[must_use]
+    pub const fn row_count(&self) -> usize {
+        self.row_count
+    }
+
+    /// Returns the number of columns.
+    #[must_use]
+    pub fn column_count(&self) -> usize {
+        self.schema.len()
+    }
+
+    /// Returns whether the table has no rows.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.row_count == 0
+    }
+
+    /// Appends one complete row after validating every value.
+    ///
+    /// The operation is atomic with respect to type/null validation: no column
+    /// changes if any supplied value is invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
+    /// [`TableError::NullNotAllowed`] when the row does not match the schema.
+    pub fn push_row<const N: usize>(&mut self, values: [Value; N]) -> Result<usize, TableError> {
+        self.validate_row(&values)?;
+        Ok(self.push_validated_row(values))
+    }
+
+    /// Appends one runtime-width owned row after validating every value.
+    ///
+    /// Use [`Table::push_row`] when the row width is known at the call site.
+    /// This method consumes an existing vector and does not allocate a second
+    /// staging buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
+    /// [`TableError::NullNotAllowed`] when the row does not match the schema.
+    pub fn push_row_vec(&mut self, values: Vec<Value>) -> Result<usize, TableError> {
+        self.validate_row(&values)?;
+        Ok(self.push_validated_row(values))
+    }
+
+    fn validate_row(&self, values: &[Value]) -> Result<(), TableError> {
+        if values.len() != self.column_count() {
+            return Err(TableError::RowWidth {
+                expected: self.column_count(),
+                actual: values.len(),
+            });
+        }
+        for (column, (spec, value)) in self.schema.iter().zip(values.iter()).enumerate() {
+            validate_cell(spec, value, column)?;
+        }
+        Ok(())
+    }
+
+    fn push_validated_row(&mut self, values: impl IntoIterator<Item = Value>) -> usize {
+        let row = self.row_count;
+        for (storage, value) in self.columns.iter_mut().zip(values) {
+            storage.push_validated(value);
+        }
+        self.row_count += 1;
+        debug_assert!(
+            self.columns
+                .iter()
+                .all(|column| column.len() == self.row_count)
+        );
+        row
+    }
+
+    /// Removes and discards the last row, returning whether a row existed.
+    pub fn pop_row(&mut self) -> bool {
+        if self.row_count == 0 {
+            return false;
+        }
+        for column in &mut self.columns {
+            column.pop();
+        }
+        self.row_count -= 1;
+        true
+    }
+
+    /// Reads a cell by row and column position.
+    ///
+    /// # Errors
+    ///
+    /// Returns an out-of-bounds error for an invalid row or column.
+    pub fn cell(&self, row: usize, column: usize) -> Result<ValueRef<'_>, TableError> {
+        self.validate_position(row, column)?;
+        self.columns
+            .get(column)
+            .and_then(|storage| storage.get(row))
+            .ok_or(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            })
+    }
+
+    /// Reads a cell by primary column name or alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::ColumnNotFound`] or an out-of-bounds row error.
+    pub fn cell_named(&self, row: usize, name_or_alias: &str) -> Result<ValueRef<'_>, TableError> {
+        let column = self
+            .schema
+            .column_index(name_or_alias)
+            .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))?;
+        self.cell(row, column)
+    }
+
+    /// Replaces one cell after exact type and nullability validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns a position, type, or nullability error without changing the cell.
+    pub fn set_cell(&mut self, row: usize, column: usize, value: Value) -> Result<(), TableError> {
+        self.validate_position(row, column)?;
+        let spec = self
+            .schema
+            .column(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            })?;
+        validate_cell(spec, &value, column)?;
+        self.columns[column].set_validated(row, value);
+        Ok(())
+    }
+
+    /// Returns a borrowing column view by position.
+    #[must_use]
+    pub fn column(&self, position: usize) -> Option<Column<'_>> {
+        Some(Column {
+            spec: self.schema.column(position)?,
+            storage: self.columns.get(position)?,
+        })
+    }
+
+    /// Returns a borrowing column view by primary name or alias.
+    #[must_use]
+    pub fn column_named(&self, name_or_alias: &str) -> Option<Column<'_>> {
+        self.column(self.schema.column_index(name_or_alias)?)
+    }
+
+    /// Returns one borrowing row view.
+    #[must_use]
+    pub fn row(&self, row: usize) -> Option<Row<'_>> {
+        (row < self.row_count).then_some(Row { table: self, row })
+    }
+
+    /// Iterates over borrowing row views.
+    #[must_use]
+    pub fn rows(&self) -> impl ExactSizeIterator<Item = Row<'_>> + DoubleEndedIterator {
+        (0..self.row_count).map(|row| Row { table: self, row })
+    }
+
+    /// Builds an `ahash` index for one supported column.
+    ///
+    /// # Errors
+    ///
+    /// Returns a column bounds error or [`TableError::UnsupportedIndexType`].
+    pub fn index(&self, column: usize) -> Result<ColumnIndex<'_>, TableError> {
+        ColumnIndex::new(self, column)
+    }
+
+    /// Builds a stable row permutation ordered by one column.
+    ///
+    /// The table is not mutated or copied. Equal keys retain insertion order,
+    /// null placement is independent of direction, and floating-point columns
+    /// use [`f32::total_cmp`] or [`f64::total_cmp`]. The operation takes
+    /// **O(r log r)** time and **O(r)** space for `r` rows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::ColumnOutOfBounds`] for an invalid column.
+    pub fn row_order(
+        &self,
+        column: usize,
+        direction: SortDirection,
+        null_order: NullOrder,
+    ) -> Result<RowOrder<'_>, TableError> {
+        let storage = self
+            .columns
+            .get(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            })?;
+        let mut positions: Vec<_> = (0..self.row_count).collect();
+        positions.sort_by(|left, right| storage.compare_rows(*left, *right, direction, null_order));
+        Ok(RowOrder {
+            table: self,
+            positions,
+        })
+    }
+
+    /// Builds a stable row permutation ordered by a column name or alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::ColumnNotFound`] when the name is unknown.
+    pub fn row_order_named(
+        &self,
+        name_or_alias: &str,
+        direction: SortDirection,
+        null_order: NullOrder,
+    ) -> Result<RowOrder<'_>, TableError> {
+        let column = self
+            .schema
+            .column_index(name_or_alias)
+            .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))?;
+        self.row_order(column, direction, null_order)
+    }
+
+    fn validate_position(&self, row: usize, column: usize) -> Result<(), TableError> {
+        if row >= self.row_count {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            });
+        }
+        if column >= self.column_count() {
+            return Err(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// A stable ordered view of rows in an immutably borrowed table.
+///
+/// The borrow prevents mutation from invalidating positions while the order is
+/// used. Creating the view allocates one `usize` per row; iterating it does not
+/// allocate.
+#[derive(Clone, Debug)]
+pub struct RowOrder<'a> {
+    table: &'a Table,
+    positions: Vec<usize>,
+}
+
+impl<'a> RowOrder<'a> {
+    /// Returns the source table.
+    #[must_use]
+    pub const fn table(&self) -> &'a Table {
+        self.table
+    }
+
+    /// Returns ordered original row positions.
+    #[must_use]
+    pub fn positions(&self) -> &[usize] {
+        &self.positions
+    }
+
+    /// Returns the number of ordered rows.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.positions.len()
+    }
+
+    /// Returns whether the order contains no rows.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.positions.is_empty()
+    }
+
+    /// Iterates over borrowing row views in key order.
+    #[must_use]
+    pub fn rows(&self) -> impl ExactSizeIterator<Item = Row<'a>> + DoubleEndedIterator + '_ {
+        self.positions.iter().copied().map(|row| Row {
+            table: self.table,
+            row,
+        })
+    }
+}
+
+fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), TableError> {
+    let actual = value.data_type();
+    if actual == DataType::Null {
+        if spec.is_nullable() {
+            return Ok(());
+        }
+        return Err(TableError::NullNotAllowed { column });
+    }
+    if actual != spec.data_type() {
+        return Err(TableError::TypeMismatch {
+            column,
+            expected: spec.data_type(),
+            actual,
+        });
+    }
+    Ok(())
+}
+
+/// A borrowing view over one typed column.
+#[derive(Clone, Copy)]
+pub struct Column<'a> {
+    spec: &'a ColumnSpec,
+    storage: &'a ColumnStorage,
+}
+
+impl fmt::Debug for Column<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Column")
+            .field("spec", self.spec)
+            .field("len", &self.len())
+            .finish()
+    }
+}
+
+impl<'a> Column<'a> {
+    /// Returns this column's schema definition.
+    #[must_use]
+    pub const fn spec(self) -> &'a ColumnSpec {
+        self.spec
+    }
+
+    /// Returns the number of cells.
+    #[must_use]
+    pub fn len(self) -> usize {
+        self.storage.len()
+    }
+
+    /// Returns whether the column has no cells.
+    #[must_use]
+    pub fn is_empty(self) -> bool {
+        self.len() == 0
+    }
+
+    /// Reads one cell.
+    #[must_use]
+    pub fn get(self, row: usize) -> Option<ValueRef<'a>> {
+        self.storage.get(row)
+    }
+
+    /// Iterates contiguously over this column.
+    #[must_use]
+    pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
+        (0..self.len()).map(move |row| self.get(row).unwrap_or(ValueRef::Null))
+    }
+}
+
+/// A borrowing view over one table row.
+#[derive(Clone, Copy, Debug)]
+pub struct Row<'a> {
+    table: &'a Table,
+    row: usize,
+}
+
+impl<'a> Row<'a> {
+    /// Returns the row position.
+    #[must_use]
+    pub const fn position(self) -> usize {
+        self.row
+    }
+
+    /// Returns the number of cells.
+    #[must_use]
+    pub fn len(self) -> usize {
+        self.table.column_count()
+    }
+
+    /// Returns whether this row has no cells.
+    #[must_use]
+    pub fn is_empty(self) -> bool {
+        self.len() == 0
+    }
+
+    /// Reads one cell by column position.
+    #[must_use]
+    pub fn get(self, column: usize) -> Option<ValueRef<'a>> {
+        self.table.columns.get(column)?.get(self.row)
+    }
+
+    /// Reads one cell by primary column name or alias.
+    #[must_use]
+    pub fn get_named(self, name_or_alias: &str) -> Option<ValueRef<'a>> {
+        self.get(self.table.schema.column_index(name_or_alias)?)
+    }
+
+    /// Iterates over the row's cells in schema order.
+    #[must_use]
+    pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
+        (0..self.len()).map(move |column| self.get(column).unwrap_or(ValueRef::Null))
+    }
+}
+
+/// A hashable borrowed table-index key.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum IndexKeyRef<'a> {
+    /// A Boolean key.
+    Bool(bool),
+    /// Any signed integer key, widened without loss.
+    Signed(i64),
+    /// Any unsigned integer key, widened without loss.
+    Unsigned(u64),
+    /// A UTF-8 string key.
+    String(&'a str),
+    /// An arbitrary byte sequence key.
+    Bytes(&'a [u8]),
+    /// A UUID key.
+    Uuid(Uuid),
+}
+
+impl<'a> IndexKeyRef<'a> {
+    fn from_value(value: ValueRef<'a>) -> Option<Self> {
+        Some(match value {
+            ValueRef::Null | ValueRef::F32(_) | ValueRef::F64(_) => return None,
+            ValueRef::Bool(value) => Self::Bool(value),
+            ValueRef::I8(value) => Self::Signed(i64::from(value)),
+            ValueRef::I16(value) => Self::Signed(i64::from(value)),
+            ValueRef::I32(value) => Self::Signed(i64::from(value)),
+            ValueRef::I64(value) => Self::Signed(value),
+            ValueRef::U8(value) => Self::Unsigned(u64::from(value)),
+            ValueRef::U16(value) => Self::Unsigned(u64::from(value)),
+            ValueRef::U32(value) => Self::Unsigned(u64::from(value)),
+            ValueRef::U64(value) => Self::Unsigned(value),
+            ValueRef::String(value) => Self::String(value),
+            ValueRef::Bytes(value) => Self::Bytes(value),
+            ValueRef::Uuid(value) => Self::Uuid(value),
+        })
+    }
+}
+
+impl<'a> From<&'a str> for IndexKeyRef<'a> {
+    fn from(value: &'a str) -> Self {
+        Self::String(value)
+    }
+}
+
+impl<'a> From<&'a [u8]> for IndexKeyRef<'a> {
+    fn from(value: &'a [u8]) -> Self {
+        Self::Bytes(value)
+    }
+}
+
+impl From<bool> for IndexKeyRef<'_> {
+    fn from(value: bool) -> Self {
+        Self::Bool(value)
+    }
+}
+
+impl From<Uuid> for IndexKeyRef<'_> {
+    fn from(value: Uuid) -> Self {
+        Self::Uuid(value)
+    }
+}
+
+macro_rules! impl_index_integer {
+    (signed: $($signed:ty),*; unsigned: $($unsigned:ty),*) => {
+        $(
+            impl From<$signed> for IndexKeyRef<'_> {
+                fn from(value: $signed) -> Self {
+                    Self::Signed(i64::from(value))
+                }
+            }
+        )*
+        $(
+            impl From<$unsigned> for IndexKeyRef<'_> {
+                fn from(value: $unsigned) -> Self {
+                    Self::Unsigned(u64::from(value))
+                }
+            }
+        )*
+    };
+}
+
+impl_index_integer!(signed: i8, i16, i32, i64; unsigned: u8, u16, u32, u64);
+
+/// An immutable hash index borrowing keys from one table column.
+///
+/// Null rows are tracked separately. Floating-point columns are rejected
+/// because NaN and signed-zero equality need an explicit application policy.
+#[derive(Clone, Debug)]
+pub struct ColumnIndex<'a> {
+    table: &'a Table,
+    column: usize,
+    by_key: IndexStorage<'a>,
+    null_rows: SmallVec<[usize; 1]>,
+}
+
+#[derive(Clone, Debug)]
+enum IndexStorage<'a> {
+    Bool(AHashMap<bool, SmallVec<[usize; 1]>>),
+    Signed(AHashMap<i64, SmallVec<[usize; 1]>>),
+    Unsigned(AHashMap<u64, SmallVec<[usize; 1]>>),
+    String(AHashMap<&'a str, SmallVec<[usize; 1]>>),
+    Bytes(AHashMap<&'a [u8], SmallVec<[usize; 1]>>),
+    Uuid(AHashMap<Uuid, SmallVec<[usize; 1]>>),
+}
+
+impl<'a> IndexStorage<'a> {
+    fn new(data_type: DataType, capacity: usize) -> Self {
+        match data_type {
+            DataType::Bool => Self::Bool(AHashMap::with_capacity(capacity)),
+            DataType::I8 | DataType::I16 | DataType::I32 | DataType::I64 => {
+                Self::Signed(AHashMap::with_capacity(capacity))
+            }
+            DataType::U8 | DataType::U16 | DataType::U32 | DataType::U64 => {
+                Self::Unsigned(AHashMap::with_capacity(capacity))
+            }
+            DataType::String => Self::String(AHashMap::with_capacity(capacity)),
+            DataType::Bytes => Self::Bytes(AHashMap::with_capacity(capacity)),
+            DataType::Uuid => Self::Uuid(AHashMap::with_capacity(capacity)),
+            DataType::Null | DataType::F32 | DataType::F64 => {
+                unreachable!("unsupported index type was rejected")
+            }
+        }
+    }
+
+    fn insert(&mut self, value: ValueRef<'a>, row: usize) {
+        macro_rules! insert {
+            ($map:expr, $key:expr) => {
+                $map.entry($key).or_default().push(row)
+            };
+        }
+        match (self, IndexKeyRef::from_value(value)) {
+            (Self::Bool(map), Some(IndexKeyRef::Bool(key))) => insert!(map, key),
+            (Self::Signed(map), Some(IndexKeyRef::Signed(key))) => insert!(map, key),
+            (Self::Unsigned(map), Some(IndexKeyRef::Unsigned(key))) => insert!(map, key),
+            (Self::String(map), Some(IndexKeyRef::String(key))) => insert!(map, key),
+            (Self::Bytes(map), Some(IndexKeyRef::Bytes(key))) => insert!(map, key),
+            (Self::Uuid(map), Some(IndexKeyRef::Uuid(key))) => insert!(map, key),
+            _ => unreachable!("value type matches index storage"),
+        }
+    }
+
+    fn rows(&self, key: IndexKeyRef<'_>) -> &[usize] {
+        match (self, key) {
+            (Self::Bool(map), IndexKeyRef::Bool(key)) => map.get(&key),
+            (Self::Signed(map), IndexKeyRef::Signed(key)) => map.get(&key),
+            (Self::Unsigned(map), IndexKeyRef::Unsigned(key)) => map.get(&key),
+            (Self::String(map), IndexKeyRef::String(key)) => map.get(key),
+            (Self::Bytes(map), IndexKeyRef::Bytes(key)) => map.get(key),
+            (Self::Uuid(map), IndexKeyRef::Uuid(key)) => map.get(&key),
+            _ => None,
+        }
+        .map_or(&[], SmallVec::as_slice)
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Self::Bool(map) => map.len(),
+            Self::Signed(map) => map.len(),
+            Self::Unsigned(map) => map.len(),
+            Self::String(map) => map.len(),
+            Self::Bytes(map) => map.len(),
+            Self::Uuid(map) => map.len(),
+        }
+    }
+}
+
+impl<'a> ColumnIndex<'a> {
+    fn new(table: &'a Table, column: usize) -> Result<Self, TableError> {
+        let spec = table
+            .schema
+            .column(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count: table.column_count(),
+            })?;
+        if matches!(
+            spec.data_type(),
+            DataType::Null | DataType::F32 | DataType::F64
+        ) {
+            return Err(TableError::UnsupportedIndexType(spec.data_type()));
+        }
+        let mut by_key = IndexStorage::new(spec.data_type(), table.row_count());
+        let mut null_rows = SmallVec::new();
+        for row in 0..table.row_count() {
+            let value = table.columns[column]
+                .get(row)
+                .expect("column lengths match row count");
+            if value == ValueRef::Null {
+                null_rows.push(row);
+            } else {
+                by_key.insert(value, row);
+            }
+        }
+        Ok(Self {
+            table,
+            column,
+            by_key,
+            null_rows,
+        })
+    }
+
+    /// Returns the indexed column position.
+    #[must_use]
+    pub const fn column(&self) -> usize {
+        self.column
+    }
+
+    /// Returns the source table.
+    #[must_use]
+    pub const fn table(&self) -> &'a Table {
+        self.table
+    }
+
+    /// Returns all rows exactly matching `key` in insertion order.
+    #[must_use]
+    pub fn rows(&self, key: IndexKeyRef<'_>) -> &[usize] {
+        self.by_key.rows(key)
+    }
+
+    /// Returns all rows whose indexed cell is null.
+    #[must_use]
+    pub fn null_rows(&self) -> &[usize] {
+        &self.null_rows
+    }
+
+    /// Returns the number of distinct non-null keys.
+    #[must_use]
+    pub fn distinct_key_count(&self) -> usize {
+        self.by_key.len()
+    }
+}
