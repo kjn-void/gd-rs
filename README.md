@@ -28,22 +28,34 @@ The implemented core currently provides:
 - GoogleTest/Google Benchmark characterization in the sibling C++ tree;
 - Rust integration/property tests and Criterion benchmarks.
 
-Project documentation:
+## Documentation
 
-- [Rust API guides](docs/api/index.md)
+### API guide
+
+- [Rust API guide index](docs/api/index.md) — Rust-oriented documentation translated
+  from the original C++ API where applicable
+
+### Core design and usage
+
 - [Architecture](docs/high-level/architecture.md)
 - [C++ and Rust usage examples](docs/high-level/examples.md)
 - [Values](docs/high-level/value.md)
 - [Arguments](docs/high-level/arguments.md)
 - [Tables](docs/high-level/table.md)
+
+### Supporting facilities
+
 - [Binary data](docs/high-level/binary.md)
 - [Text boundaries](docs/high-level/text.md)
 - [Expressions and scripts](docs/high-level/expression.md)
 - [Interchange formats](docs/high-level/format.md)
 - [SQLite adapter](docs/high-level/sqlite.md)
 - [Benchmark methodology and results](docs/high-level/performance.md)
+
+### Porting record
+
 - [Porting plan](docs/port/porting-plan.md)
-- [Port compatibility](docs/port/compatibility.md)
+- [Compatibility decisions](docs/port/compatibility.md)
 - [Architecture postmortem](docs/port/postmortem.md)
 - [C++ issues and audit](docs/port/cpp-gd-issues.md)
 - [Source size and complexity](docs/port/source-stats.md)
