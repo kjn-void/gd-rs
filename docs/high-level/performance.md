@@ -2,7 +2,8 @@
 
 The C++ baseline uses Google Benchmark from the pinned CMake release preset. Rust uses
 Criterion with the release profile. Results below were produced on the same Apple
-Silicon host on 2026-07-13. They are snapshots, not cross-machine thresholds.
+Silicon host on 2026-07-13; the open-schema measurements were added on 2026-07-14.
+They are snapshots, not cross-machine thresholds.
 
 Commands:
 
@@ -24,8 +25,8 @@ Every `Rust/C++` column is a speed factor calculated as **C++ elapsed time divid
 Rust elapsed time**. Therefore **×1.20 means Rust is 1.20 times faster**, ×1.00 is a
 tie, and ×0.80 means Rust is 0.80 times as fast as C++.
 
-Rust timings below use Criterion's reported point estimate from the final uninterrupted
-run. The C++ timings are unchanged because this pass modified only the Rust crate.
+Rust timings use Criterion's reported point estimates. C++ timings use Google
+Benchmark's CPU estimate; each matched pair was run sequentially to avoid contention.
 
 ## Dynamic values
 
@@ -88,6 +89,56 @@ For a 100,000-row `i64` scan:
 
 The typed Rust column scan does less decoding and has contiguous values. Allocation
 counts and retained bytes are still required before drawing a memory conclusion.
+
+### Open schemas
+
+The small fixture reserves 10,000 rows with one fixed `u64` column and stores two
+short extra strings per row. “Late” adds each field through the ordinary named setter;
+“atomic” supplies both extras to `push_row_with_extras`. Lookup reads both extras by
+name on every row.
+
+| Workload, 10,000 rows | C++ | Rust | Rust/C++ |
+|---|---:|---:|---:|
+| construct, late named fields | 641 µs | 579 µs | ×1.11 |
+| construct, atomic Rust insertion | no exact API | 466 µs | n/a |
+| look up both fields | 203 µs | 181 µs | ×1.12 |
+
+The Rust sidecar keeps up to four fields in a compact linear representation, with the
+first two entries inline. It promotes to an `AHashMap` on the fifth unique name. The
+promotion threshold was selected from a container crossover measurement: at four
+entries linear lookup measured about 11.5 ns versus 6.0 ns for hashing, while compact
+construction was still substantially cheaper. The two-field fast path therefore does
+not allocate a hash table.
+
+The wide fixture stresses the promoted representation with **1,000 rows × 1,000
+extra `u64` fields**, or one million extras. Both implementations reserve all rows and
+prepare the 1,000 field names before timing.
+
+| Wide open-schema workload | C++ | Rust | Rust/C++ |
+|---|---:|---:|---:|
+| build through replacement-capable named setters | 1.150 s | 32.57 ms | ×35.31 |
+| Rust atomic validated build | no exact API | 19.58 ms | n/a |
+| C++ append-only build / Rust atomic build | 8.76 ms | 19.58 ms | ×0.45 |
+| look up all one million fields by name | 1.148 s | 21.09 ms | ×54.43 |
+
+The replacement-capable C++ setter searches the row's packed argument buffer before
+every insertion, making this construction shape quadratic in fields per row. Its
+named lookup is also linear: a separate position probe measured approximately 16 ns
+for the first field, 1.17 µs for the middle field, and 2.32 µs for the last. Rust
+lookups remained approximately 19 ns at every position after promotion.
+
+`cell_add_argument` explains the fast C++ append-only result: it assumes the name is
+new, skips replacement lookup, permits duplicates, and appends directly to the packed
+buffer. Rust's atomic API still rejects fixed-schema conflicts and gives repeated
+extra names last-value-wins semantics, so that row is useful as an upper-bound
+comparison rather than an equivalent contract.
+
+Peak process RSS while constructing one wide table was approximately 33.3 MiB for C++
+and 111.6 MiB for Rust. This is a process-level peak rather than retained-allocation
+accounting, but it exposes the expected trade-off: the C++ packed buffer is much more
+compact, while Rust spends hash-table capacity to make large-row lookup and replacement
+expected constant time. A thousand row-local extras should still be treated as an
+exceptional shape; fields that are common across rows belong in typed schema columns.
 
 ### Row ordering
 

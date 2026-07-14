@@ -105,8 +105,9 @@ optional sidecar running parallel to the row axis:
 - `Table` keeps one `Option<Box<RowExtras>>` slot per row, initially `None`;
 - allocating the `RowExtras` object is deferred until that row receives its first
   extra field;
-- `RowExtras` uses `SmallVec<[(CompactString, Value); 2]>`, keeping the common first
-  two entries inline in the row object without allocating a hash table;
+- `RowExtras` starts with `SmallVec<[(CompactString, Value); 2]>`, keeping the common
+  first two entries inline in the row object; it promotes to an `AHashMap` on the fifth
+  unique field so larger sidecars retain expected constant-time lookup and insertion;
 - fixed names and aliases are resolved before extras and cannot be shadowed;
 - `set_named` mutates either a validated fixed cell or a row-local extra, while
   `push_row_with_extras` validates the complete fixed row and all extra names before

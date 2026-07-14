@@ -323,6 +323,31 @@ fn custom_row_field_workloads_use_open_schemas() {
 }
 
 #[test]
+fn open_schema_promotes_many_fields_without_changing_lookup_or_update() {
+    let schema = Schema::new([ColumnSpec::new("id", DataType::U64)])
+        .unwrap()
+        .with_unknown_fields(UnknownFields::Store);
+    let mut table = Table::new(schema);
+    let row = table.push_row([Value::U64(1)]).unwrap();
+
+    for field in 0..100_u64 {
+        table
+            .set_named(row, &format!("field_{field:03}"), field)
+            .unwrap();
+    }
+    for field in 0..100_u64 {
+        assert_eq!(
+            table.cell_named(row, &format!("field_{field:03}")),
+            Ok(ValueRef::U64(field))
+        );
+    }
+
+    table.set_named(row, "field_050", 500_u64).unwrap();
+    assert_eq!(table.cell_named(row, "field_050"), Ok(ValueRef::U64(500)));
+    assert_eq!(table.cell_named(row, "id"), Ok(ValueRef::U64(1)));
+}
+
+#[test]
 fn column_index_preserves_duplicate_and_null_rows() {
     let mut table = Table::new(people_schema());
     for (id, name, score) in [

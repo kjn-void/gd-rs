@@ -52,8 +52,10 @@ flowchart LR
     Sidecar --> Slot1["row 1<br/>Some / Box pointer"]
     Sidecar --> Slot2["row 2<br/>Some / Box pointer"]
 
-    Slot1 --> Heap1["heap: RowExtras<br/>SmallVec inline capacity 2<br/>(category, String: binary)<br/>(region, String: north)"]
-    Slot2 --> Heap2["heap: RowExtras<br/>SmallVec inline capacity 2<br/>(category, U64: 7)"]
+    Slot1 --> Heap1["heap: RowExtras::Inline<br/>SmallVec inline capacity 2<br/>(category, String: binary)<br/>(region, String: north)"]
+    Slot2 --> Heap2["heap: RowExtras::Inline<br/>SmallVec inline capacity 2<br/>(category, U64: 7)"]
+
+    Heap1 -. "fifth unique field" .-> Hashed["RowExtras::Hashed<br/>AHashMap&lt;CompactString, Value&gt;"]
 ```
 
 The diagram also shows that the same extra name can have a different `Value` type in
@@ -61,8 +63,10 @@ another row. It has no shared column storage or schema-level type contract.
 
 Extras are stored lazily. Every row has one nullable pointer slot, rows without extras
 allocate nothing, and the first two extras remain inline in the allocated row object.
-They are deliberately excluded from column scans, indexes, ordering, and fixed-schema
-formatting because they do not form homogeneous columns.
+Rows stay in the compact representation through four fields, then promote to an
+`AHashMap` on the fifth unique name. They are deliberately excluded from column scans,
+indexes, ordering, and fixed-schema formatting because they do not form homogeneous
+columns.
 
 ## Null storage
 
@@ -103,9 +107,9 @@ comparisons and may move complete rows after comparisons.
 |---|---:|---:|
 | positional cell read/write | O(1) | none |
 | schema name/alias lookup | O(name length) | none per lookup |
-| unknown row-field lookup | O(name length + extras in row) | none per lookup |
+| unknown row-field lookup | O(name length + extras) through four fields; expected O(name length) after promotion | none per lookup |
 | append complete row | O(columns) | payload ownership only |
-| append row with extras | O(columns + extras) | owned extra names and values |
+| append row with extras | expected O(columns + extras) | owned extra names and values |
 | pop last row | O(columns) | none |
 | column scan | O(rows) | none |
 | build column index | O(rows) | O(rows) |

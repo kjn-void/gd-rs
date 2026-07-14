@@ -229,32 +229,69 @@ pub enum TableError {
     UnsupportedIndexType(DataType),
 }
 
-#[derive(Clone, Debug, Default)]
-struct RowExtras {
-    entries: SmallVec<[(CompactString, Value); 2]>,
+const ROW_EXTRAS_HASH_THRESHOLD: usize = 4;
+
+#[derive(Clone, Debug)]
+enum RowExtras {
+    Inline(SmallVec<[(CompactString, Value); 2]>),
+    Hashed(AHashMap<CompactString, Value>),
+}
+
+impl Default for RowExtras {
+    fn default() -> Self {
+        Self::Inline(SmallVec::new())
+    }
 }
 
 impl RowExtras {
+    fn with_capacity(capacity: usize) -> Self {
+        if capacity > ROW_EXTRAS_HASH_THRESHOLD {
+            Self::Hashed(AHashMap::with_capacity(capacity))
+        } else {
+            Self::Inline(SmallVec::with_capacity(capacity))
+        }
+    }
+
     fn get(&self, name: &str) -> Option<&Value> {
-        self.entries
-            .iter()
-            .find_map(|(entry_name, value)| (entry_name == name).then_some(value))
+        match self {
+            Self::Inline(entries) => entries
+                .iter()
+                .find_map(|(entry_name, value)| (entry_name == name).then_some(value)),
+            Self::Hashed(entries) => entries.get(name),
+        }
     }
 
     fn set(&mut self, name: CompactString, value: Value) {
-        if let Some((_, current)) = self
-            .entries
-            .iter_mut()
-            .find(|(entry_name, _)| entry_name.as_str() == name.as_str())
-        {
-            *current = value;
-        } else {
-            self.entries.push((name, value));
+        match self {
+            Self::Inline(entries) => {
+                if let Some((_, current)) = entries
+                    .iter_mut()
+                    .find(|(entry_name, _)| entry_name.as_str() == name.as_str())
+                {
+                    *current = value;
+                    return;
+                }
+                if entries.len() < ROW_EXTRAS_HASH_THRESHOLD {
+                    entries.push((name, value));
+                    return;
+                }
+
+                let mut hashed = AHashMap::with_capacity(entries.len() + 1);
+                hashed.extend(entries.drain(..));
+                hashed.insert(name, value);
+                *self = Self::Hashed(hashed);
+            }
+            Self::Hashed(entries) => {
+                entries.insert(name, value);
+            }
         }
     }
 
     fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        match self {
+            Self::Inline(entries) => entries.is_empty(),
+            Self::Hashed(entries) => entries.is_empty(),
+        }
     }
 }
 
@@ -663,7 +700,8 @@ impl Table {
         K: Into<CompactString>,
         V: Into<Value>,
     {
-        let mut collected = RowExtras::default();
+        let extras = extras.into_iter();
+        let mut collected = RowExtras::with_capacity(extras.size_hint().0);
         for (name, value) in extras {
             let name = name.into();
             if self.schema.column_index(&name).is_some() {
