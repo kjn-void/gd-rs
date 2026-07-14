@@ -34,7 +34,7 @@ pub use sqlite::{
 };
 pub use table::{
     Column, ColumnIndex, ColumnSpec, IndexKeyRef, NullOrder, Row, RowOrder, Schema, SortDirection,
-    Table, TableError,
+    Table, TableError, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

@@ -1,8 +1,8 @@
 //! Integration and property tests for schemas, typed columns, and column indexes.
 
 use gd::{
-    ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema, SortDirection, Table, TableError, Value,
-    ValueRef,
+    ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema, SortDirection, Table, TableError,
+    UnknownFields, Value, ValueRef,
 };
 use proptest::prelude::*;
 
@@ -73,6 +73,253 @@ fn rejects_duplicate_names_and_aliases() {
     ])
     .unwrap_err();
     assert_eq!(error, TableError::DuplicateColumnName("key".into()));
+}
+
+#[test]
+fn unknown_row_fields_are_an_explicit_schema_policy() {
+    let strict_schema = Schema::new([
+        ColumnSpec::new("path", DataType::String),
+        ColumnSpec::new("name", DataType::String),
+        ColumnSpec::new("size", DataType::U64),
+    ])
+    .unwrap();
+    let mut strict = Table::new(strict_schema.clone());
+    let strict_row = strict
+        .push_row([
+            Value::from("C:\\test\\file.txt"),
+            Value::from("file.txt"),
+            Value::U64(12_345),
+        ])
+        .unwrap();
+    assert_eq!(
+        strict.set_named(strict_row, "path2", "C:\\test\\file2.txt"),
+        Err(TableError::ColumnNotFound("path2".into()))
+    );
+
+    let open_schema = strict_schema.with_unknown_fields(UnknownFields::Store);
+    assert_eq!(open_schema.unknown_fields(), UnknownFields::Store);
+    let mut table = Table::new(open_schema);
+    let row = table
+        .push_row([
+            Value::from("C:\\test\\file.txt"),
+            Value::from("file.txt"),
+            Value::U64(12_345),
+        ])
+        .unwrap();
+    table
+        .set_named(row, "path2", "C:\\test\\file2.txt")
+        .unwrap();
+
+    assert_eq!(
+        table.cell_named(row, "path"),
+        Ok(ValueRef::String("C:\\test\\file.txt"))
+    );
+    assert_eq!(
+        table.cell_named(row, "path2"),
+        Ok(ValueRef::String("C:\\test\\file2.txt"))
+    );
+    table
+        .set_named(row, "path2", "C:\\test\\updated.txt")
+        .unwrap();
+    assert_eq!(
+        table.row(row).unwrap().get_named("path2"),
+        Some(ValueRef::String("C:\\test\\updated.txt"))
+    );
+    table.set_named(row, "size", 54_u64).unwrap();
+    assert_eq!(table.cell_named(row, "size"), Ok(ValueRef::U64(54)));
+    assert_eq!(
+        table.set_named(row, "size", 54_i64),
+        Err(TableError::TypeMismatch {
+            column: 2,
+            expected: DataType::U64,
+            actual: DataType::I64,
+        })
+    );
+    assert_eq!(
+        table.push_row_with_extras(
+            [
+                Value::from("C:\\test\\other.txt"),
+                Value::from("other.txt"),
+                Value::U64(10),
+            ],
+            [("path", "not-an-extra")],
+        ),
+        Err(TableError::ExtraFieldConflictsWithColumn("path".into()))
+    );
+    assert_eq!(table.row_count(), 1);
+    assert!(table.pop_row());
+    assert!(table.is_empty());
+}
+
+fn custom_file_field_workload_uses_open_schema() {
+    let schema = Schema::new([
+        ColumnSpec::new("path", DataType::String),
+        ColumnSpec::new("name", DataType::String),
+        ColumnSpec::new("size", DataType::U64),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let mut files = Table::new(schema);
+
+    for row_index in 0..100_usize {
+        files
+            .push_row_with_extras(
+                [
+                    Value::from("C:\\data\\files\\entry.bin"),
+                    Value::from("entry.bin"),
+                    Value::U64(1_000 + row_index as u64),
+                ],
+                [
+                    (
+                        "custom_file_category",
+                        Value::from(if row_index % 2 == 0 { "binary" } else { "text" }),
+                    ),
+                    (
+                        "custom_file_region",
+                        Value::from(if row_index % 3 == 0 { "north" } else { "south" }),
+                    ),
+                ],
+            )
+            .unwrap();
+    }
+
+    for row_index in 0..100_usize {
+        assert_eq!(
+            files.cell_named(row_index, "custom_file_category"),
+            Ok(ValueRef::String(if row_index % 2 == 0 {
+                "binary"
+            } else {
+                "text"
+            }))
+        );
+        assert_eq!(
+            files.cell_named(row_index, "custom_file_region"),
+            Ok(ValueRef::String(if row_index % 3 == 0 {
+                "north"
+            } else {
+                "south"
+            }))
+        );
+    }
+}
+
+fn custom_user_field_workload_uses_open_schema() {
+    let schema = Schema::new([
+        ColumnSpec::new("user_id", DataType::U64),
+        ColumnSpec::new("username", DataType::String),
+        ColumnSpec::new("email", DataType::String),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let mut users = Table::new(schema);
+
+    for row_index in 0..100_usize {
+        users
+            .push_row_with_extras(
+                [
+                    Value::U64(10_000 + row_index as u64),
+                    Value::from("demo-user"),
+                    Value::from("demo@example.com"),
+                ],
+                [
+                    (
+                        "custom_user_tier",
+                        Value::from(if row_index % 4 == 0 {
+                            "gold"
+                        } else {
+                            "standard"
+                        }),
+                    ),
+                    (
+                        "custom_user_channel",
+                        Value::from(if row_index % 5 == 0 {
+                            "partner"
+                        } else {
+                            "direct"
+                        }),
+                    ),
+                ],
+            )
+            .unwrap();
+    }
+
+    for row_index in 0..100_usize {
+        assert_eq!(
+            users.cell_named(row_index, "custom_user_tier"),
+            Ok(ValueRef::String(if row_index % 4 == 0 {
+                "gold"
+            } else {
+                "standard"
+            }))
+        );
+        assert_eq!(
+            users.cell_named(row_index, "custom_user_channel"),
+            Ok(ValueRef::String(if row_index % 5 == 0 {
+                "partner"
+            } else {
+                "direct"
+            }))
+        );
+    }
+}
+
+fn custom_metric_field_workload_uses_open_schema() {
+    let schema = Schema::new([
+        ColumnSpec::new("service", DataType::String),
+        ColumnSpec::new("epoch", DataType::U64),
+        ColumnSpec::new("requests", DataType::U64),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let mut metrics = Table::new(schema);
+
+    for row_index in 0..100_usize {
+        metrics
+            .push_row_with_extras(
+                [
+                    Value::from("api-service"),
+                    Value::U64(1_700_000_000 + row_index as u64),
+                    Value::U64(500 + row_index as u64),
+                ],
+                [
+                    (
+                        "custom_metric_bucket",
+                        Value::from(if row_index % 10 < 5 { "low" } else { "high" }),
+                    ),
+                    (
+                        "custom_metric_window",
+                        Value::from(if row_index % 2 == 0 { "day" } else { "night" }),
+                    ),
+                ],
+            )
+            .unwrap();
+    }
+
+    for row_index in 0..100_usize {
+        assert_eq!(
+            metrics.cell_named(row_index, "custom_metric_bucket"),
+            Ok(ValueRef::String(if row_index % 10 < 5 {
+                "low"
+            } else {
+                "high"
+            }))
+        );
+        assert_eq!(
+            metrics.cell_named(row_index, "custom_metric_window"),
+            Ok(ValueRef::String(if row_index % 2 == 0 {
+                "day"
+            } else {
+                "night"
+            }))
+        );
+    }
+}
+
+#[test]
+fn custom_row_field_workloads_use_open_schemas() {
+    custom_file_field_workload_uses_open_schema();
+    custom_user_field_workload_uses_open_schema();
+    custom_metric_field_workload_uses_open_schema();
 }
 
 #[test]

@@ -9,6 +9,7 @@ flowchart TD
     Table --> C0["Vec&lt;Option&lt;T0&gt;&gt;"]
     Table --> C1["Vec&lt;Option&lt;T1&gt;&gt;"]
     Table --> CN["Vec&lt;Option&lt;Tn&gt;&gt;"]
+    Table --> Extras["optional Box&lt;RowExtras&gt; per row"]
     Table -->|"immutable borrow"| Index["ColumnIndex\ntyped AHashMap&lt;key, rows&gt;"]
     Table -->|"immutable borrow"| Order["RowOrder\nstable Vec&lt;row position&gt;"]
 ```
@@ -28,6 +29,40 @@ Both validate the entire row before changing any column.
 
 Nullable columns accept `Value::Null`; non-nullable columns reject it. Unlike C++
 `row_add()`, an omitted value never becomes a non-null cell with uninitialized bytes.
+
+## Open schemas
+
+`UnknownFields::Reject` is the default. Applying
+`with_unknown_fields(UnknownFields::Store)` keeps the fixed schema immutable but lets
+individual rows own additional named `Value`s. `push_row_with_extras` declares fixed
+and dynamic values atomically, while `set_named` updates either storage class through
+one name-based API. Fixed names and aliases always take precedence.
+
+The sidecar is a vector parallel to the fixed columns. Each element is either a null
+pointer or points to one row's extras object:
+
+```mermaid
+flowchart LR
+    Table["Table"] --> Fixed["fixed columns<br/>Vec&lt;ColumnStorage&gt;"]
+    Fixed --> Path["path: Vec&lt;Option&lt;String&gt;&gt;<br/>row 0 / row 1 / row 2"]
+    Fixed --> Size["size: Vec&lt;Option&lt;u64&gt;&gt;<br/>row 0 / row 1 / row 2"]
+
+    Table --> Sidecar["extras: Vec&lt;Option&lt;Box&lt;RowExtras&gt;&gt;&gt;"]
+    Sidecar --> Slot0["row 0<br/>None / null pointer"]
+    Sidecar --> Slot1["row 1<br/>Some / Box pointer"]
+    Sidecar --> Slot2["row 2<br/>Some / Box pointer"]
+
+    Slot1 --> Heap1["heap: RowExtras<br/>SmallVec inline capacity 2<br/>(category, String: binary)<br/>(region, String: north)"]
+    Slot2 --> Heap2["heap: RowExtras<br/>SmallVec inline capacity 2<br/>(category, U64: 7)"]
+```
+
+The diagram also shows that the same extra name can have a different `Value` type in
+another row. It has no shared column storage or schema-level type contract.
+
+Extras are stored lazily. Every row has one nullable pointer slot, rows without extras
+allocate nothing, and the first two extras remain inline in the allocated row object.
+They are deliberately excluded from column scans, indexes, ordering, and fixed-schema
+formatting because they do not form homogeneous columns.
 
 ## Null storage
 
@@ -68,7 +103,9 @@ comparisons and may move complete rows after comparisons.
 |---|---:|---:|
 | positional cell read/write | O(1) | none |
 | schema name/alias lookup | O(name length) | none per lookup |
+| unknown row-field lookup | O(name length + extras in row) | none per lookup |
 | append complete row | O(columns) | payload ownership only |
+| append row with extras | O(columns + extras) | owned extra names and values |
 | pop last row | O(columns) | none |
 | column scan | O(rows) | none |
 | build column index | O(rows) | O(rows) |

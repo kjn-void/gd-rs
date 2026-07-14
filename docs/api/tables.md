@@ -5,8 +5,9 @@ argument sidecars. `gd-rs` consolidates the fixed-schema behavior into one `Tabl
 
 - an immutable `Schema` describes names, aliases, types, and nullability;
 - each column stores its primitive type directly in a contiguous vector;
+- an opt-in schema policy stores unknown names as lazy row-local extras;
 - `Row` and `Column` are borrowing views;
-- all row mutations validate the complete schema contract.
+- all fixed-row mutations validate the complete schema contract.
 
 There is no distinction between a temporary DTO table and a long-lived member table.
 Choose ownership and placement through ordinary Rust structs and function signatures.
@@ -143,24 +144,45 @@ tables with `Arc<Table>` only when an application needs shared ownership.
 
 ## Dynamic per-row fields
 
-The C++ per-row-arguments table has no direct counterpart. `Table` deliberately keeps
-one validated schema for every row. Depending on the domain, represent optional data
-with nullable columns or keep a sidecar collection keyed by row identity:
+Schemas reject unknown names by default. A schema can explicitly allow row-local
+dynamic values without making its fixed typed columns mutable:
 
 ```rust
-use std::collections::HashMap;
+use gd::{ColumnSpec, DataType, Schema, Table, TableError, UnknownFields, Value, ValueRef};
 
-use gd::Arguments;
+fn files() -> Result<Table, TableError> {
+    let schema = Schema::new([
+        ColumnSpec::new("path", DataType::String),
+        ColumnSpec::new("size", DataType::U64),
+    ])?
+    .with_unknown_fields(UnknownFields::Store);
+    let mut table = Table::new(schema);
 
-let mut extra_by_id: HashMap<u64, Arguments> = HashMap::new();
-let mut extra = Arguments::new();
-extra.push_named("owner", "Ada");
-extra_by_id.insert(42, extra);
+    let row = table.push_row_with_extras(
+        [Value::from(r"C:\data\entry.bin"), Value::U64(1_000)],
+        [
+            ("category", Value::from("binary")),
+            ("region", Value::from("north")),
+        ],
+    )?;
+    assert_eq!(table.cell_named(row, "category")?, ValueRef::String("binary"));
+
+    table.set_named(row, "category", "archive")?;
+    assert_eq!(table.cell_named(row, "category")?, ValueRef::String("archive"));
+    Ok(table)
+}
 ```
 
-Prefer a stable domain key over a row position if rows may be rebuilt or reordered.
-For genuinely heterogeneous JSON-style objects, a table may not be the right live
-container.
+Known names still use typed column storage and exact type/null validation. Unknown
+names use a lazy per-row extras object. A row without extras allocates no extras
+object; the first two values use inline storage. `cell_named` and `Row::get_named`
+search fixed names first and then the row extras.
+
+Extras are row metadata rather than logical columns. They are therefore absent from
+`column_named`, table indexes, row ordering, fixed-schema row iteration, JSON, and CSV.
+Promote a repeatedly scanned or serialized field to a real nullable column. Use an
+external collection keyed by stable domain identity when the metadata should not be
+owned by the table at all.
 
 ## Related operations
 

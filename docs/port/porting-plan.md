@@ -93,6 +93,40 @@ C++ characterization and Rust tests must cover:
 - a non-null-terminated `std::string_view` ending at its declared length, with the
   C++ regression exercised under AddressSanitizer.
 
+## Table and open-row sidecar plan
+
+Keep the table's declared schema immutable and its regular cells in homogeneous,
+typed column vectors. Do not reproduce the packed C++ per-row argument buffer or
+turn every cell into a dynamic `Value`. Instead, model unknown named fields as an
+optional sidecar running parallel to the row axis:
+
+- `UnknownFields::Reject` remains the default schema policy;
+- `UnknownFields::Store` opts a schema into row-local unknown fields;
+- `Table` keeps one `Option<Box<RowExtras>>` slot per row, initially `None`;
+- allocating the `RowExtras` object is deferred until that row receives its first
+  extra field;
+- `RowExtras` uses `SmallVec<[(CompactString, Value); 2]>`, keeping the common first
+  two entries inline in the row object without allocating a hash table;
+- fixed names and aliases are resolved before extras and cannot be shadowed;
+- `set_named` mutates either a validated fixed cell or a row-local extra, while
+  `push_row_with_extras` validates the complete fixed row and all extra names before
+  committing either storage class;
+- append, pop, clone, and row bounds must preserve the one-sidecar-slot-per-row
+  invariant.
+
+An extra field is deliberately not a logical column: the same name may be absent or
+hold different `Value` types in different rows. Extras therefore do not participate
+in column scans, indexes, row ordering, fixed-schema iteration, JSON, or CSV. A field
+that requires homogeneous typing, scanning, sorting, indexing, or serialization must
+be promoted to a real nullable schema column. This keeps the normal columnar path
+predictable while safely covering the useful behavior of the C++ argument-backed
+table.
+
+Regression coverage must include strict-schema rejection, late insertion with
+`set_named`, atomic insertion with `push_row_with_extras`, replacement, fixed-column
+type checking, declared-name conflicts, row removal, and the matched files, users,
+and metrics custom-field workloads from the C++ characterization test.
+
 ## Target architecture
 
 ```mermaid

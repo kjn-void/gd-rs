@@ -362,6 +362,80 @@ fn rust_people_table() -> Result<Table, TableError> {
 Primary names and aliases must be unique. `push_row([Value; N])` consumes a fixed-size
 array without a staging allocation; `push_row_vec` accepts runtime-width input.
 
+### Open rows and custom fields
+
+The C++ argument-backed table redirects an unknown cell name into row-local argument
+storage. The named-row vector is explicit here because the bare nested initializer is
+ambiguous with positional `row_set` overloads under Clang.
+
+```cpp
+using NamedValue = std::pair<std::string_view, gd::variant_view>;
+
+gd::table::arguments::table files(gd::table::tag_full_meta{});
+files.column_prepare();
+files.column_add("rstring", 0, "path");
+files.column_add("rstring", 0, "name");
+files.column_add("uint64", 0, "size");
+files.prepare();
+
+for(unsigned row_index = 0; row_index < 4; ++row_index)
+{
+   const auto row = files.row_add_one();
+   files.row_set(row,
+                 std::vector<NamedValue>{
+                    {"path", gd::variant_view("C:\\data\\files\\entry.bin")},
+                    {"name", gd::variant_view("entry.bin")},
+                    {"size", gd::variant_view(std::uint64_t{1000} + row_index)}},
+                 gd::table::tag_convert{});
+   files.cell_set(row, "custom_file_category",
+                  gd::variant_view(row_index % 2 == 0 ? "binary" : "text"));
+}
+
+assert(files.cell_get_variant_view(0, "custom_file_category").as_string_view()
+       == "binary");
+```
+
+Rust keeps the fixed schema columnar and makes the same fallback an explicit schema
+policy. Fixed and extra values can be appended atomically:
+
+```rust
+use gd::{
+    ColumnSpec, DataType, Schema, Table, TableError, UnknownFields, Value, ValueRef,
+};
+
+fn rust_files_table() -> Result<Table, TableError> {
+    let schema = Schema::new([
+        ColumnSpec::new("path", DataType::String),
+        ColumnSpec::new("name", DataType::String),
+        ColumnSpec::new("size", DataType::U64),
+    ])?
+    .with_unknown_fields(UnknownFields::Store);
+    let mut files = Table::new(schema);
+
+    for row_index in 0..4_u64 {
+        let category = if row_index % 2 == 0 { "binary" } else { "text" };
+        files.push_row_with_extras(
+            [
+                Value::from(r"C:\data\files\entry.bin"),
+                Value::from("entry.bin"),
+                Value::U64(1_000 + row_index),
+            ],
+            [("custom_file_category", Value::from(category))],
+        )?;
+    }
+
+    assert_eq!(
+        files.cell_named(0, "custom_file_category")?,
+        ValueRef::String("binary"),
+    );
+    Ok(files)
+}
+```
+
+In both APIs the custom name is row metadata, not a column available for column scans
+or indexes. The Rust storage owns ordinary `Value`s and avoids the packed C++ sidecar
+copy path that the sanitizer characterization currently reports as unsafe.
+
 ### Nulls and invalid rows
 
 The C++ null-enabled table requires callers to set every omitted cell deliberately.

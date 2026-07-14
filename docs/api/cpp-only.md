@@ -24,8 +24,8 @@ Several apparent omissions are instead folded into a smaller Rust API:
   and `DataType` in [Values](values.md).
 - Owned, borrowed, and shared argument forms map to `Arguments`, borrowing accessors,
   and ordinary `Arc<Arguments>` in [Arguments](arguments.md).
-- Member tables and DTO tables map to the same typed `Table`; nullable columns or an
-  application sidecar replace per-row dynamic arguments. See [Tables](tables.md).
+- Member tables and DTO tables map to the same typed `Table`; `UnknownFields::Store`
+  opts a schema into safe row-local dynamic values. See [Tables](tables.md).
 - C++ table indexes map to an equality `ColumnIndex` and stable `RowOrder`, described
   in [Indexes and row ordering](indexes.md).
 - The custom expression compiler maps to bounded Rhai programs in

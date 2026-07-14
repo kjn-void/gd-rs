@@ -19,6 +19,16 @@ pub struct ColumnSpec {
     nullable: bool,
 }
 
+/// Policy for names that are not declared as schema columns or aliases.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum UnknownFields {
+    /// Reject unknown names. This is the default for a strict schema.
+    #[default]
+    Reject,
+    /// Store unknown names as owned, row-local dynamic values.
+    Store,
+}
+
 impl ColumnSpec {
     /// Creates a non-nullable column, except that a `Null` column is always nullable.
     pub fn new(name: impl Into<CompactString>, data_type: DataType) -> Self {
@@ -71,11 +81,13 @@ impl ColumnSpec {
     }
 }
 
-/// An immutable table schema with O(1)-expected name and alias lookup.
+/// An immutable table schema with O(1)-expected name/alias lookup and an
+/// explicit policy for row-local unknown fields.
 #[derive(Clone, Debug)]
 pub struct Schema {
     columns: Vec<ColumnSpec>,
     by_name: AHashMap<CompactString, usize>,
+    unknown_fields: UnknownFields,
 }
 
 impl Schema {
@@ -94,7 +106,24 @@ impl Schema {
                 insert_schema_name(&mut by_name, alias, position)?;
             }
         }
-        Ok(Self { columns, by_name })
+        Ok(Self {
+            columns,
+            by_name,
+            unknown_fields: UnknownFields::Reject,
+        })
+    }
+
+    /// Sets how tables using this schema handle names absent from the schema.
+    #[must_use]
+    pub const fn with_unknown_fields(mut self, unknown_fields: UnknownFields) -> Self {
+        self.unknown_fields = unknown_fields;
+        self
+    }
+
+    /// Returns the policy for names absent from the schema.
+    #[must_use]
+    pub const fn unknown_fields(&self) -> UnknownFields {
+        self.unknown_fields
     }
 
     /// Returns the number of columns.
@@ -192,9 +221,41 @@ pub enum TableError {
     /// No primary name or alias matches the query.
     #[error("column not found: {0}")]
     ColumnNotFound(CompactString),
+    /// A value supplied as an extra uses a declared column name or alias.
+    #[error("extra field conflicts with schema column or alias: {0}")]
+    ExtraFieldConflictsWithColumn(CompactString),
     /// Hash indexes do not support this logical type.
     #[error("columns of type {0} cannot be indexed")]
     UnsupportedIndexType(DataType),
+}
+
+#[derive(Clone, Debug, Default)]
+struct RowExtras {
+    entries: SmallVec<[(CompactString, Value); 2]>,
+}
+
+impl RowExtras {
+    fn get(&self, name: &str) -> Option<&Value> {
+        self.entries
+            .iter()
+            .find_map(|(entry_name, value)| (entry_name == name).then_some(value))
+    }
+
+    fn set(&mut self, name: CompactString, value: Value) {
+        if let Some((_, current)) = self
+            .entries
+            .iter_mut()
+            .find(|(entry_name, _)| entry_name.as_str() == name.as_str())
+        {
+            *current = value;
+        } else {
+            self.entries.push((name, value));
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 /// Direction used when ordering table rows.
@@ -464,7 +525,8 @@ fn compare_optional<T>(
     }
 }
 
-/// A schema-driven table whose columns store their primitive types directly.
+/// A schema-driven table whose fixed columns store their primitive types
+/// directly and whose optional unknown fields are owned by individual rows.
 ///
 /// Each column is contiguous and uses `Option<T>` for nulls. That representation
 /// is intentionally straightforward; it can be replaced by a validity bitmap if
@@ -473,6 +535,7 @@ fn compare_optional<T>(
 pub struct Table {
     schema: Schema,
     columns: Vec<ColumnStorage>,
+    extras: Vec<Option<Box<RowExtras>>>,
     row_count: usize,
 }
 
@@ -493,6 +556,7 @@ impl Table {
         Self {
             schema,
             columns,
+            extras: Vec::with_capacity(capacity),
             row_count: 0,
         }
     }
@@ -535,6 +599,36 @@ impl Table {
         Ok(self.push_validated_row(values))
     }
 
+    /// Appends one complete fixed row together with row-local extra fields.
+    ///
+    /// Extra names must not match a declared column or alias. Repeated extra
+    /// names replace the earlier value, matching [`Table::set_named`]. The
+    /// complete operation is validated before the table changes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the ordinary row-validation errors, [`TableError::ColumnNotFound`]
+    /// when the schema rejects unknown fields, or
+    /// [`TableError::ExtraFieldConflictsWithColumn`] for a declared name.
+    pub fn push_row_with_extras<const N: usize, I, K, V>(
+        &mut self,
+        values: [Value; N],
+        extras: I,
+    ) -> Result<usize, TableError>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<CompactString>,
+        V: Into<Value>,
+    {
+        self.validate_row(&values)?;
+        let extras = self.collect_extras(extras)?;
+        let row = self.push_validated_row(values);
+        if !extras.is_empty() {
+            self.extras[row] = Some(Box::new(extras));
+        }
+        Ok(row)
+    }
+
     /// Appends one runtime-width owned row after validating every value.
     ///
     /// Use [`Table::push_row`] when the row width is known at the call site.
@@ -563,17 +657,39 @@ impl Table {
         Ok(())
     }
 
+    fn collect_extras<I, K, V>(&self, extras: I) -> Result<RowExtras, TableError>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<CompactString>,
+        V: Into<Value>,
+    {
+        let mut collected = RowExtras::default();
+        for (name, value) in extras {
+            let name = name.into();
+            if self.schema.column_index(&name).is_some() {
+                return Err(TableError::ExtraFieldConflictsWithColumn(name));
+            }
+            if self.schema.unknown_fields() == UnknownFields::Reject {
+                return Err(TableError::ColumnNotFound(name));
+            }
+            collected.set(name, value.into());
+        }
+        Ok(collected)
+    }
+
     fn push_validated_row(&mut self, values: impl IntoIterator<Item = Value>) -> usize {
         let row = self.row_count;
         for (storage, value) in self.columns.iter_mut().zip(values) {
             storage.push_validated(value);
         }
+        self.extras.push(None);
         self.row_count += 1;
         debug_assert!(
             self.columns
                 .iter()
                 .all(|column| column.len() == self.row_count)
         );
+        debug_assert_eq!(self.extras.len(), self.row_count);
         row
     }
 
@@ -585,6 +701,7 @@ impl Table {
         for column in &mut self.columns {
             column.pop();
         }
+        self.extras.pop();
         self.row_count -= 1;
         true
     }
@@ -605,17 +722,25 @@ impl Table {
             })
     }
 
-    /// Reads a cell by primary column name or alias.
+    /// Reads a cell by primary column name, alias, or stored row-local name.
     ///
     /// # Errors
     ///
-    /// Returns [`TableError::ColumnNotFound`] or an out-of-bounds row error.
+    /// Returns [`TableError::ColumnNotFound`] when neither the fixed schema nor
+    /// the selected row contains the name, or an out-of-bounds row error.
     pub fn cell_named(&self, row: usize, name_or_alias: &str) -> Result<ValueRef<'_>, TableError> {
-        let column = self
-            .schema
-            .column_index(name_or_alias)
-            .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))?;
-        self.cell(row, column)
+        if let Some(column) = self.schema.column_index(name_or_alias) {
+            return self.cell(row, column);
+        }
+        if self.schema.unknown_fields() == UnknownFields::Reject {
+            return Err(TableError::ColumnNotFound(name_or_alias.into()));
+        }
+        self.validate_row_position(row)?;
+        self.extras[row]
+            .as_deref()
+            .and_then(|extras| extras.get(name_or_alias))
+            .map(Value::as_ref)
+            .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))
     }
 
     /// Replaces one cell after exact type and nullability validation.
@@ -634,6 +759,36 @@ impl Table {
             })?;
         validate_cell(spec, &value, column)?;
         self.columns[column].set_validated(row, value);
+        Ok(())
+    }
+
+    /// Replaces a fixed cell or stores an unknown name as a row-local value.
+    ///
+    /// Declared names and aliases retain exact schema type/null validation.
+    /// Unknown names are accepted only when the schema uses
+    /// [`UnknownFields::Store`]. Setting an existing extra replaces its value.
+    ///
+    /// # Errors
+    ///
+    /// Returns a row, type, or nullability error for fixed cells, or
+    /// [`TableError::ColumnNotFound`] when an unknown name is rejected.
+    pub fn set_named(
+        &mut self,
+        row: usize,
+        name_or_alias: &str,
+        value: impl Into<Value>,
+    ) -> Result<(), TableError> {
+        let value = value.into();
+        if let Some(column) = self.schema.column_index(name_or_alias) {
+            return self.set_cell(row, column, value);
+        }
+        if self.schema.unknown_fields() == UnknownFields::Reject {
+            return Err(TableError::ColumnNotFound(name_or_alias.into()));
+        }
+        self.validate_row_position(row)?;
+        self.extras[row]
+            .get_or_insert_with(|| Box::new(RowExtras::default()))
+            .set(name_or_alias.into(), value);
         Ok(())
     }
 
@@ -723,16 +878,21 @@ impl Table {
     }
 
     fn validate_position(&self, row: usize, column: usize) -> Result<(), TableError> {
-        if row >= self.row_count {
-            return Err(TableError::RowOutOfBounds {
-                row,
-                row_count: self.row_count,
-            });
-        }
+        self.validate_row_position(row)?;
         if column >= self.column_count() {
             return Err(TableError::ColumnOutOfBounds {
                 column,
                 column_count: self.column_count(),
+            });
+        }
+        Ok(())
+    }
+
+    fn validate_row_position(&self, row: usize) -> Result<(), TableError> {
+        if row >= self.row_count {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
             });
         }
         Ok(())
@@ -884,10 +1044,10 @@ impl<'a> Row<'a> {
         self.table.columns.get(column)?.get(self.row)
     }
 
-    /// Reads one cell by primary column name or alias.
+    /// Reads one cell by primary column name, alias, or stored row-local name.
     #[must_use]
     pub fn get_named(self, name_or_alias: &str) -> Option<ValueRef<'a>> {
-        self.get(self.table.schema.column_index(name_or_alias)?)
+        self.table.cell_named(self.row, name_or_alias).ok()
     }
 
     /// Iterates over the row's cells in schema order.
