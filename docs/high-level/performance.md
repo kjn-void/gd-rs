@@ -2,8 +2,8 @@
 
 The C++ baseline uses Google Benchmark from the pinned CMake release preset. Rust uses
 Criterion with the release profile. Results below were produced on the same Apple
-Silicon host on 2026-07-13; the open-schema measurements were added on 2026-07-14.
-They are snapshots, not cross-machine thresholds.
+Silicon host on 2026-07-13; the open-schema measurements were refreshed on
+2026-07-14. They are snapshots, not cross-machine thresholds.
 
 Commands:
 
@@ -15,6 +15,20 @@ cmake --build --preset release
 
 cd ../gd-rs
 cargo bench
+```
+
+The open-schema subset can be reproduced directly with:
+
+```sh
+cd ../gd
+./build/release/benchmarks/gd_core_benchmarks \
+  --benchmark_filter=OpenSchema \
+  --benchmark_min_time=1s \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true
+
+cd ../gd-rs
+cargo bench --bench table -- OpenSchema
 ```
 
 Both harnesses use optimized builds, warm-up, repeated sampling, and black-box barriers.
@@ -92,16 +106,27 @@ counts and retained bytes are still required before drawing a memory conclusion.
 
 ### Open schemas
 
-The small fixture reserves 10,000 rows with one fixed `u64` column and stores two
-short extra strings per row. “Late” adds each field through the ordinary named setter;
-“atomic” supplies both extras to `push_row_with_extras`. Lookup reads both extras by
-name on every row.
+The small fixture reserves its rows with one fixed `u64` column and stores two short
+extra strings per row. “Late” adds each field through the ordinary named setter;
+“atomic” supplies both extras to `push_row_with_extras`. The C++ comparison has no
+single-call equivalent to the atomic Rust operation.
 
-| Workload, 10,000 rows | C++ | Rust | Rust/C++ |
-|---|---:|---:|---:|
-| construct, late named fields | 641 µs | 579 µs | ×1.11 |
-| construct, atomic Rust insertion | no exact API | 466 µs | n/a |
-| look up both fields | 203 µs | 181 µs | ×1.12 |
+Construction point estimates:
+
+| Rows | C++ late fields | Rust late fields | Rust/C++ | Rust atomic |
+|---:|---:|---:|---:|---:|
+| 100 | 6.47 µs | 5.67 µs | ×1.14 | 4.80 µs |
+| 1,000 | 63.9 µs | 56.9 µs | ×1.12 | 45.9 µs |
+| 10,000 | 643 µs | 616 µs | ×1.04 | 481 µs |
+
+Lookup reads both extras by name on every row:
+
+| Rows | C++ lookup | Rust lookup | Rust/C++ |
+|---:|---:|---:|---:|
+| 100 | 2.04 µs | 1.81 µs | ×1.13 |
+| 1,000 | 20.3 µs | 18.1 µs | ×1.12 |
+| 10,000 | 202 µs | 181 µs | ×1.12 |
+| 100,000 | 2.01 ms | 1.81 ms | ×1.11 |
 
 The Rust sidecar keeps up to four fields in a compact linear representation, with the
 first two entries inline. It promotes to an `AHashMap` on the fifth unique name. The
@@ -116,10 +141,10 @@ prepare the 1,000 field names before timing.
 
 | Wide open-schema workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| build through replacement-capable named setters | 1.150 s | 32.57 ms | ×35.31 |
-| Rust atomic validated build | no exact API | 19.58 ms | n/a |
-| C++ append-only build / Rust atomic build | 8.76 ms | 19.58 ms | ×0.45 |
-| look up all one million fields by name | 1.148 s | 21.09 ms | ×54.43 |
+| build through replacement-capable named setters | 1.168 s | 32.90 ms | ×35.50 |
+| Rust atomic validated build | no exact API | 20.15 ms | n/a |
+| C++ append-only build / Rust atomic build | 8.90 ms | 20.15 ms | ×0.44 |
+| look up all one million fields by name | 1.160 s | 23.59 ms | ×49.16 |
 
 The replacement-capable C++ setter searches the row's packed argument buffer before
 every insertion, making this construction shape quadratic in fields per row. Its
