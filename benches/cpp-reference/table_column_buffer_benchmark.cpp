@@ -259,6 +259,15 @@ Type MaximumColumn(const gd::table::table_column_buffer& table, unsigned column)
 }
 
 template<typename Type>
+Type MaximumContiguous(const std::vector<Type>& values)
+{
+   Type maximum = std::numeric_limits<Type>::lowest();
+   for(const auto value : values)
+      maximum = std::max(maximum, value);
+   return maximum;
+}
+
+template<typename Type>
 long double MedianColumn(const gd::table::table_column_buffer& table, unsigned column)
 {
    std::vector<Type> values;
@@ -501,6 +510,43 @@ GD_REGISTER_MIXED_NUMERIC_COLUMN(float, 4, "f32");
 GD_REGISTER_MIXED_NUMERIC_COLUMN(std::int32_t, 5, "i32");
 
 #undef GD_REGISTER_MIXED_NUMERIC_COLUMN
+
+// Report the materialization and reuse phases separately. There is also a correctness
+// blocker in this exact fixture: harvest calls cell_get_variant_view, whose fixed
+// 8-byte path does *(uint64_t*)puRowValue. The f64 starts at offset 4, so that is an
+// unaligned typed dereference and C++ undefined behavior. Keep this experiment on the
+// safely aligned u8 column until that path performs a source-level-defined load.
+void MixedNumericHarvestCostU8_10M(benchmark::State& state)
+{
+   const auto table = MakeMixedNumericTable(kMixedNumericRows);
+   for(auto _ : state)
+   {
+      auto values = table.harvest<std::uint8_t>(0);
+      benchmark::DoNotOptimize(values);
+   }
+   state.SetItemsProcessed(state.iterations() * kMixedNumericRows);
+}
+BENCHMARK(MixedNumericHarvestCostU8_10M)
+   ->Name("MixedNumeric/HarvestCost/u8")
+   ->Unit(benchmark::kMillisecond);
+
+void MixedNumericMaximumReusedHarvestU8_10M(benchmark::State& state)
+{
+   const auto table = MakeMixedNumericTable(kMixedNumericRows);
+   const auto values = table.harvest<std::uint8_t>(0);
+   if(MaximumContiguous(values) != static_cast<std::uint8_t>(250)) std::abort();
+
+   for(auto _ : state)
+   {
+      benchmark::DoNotOptimize(values.data());
+      auto maximum = MaximumContiguous(values);
+      benchmark::DoNotOptimize(maximum);
+   }
+   state.SetItemsProcessed(state.iterations() * kMixedNumericRows);
+}
+BENCHMARK(MixedNumericMaximumReusedHarvestU8_10M)
+   ->Name("MixedNumeric/MaximumReusedHarvest/u8")
+   ->Unit(benchmark::kMillisecond);
 
 void RowSortSelection(benchmark::State& state)
 {

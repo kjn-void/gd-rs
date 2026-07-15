@@ -30,6 +30,24 @@
         "CMAKE_C_FLAGS_RELEASE": "-O3",
         "CMAKE_CXX_FLAGS_RELEASE": "-O3"
       }
+    },
+    {
+      "name": "release-native",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS_RELEASE": "-O3 -DNDEBUG -march=native",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -march=native"
+      }
+    },
+    {
+      "name": "release-native-asserts",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS_RELEASE": "-O3 -march=native",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -march=native"
+      }
     }
   ],
   "buildPresets": [
@@ -40,6 +58,14 @@
     {
       "name": "release-asserts",
       "configurePreset": "release-asserts"
+    },
+    {
+      "name": "release-native",
+      "configurePreset": "release-native"
+    },
+    {
+      "name": "release-native-asserts",
+      "configurePreset": "release-native-asserts"
     }
   ]
 }
