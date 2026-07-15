@@ -230,9 +230,10 @@ fn files() -> Result<Table, TableError> {
 }
 ```
 
-Known names still use typed column storage and exact type/null validation. Unknown
-names use a lazy per-row extras object. A row without extras allocates no extras
-object; the first two values use inline storage. `cell_named` and `Row::get_named`
+Known names still use typed column storage and exact type/null validation. A closed
+schema allocates no extras sidecar. An open schema adds a parallel nullable-pointer
+vector and creates each row's extras object only when the row receives an unknown
+field; the first two values use inline storage. `cell_named` and `Row::get_named`
 search fixed names first and then the row extras.
 
 Extras are row metadata rather than logical columns. They are therefore absent from

@@ -250,15 +250,6 @@ long double AverageColumn(const gd::table::table_column_buffer& table, unsigned 
 }
 
 template<typename Type>
-Type MinimumColumn(const gd::table::table_column_buffer& table, unsigned column)
-{
-   Type minimum = std::numeric_limits<Type>::max();
-   for(std::uint64_t row = 0; row < table.get_row_count(); ++row)
-      minimum = std::min(minimum, ReadCell<Type>(table, row, column));
-   return minimum;
-}
-
-template<typename Type>
 Type MaximumColumn(const gd::table::table_column_buffer& table, unsigned column)
 {
    Type maximum = std::numeric_limits<Type>::lowest();
@@ -462,21 +453,6 @@ void MixedNumericAverage10M(benchmark::State& state)
 }
 
 template<typename Type, unsigned ColumnIndex>
-void MixedNumericMinimum10M(benchmark::State& state)
-{
-   const auto table = MakeMixedNumericTable(kMixedNumericRows);
-   if(!Close(static_cast<long double>(MinimumColumn<Type>(table, ColumnIndex)),
-             kExpectedMixedNumeric[ColumnIndex].minimum))
-      std::abort();
-   for(auto _ : state)
-   {
-      auto minimum = MinimumColumn<Type>(table, ColumnIndex);
-      benchmark::DoNotOptimize(minimum);
-   }
-   state.SetItemsProcessed(state.iterations() * kMixedNumericRows);
-}
-
-template<typename Type, unsigned ColumnIndex>
 void MixedNumericMaximum10M(benchmark::State& state)
 {
    const auto table = MakeMixedNumericTable(kMixedNumericRows);
@@ -509,9 +485,6 @@ void MixedNumericMedian10M(benchmark::State& state)
 #define GD_REGISTER_MIXED_NUMERIC_COLUMN(Type, ColumnIndex, Label)                                \
    BENCHMARK_TEMPLATE(MixedNumericAverage10M, Type, ColumnIndex)                                  \
       ->Name("MixedNumeric/Average/" Label)                                                       \
-      ->Unit(benchmark::kMillisecond);                                                            \
-   BENCHMARK_TEMPLATE(MixedNumericMinimum10M, Type, ColumnIndex)                                  \
-      ->Name("MixedNumeric/Minimum/" Label)                                                       \
       ->Unit(benchmark::kMillisecond);                                                            \
    BENCHMARK_TEMPLATE(MixedNumericMaximum10M, Type, ColumnIndex)                                  \
       ->Name("MixedNumeric/Maximum/" Label)                                                       \

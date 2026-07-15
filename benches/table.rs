@@ -409,15 +409,6 @@ where
     f64::midpoint(convert(lower_middle), convert(*upper_middle))
 }
 
-fn minimum_float<T>(values: impl Iterator<Item = T>) -> T
-where
-    T: Copy + PartialOrd,
-{
-    values
-        .reduce(|minimum, value| if value < minimum { value } else { minimum })
-        .unwrap()
-}
-
 fn maximum_float<T>(values: impl Iterator<Item = T>) -> T
 where
     T: Copy + PartialOrd,
@@ -620,8 +611,7 @@ fn mixed_numeric_table_bytes(rows: usize) -> usize {
         + size_of::<u16>()
         + size_of::<u64>()
         + size_of::<f32>()
-        + size_of::<i32>()
-        + size_of::<Option<Box<()>>>())
+        + size_of::<i32>())
 }
 
 fn append_rows(criterion: &mut Criterion) {
@@ -775,7 +765,7 @@ fn wide_open_schema(criterion: &mut Criterion) {
 #[allow(clippy::cast_precision_loss, clippy::too_many_lines)]
 // The fixture's i64 median is exactly representable; cases stay together for auditability.
 fn mixed_numeric_statistics(criterion: &mut Criterion) {
-    assert_eq!(mixed_numeric_table_bytes(MIXED_NUMERIC_ROWS), 350_000_000);
+    assert_eq!(mixed_numeric_table_bytes(MIXED_NUMERIC_ROWS), 270_000_000);
 
     {
         let mut group = criterion.benchmark_group("Table/MixedNumeric/10000000/Build");
@@ -803,18 +793,6 @@ fn mixed_numeric_statistics(criterion: &mut Criterion) {
         benchmark_average_unsigned!(&mut group, &table, "u64", 3, u64, U64);
         benchmark_average_float!(&mut group, &table, "f32", 4, f32, F32, f64::from);
         benchmark_average_signed!(&mut group, &table, "i32", 5, i32, I32);
-        group.finish();
-    }
-
-    {
-        let mut group = criterion.benchmark_group("Table/MixedNumeric/10000000/Minimum");
-        configure_bulk_group(&mut group);
-        benchmark_ordered_extreme!(&mut group, &table, "u8", 0, u8, U8, min);
-        benchmark_float_extreme!(&mut group, &table, "f64", 1, f64, F64, minimum_float);
-        benchmark_ordered_extreme!(&mut group, &table, "u16", 2, u16, U16, min);
-        benchmark_ordered_extreme!(&mut group, &table, "u64", 3, u64, U64, min);
-        benchmark_float_extreme!(&mut group, &table, "f32", 4, f32, F32, minimum_float);
-        benchmark_ordered_extreme!(&mut group, &table, "i32", 5, i32, I32, min);
         group.finish();
     }
 

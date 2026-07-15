@@ -15,17 +15,17 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 9 | 3,616 | 89 | 198 | 2.22 |
-| Rust product + tests (`src`, `tests`) | 17 | 4,812 | 150 | 286 | 1.91 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 25 | 6,143 | 202 | 448 | 2.22 |
+| Rust product (`src`) | 9 | 3,696 | 96 | 214 | 2.23 |
+| Rust product + tests (`src`, `tests`) | 17 | 4,892 | 157 | 302 | 1.92 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 25 | 6,203 | 208 | 461 | 2.22 |
 | C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
 | C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
-| C++ product + tests + benchmarks (`source`, `tests`, `benchmarks`) | 165 | 64,600 | 8,441 | 19,617 | 2.32 |
+| C++ product + tests + matched benchmarks | 165 | 64,578 | 8,439 | 19,612 | 2.32 |
 
-The requested Rust totals are therefore **3,616 SLOC without test/benchmark code**
-and **6,143 SLOC with both**. Tests account for 1,196 SLOC and benchmarks for 1,331
+The requested Rust totals are therefore **3,696 SLOC without test/benchmark code**
+and **6,203 SLOC with both**. Tests account for 1,196 SLOC and benchmarks for 1,311
 SLOC. In the C++ scopes, tests account for 712 SLOC and benchmarks for a further
-1,080 SLOC.
+1,058 SLOC.
 
 These totals should not be read as a claim that Rust needs 5.6% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
@@ -38,8 +38,9 @@ comparison is required before attributing a size difference to language or desig
 The measurement uses Lizard 1.17.31 for both languages. The selected files are:
 
 - Rust: `*.rs` below `src`, optionally adding `tests` and `benches`;
-- C++: `*.h`, `*.hpp`, `*.c`, `*.cc`, `*.cpp`, and `*.cxx` below `source`,
-  optionally adding `tests` and `benchmarks`;
+- C++: `*.h`, `*.hpp`, `*.c`, `*.cc`, `*.cpp`, and `*.cxx` below the sibling
+  `../gd/source`, optionally adding `../gd/tests` and the matched references in
+  `benches/cpp-reference`;
 - excluded from both: documentation, manifests, build scripts, generated build
   output, vendored dependencies, and every directory not named above.
 
@@ -54,7 +55,8 @@ PYTHONPATH=/tmp/gd-code-metrics python3 -m lizard \
 
 Add `tests` and `benches` to the `find` roots for the inclusive Rust result. For
 C++, run from `gd-rs`, replace the roots with `../gd/source ../gd/tests
-../gd/benchmarks`, select the C/C++ suffixes listed above, and use `--languages cpp`.
+benches/cpp-reference`, select the C/C++ suffixes listed above, and use
+`--languages cpp`.
 
 Lizard assigns CCN 1 to a straight-line function and adds paths for recognized
 branches and loops. Its parsers are language-aware but not compiler front ends.

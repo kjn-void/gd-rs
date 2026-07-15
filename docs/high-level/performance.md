@@ -200,13 +200,15 @@ Central estimates:
 
 | Build 10,000,000 rows | C++ assertions off | C++ assertions on | Rust |
 |---|---:|---:|---:|
-| complete table | 329 ms | 335 ms | 229.16 ms |
+| complete table | 329 ms | 335 ms | 223.49 ms |
 
 Every bulk operation below scans exactly one named field over all 10,000,000 rows; no
 row combines multiple fields and no timing aggregates several operations. C++ values
 are means of three optimized repetitions. Rust values are Criterion means from ten
 flat samples. “Slice gain” is `ValueRef time / &[T] time`; “Slice vs C++ off” is
-`C++ time / &[T] time`, so a value above one means the Rust slice is faster.
+`C++ time / &[T] time`, so a value above one means the Rust slice is faster. Minimum
+is still checked when validating the fixture, but is not timed separately because it
+has the same traversal and reduction shape as Maximum.
 
 Average:
 
@@ -218,17 +220,6 @@ Average:
 | `u64` | 10.940 ms | 11.407 ms | 13.395 ms | 0.954 ms | ×14.05 | ×11.47 |
 | `f32` | 8.244 ms | 11.733 ms | 13.620 ms | 6.882 ms | ×1.98 | ×1.20 |
 | `i32` | 8.251 ms | 11.426 ms | 13.362 ms | 0.700 ms | ×19.08 | ×11.78 |
-
-Minimum:
-
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
-|---|---:|---:|---:|---:|---:|---:|
-| `u8` | 8.228 ms | 12.009 ms | 13.448 ms | 0.102 ms | ×132.37 | ×80.99 |
-| `f64` | 8.187 ms | 11.691 ms | 13.611 ms | 5.245 ms | ×2.59 | ×1.56 |
-| `u16` | 8.264 ms | 12.078 ms | 13.385 ms | 0.216 ms | ×61.96 | ×38.26 |
-| `u64` | 8.233 ms | 11.800 ms | 13.383 ms | 1.407 ms | ×9.51 | ×5.85 |
-| `f32` | 8.212 ms | 11.750 ms | 13.558 ms | 5.223 ms | ×2.60 | ×1.57 |
-| `i32` | 8.206 ms | 13.707 ms | 13.356 ms | 0.476 ms | ×28.08 | ×17.25 |
 
 Maximum:
 
@@ -275,7 +266,7 @@ Row-bearing capacity accounting is:
 | Implementation | Row model | Bytes per row | Table bytes | MiB | Relative to C++ |
 |---|---|---:|---:|---:|---:|
 | C++ | physical fixed-stride row | 32 | 320,000,000 | 305.18 | ×1.00 |
-| Rust | virtual sum across vectors | 35 | 350,000,000 | 333.79 | ×1.09 |
+| Rust | virtual sum across typed vectors | 27 | 270,000,000 | 257.49 | ×0.84 |
 
 These figures exclude allocator bookkeeping and the small fixed table/schema objects.
 The C++ figure comes from `size_reserved_total()`. GD aligns the start of every field
@@ -302,7 +293,7 @@ fixed-size `memcpy`. The following `u64` happens to land at naturally aligned of
 
 Rust has no physical row object. Each required column is an independent `Vec<T>` whose
 allocation starts suitably aligned for `T`; adjacent elements have exactly
-`size_of::<T>()` stride. “35 bytes per row” is therefore a virtual or amortized row
+`size_of::<T>()` stride. “27 bytes per row” is therefore a virtual or amortized row
 contribution obtained by adding one same-index element from each separate vector:
 
 ```text
@@ -314,29 +305,35 @@ Vec<u16>      [u16₀][u16₁][u16₂]...      2 bytes × 10M =  20 MB
 Vec<u64>      [ u64₀ ][ u64₁ ]...        8 bytes × 10M =  80 MB
 Vec<f32>      [f32₀][f32₁][f32₂]...      4 bytes × 10M =  40 MB
 Vec<i32>      [i32₀][i32₁][i32₂]...      4 bytes × 10M =  40 MB
-Vec<Extra?>   [ ptr₀ ][ ptr₁ ]...         8 bytes × 10M =  80 MB
-                                                  total = 350 MB
+                                                  total = 270 MB
 
 virtual row r = u8[r] + f64[r] + u16[r] + u64[r] + f32[r] + i32[r]
                 1   +   8    +   2    +   8    +   4    +   4     = 27 bytes
-              + one optional extras pointer slot                         8 bytes
-              ---------------------------------------------------------------
-                amortized contribution                                  35 bytes
 ```
 
-There is no inter-column or per-row padding in those 35 bytes. Each vector base is
-aligned independently, outside the per-element accounting. `Option<Box<RowExtras>>`
-uses the null-pointer niche and is eight bytes on this target. Rows with no extras have
-a null pointer but still retain that slot. The accounting excludes the small `Vec`
-headers, schema objects, allocator metadata, allocator size-class rounding, and unused
-capacity beyond the requested ten million elements; it is not an RSS measurement.
+There is no inter-column or per-row padding in those 27 bytes. Each vector base is
+aligned independently, outside the per-element accounting. The benchmark schema uses
+`UnknownFields::Reject`, so `Table` disables extras storage and neither reserves nor
+populates a per-row sidecar vector.
+
+An open schema using `UnknownFields::Store` instead enables a parallel
+`Vec<Option<Box<RowExtras>>>`. `Option<Box<RowExtras>>` uses the null-pointer niche and
+is eight bytes on this target, so an open ten-million-row table reserves another
+80,000,000 bytes even when every slot is `None`:
+
+```text
+closed schema: 27 typed bytes                         = 27 bytes/row = 270 MB
+open schema:   27 typed bytes + 8-byte sidecar slot  = 35 bytes/row = 350 MB
+```
+
+The accounting excludes the small `Vec` headers, schema objects, allocator metadata,
+allocator size-class rounding, and unused capacity beyond the requested ten million
+elements; it is not an RSS measurement.
 
 Median uses one temporary vector at a time, adding at most 80,000,000 bytes (76.29 MiB)
 of live scratch space in either implementation; that scratch is not part of the table
-figures. A strict schema does not need the 80,000,000-byte sidecar vector, so allocating
-it lazily remains an opportunity that would reduce this table to 270,000,000 bytes
-(257.49 MiB). A validity bitmap would be a more compact future representation for
-nullable primitive columns.
+figures. A validity bitmap would be a more compact future representation for nullable
+primitive columns.
 
 `Column::as_slice::<T>` now exposes dense required columns without exposing the storage
 enum itself. Borrowing ties the slice lifetime to the table and prevents mutation while

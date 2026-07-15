@@ -295,6 +295,63 @@ impl RowExtras {
     }
 }
 
+#[derive(Clone, Debug)]
+enum ExtrasStorage {
+    Disabled,
+    Enabled(Vec<Option<Box<RowExtras>>>),
+}
+
+impl ExtrasStorage {
+    fn with_capacity(unknown_fields: UnknownFields, capacity: usize) -> Self {
+        match unknown_fields {
+            UnknownFields::Reject => Self::Disabled,
+            UnknownFields::Store => Self::Enabled(Vec::with_capacity(capacity)),
+        }
+    }
+
+    fn push_empty(&mut self) {
+        if let Self::Enabled(rows) = self {
+            rows.push(None);
+        }
+    }
+
+    fn set(&mut self, row: usize, extras: RowExtras) {
+        match self {
+            Self::Enabled(rows) => rows[row] = Some(Box::new(extras)),
+            Self::Disabled => unreachable!("closed schemas cannot store extra fields"),
+        }
+    }
+
+    fn get(&self, row: usize) -> Option<&RowExtras> {
+        match self {
+            Self::Disabled => None,
+            Self::Enabled(rows) => rows.get(row)?.as_deref(),
+        }
+    }
+
+    fn get_or_insert(&mut self, row: usize) -> &mut RowExtras {
+        match self {
+            Self::Enabled(rows) => rows[row]
+                .get_or_insert_with(|| Box::new(RowExtras::default()))
+                .as_mut(),
+            Self::Disabled => unreachable!("closed schemas cannot store extra fields"),
+        }
+    }
+
+    fn pop(&mut self) {
+        if let Self::Enabled(rows) = self {
+            let _ = rows.pop();
+        }
+    }
+
+    fn len_matches(&self, row_count: usize) -> bool {
+        match self {
+            Self::Disabled => true,
+            Self::Enabled(rows) => rows.len() == row_count,
+        }
+    }
+}
+
 /// Direction used when ordering table rows.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum SortDirection {
@@ -747,12 +804,13 @@ fn compare_optional<T>(
 /// directly and whose optional unknown fields are owned by individual rows.
 ///
 /// Required columns store contiguous `T` values directly. Nullable columns use
-/// `Option<T>` to represent null cells.
+/// `Option<T>` to represent null cells. Schemas that reject unknown fields do not
+/// allocate per-row extras storage.
 #[derive(Clone, Debug)]
 pub struct Table {
     schema: Schema,
     columns: Vec<ColumnStorage>,
-    extras: Vec<Option<Box<RowExtras>>>,
+    extras: ExtrasStorage,
     row_count: usize,
 }
 
@@ -770,10 +828,11 @@ impl Table {
             .iter()
             .map(|column| ColumnStorage::new(column.data_type(), column.is_nullable(), capacity))
             .collect();
+        let extras = ExtrasStorage::with_capacity(schema.unknown_fields(), capacity);
         Self {
             schema,
             columns,
-            extras: Vec::with_capacity(capacity),
+            extras,
             row_count: 0,
         }
     }
@@ -841,7 +900,7 @@ impl Table {
         let extras = self.collect_extras(extras)?;
         let row = self.push_validated_row(values);
         if !extras.is_empty() {
-            self.extras[row] = Some(Box::new(extras));
+            self.extras.set(row, extras);
         }
         Ok(row)
     }
@@ -900,14 +959,14 @@ impl Table {
         for (storage, value) in self.columns.iter_mut().zip(values) {
             storage.push_validated(value);
         }
-        self.extras.push(None);
+        self.extras.push_empty();
         self.row_count += 1;
         debug_assert!(
             self.columns
                 .iter()
                 .all(|column| column.len() == self.row_count)
         );
-        debug_assert_eq!(self.extras.len(), self.row_count);
+        debug_assert!(self.extras.len_matches(self.row_count));
         row
     }
 
@@ -954,8 +1013,8 @@ impl Table {
             return Err(TableError::ColumnNotFound(name_or_alias.into()));
         }
         self.validate_row_position(row)?;
-        self.extras[row]
-            .as_deref()
+        self.extras
+            .get(row)
             .and_then(|extras| extras.get(name_or_alias))
             .map(Value::as_ref)
             .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))
@@ -1004,8 +1063,8 @@ impl Table {
             return Err(TableError::ColumnNotFound(name_or_alias.into()));
         }
         self.validate_row_position(row)?;
-        self.extras[row]
-            .get_or_insert_with(|| Box::new(RowExtras::default()))
+        self.extras
+            .get_or_insert(row)
             .set(name_or_alias.into(), value);
         Ok(())
     }
@@ -1523,7 +1582,10 @@ impl<'a> ColumnIndex<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ColumnData, ColumnStorage, DataType};
+    use super::{
+        ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table,
+        UnknownFields, Value,
+    };
 
     #[test]
     fn column_storage_follows_schema_nullability() {
@@ -1542,6 +1604,35 @@ mod tests {
         assert!(matches!(
             ColumnStorage::new(DataType::String, true, 8),
             ColumnStorage::String(ColumnData::Nullable(values)) if values.capacity() >= 8
+        ));
+    }
+
+    #[test]
+    fn extras_storage_follows_schema_policy() {
+        let strict_schema = Schema::new([ColumnSpec::new("id", DataType::U64)]).unwrap();
+        let mut strict = Table::with_capacity(strict_schema, 8);
+        assert!(matches!(&strict.extras, ExtrasStorage::Disabled));
+        strict.push_row([Value::U64(1)]).unwrap();
+        assert!(matches!(&strict.extras, ExtrasStorage::Disabled));
+        assert!(strict.pop_row());
+
+        let open_schema = Schema::new([ColumnSpec::new("id", DataType::U64)])
+            .unwrap()
+            .with_unknown_fields(UnknownFields::Store);
+        let mut open = Table::with_capacity(open_schema, 8);
+        assert!(matches!(
+            &open.extras,
+            ExtrasStorage::Enabled(rows) if rows.is_empty() && rows.capacity() >= 8
+        ));
+        let row = open.push_row([Value::U64(1)]).unwrap();
+        assert!(matches!(
+            &open.extras,
+            ExtrasStorage::Enabled(rows) if rows.len() == 1 && rows[0].is_none()
+        ));
+        open.set_named(row, "dynamic", "value").unwrap();
+        assert!(matches!(
+            &open.extras,
+            ExtrasStorage::Enabled(rows) if rows[0].is_some()
         ));
     }
 }

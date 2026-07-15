@@ -39,8 +39,8 @@ individual rows own additional named `Value`s. `push_row_with_extras` declares f
 and dynamic values atomically, while `set_named` updates either storage class through
 one name-based API. Fixed names and aliases always take precedence.
 
-The sidecar is a vector parallel to the fixed columns. Each element is either a null
-pointer or points to one row's extras object:
+Closed schemas store no sidecar. Open schemas add a vector parallel to the fixed
+columns; each element is either a null pointer or points to one row's extras object:
 
 ```mermaid
 flowchart LR
@@ -48,7 +48,9 @@ flowchart LR
     Fixed --> Path["path: Vec&lt;String&gt;<br/>row 0 / row 1 / row 2"]
     Fixed --> Size["size: Vec&lt;u64&gt;<br/>row 0 / row 1 / row 2"]
 
-    Table --> Sidecar["extras: Vec&lt;Option&lt;Box&lt;RowExtras&gt;&gt;&gt;"]
+    Table --> Policy["extras storage selected by schema"]
+    Policy --> Closed["Reject: Disabled<br/>no per-row allocation"]
+    Policy --> Sidecar["Store: Vec&lt;Option&lt;Box&lt;RowExtras&gt;&gt;&gt;"]
     Sidecar --> Slot0["row 0<br/>None / null pointer"]
     Sidecar --> Slot1["row 1<br/>Some / Box pointer"]
     Sidecar --> Slot2["row 2<br/>Some / Box pointer"]
@@ -62,8 +64,9 @@ flowchart LR
 The diagram also shows that the same extra name can have a different `Value` type in
 another row. It has no shared column storage or schema-level type contract.
 
-Extras are stored lazily. Every row has one nullable pointer slot, rows without extras
-allocate nothing, and the first two extras remain inline in the allocated row object.
+Extras storage is schema-aware. A closed schema allocates no pointer vector. In an open
+schema every row has one nullable pointer slot; rows without extras allocate no
+`RowExtras` object, and the first two extras remain inline in the allocated row object.
 Rows stay in the compact representation through four fields, then promote to an
 `AHashMap` on the fifth unique name. They are deliberately excluded from column scans,
 indexes, ordering, and fixed-schema formatting because they do not form homogeneous
