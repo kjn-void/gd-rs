@@ -69,6 +69,10 @@ name = "sqlite"
 harness = false
 required-features = ["sqlite"]
 
+[[bench]]
+name = "table_nightly_simd"
+harness = false
+
 [profile.release]
 codegen-units = 1
 lto = "thin"
@@ -76,6 +80,7 @@ lto = "thin"
 [lints.rust]
 missing_docs = "deny"
 unsafe_code = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(nightly_simd)"] }
 
 [lints.clippy]
 all = "deny"

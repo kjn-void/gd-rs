@@ -1,9 +1,9 @@
 # Benchmark methodology and results
 
 The C++ reference uses Google Benchmark and the pinned CMake release presets. Rust uses
-Criterion and Cargo's release profile. All results below were refreshed on 2026-07-15
-from `gd-rs` commit `11a876c7ab84a25c6aa01da7620c6f9aae4d82fb` and C++ GD
-commit `3d1e112b0806845854e863f9fd8288a2f79ba378`. Three configurations are shown
+Criterion and Cargo's release profile. The stable comparison results were refreshed on
+2026-07-15 from `gd-rs` commit `11a876c7ab84a25c6aa01da7620c6f9aae4d82fb` and C++
+GD commit `3d1e112b0806845854e863f9fd8288a2f79ba378`. Three configurations are shown
 separately so every table compares C++ with Rust under one hardware and ISA policy:
 
 | Configuration | Host and operating system | C++ toolchain | Rust toolchain | ISA policy |
@@ -11,6 +11,11 @@ separately so every table compares C++ with Rust under one hardware and ISA poli
 | M3 Max release | Apple M3 Max, 16 cores, macOS 26.5 (`arm64`) | Apple Clang 21.0.0 | rustc 1.97.0 | normal release defaults |
 | Core Ultra portable | Intel Core Ultra 5 225H, Ubuntu 24.04, Linux 6.17 | GCC 13.3.0 | rustc 1.97.0 | normal portable `x86-64` release defaults |
 | Core Ultra native | same Core Ultra host | GCC 13.3.0 | rustc 1.97.0 | C++ `-march=native`; Rust `-C target-cpu=native` |
+
+The mixed-numeric maximum section additionally reports an M3-only explicit-SIMD
+configuration built with rustc 1.99.0-nightly (2026-07-14). It uses the same normal
+release ISA policy as the stable M3 result; only the nightly `std::simd` implementation
+and compiler differ.
 
 The Core Ultra processes were pinned to performance core 0 with `taskset -c 0`. Its
 `intel_pstate` governor reported `powersave`, which still permits demand-based turbo.
@@ -385,6 +390,7 @@ exceptional shape; fields common across rows belong in typed schema columns.
 ### Ten-million-row mixed-numeric sheet
 
 Benchmark sources: [Rust `mixed_numeric_statistics`](../../benches/table.rs#L853-L935) ·
+[Rust nightly `std::simd` maximum](../../benches/table_nightly_simd.rs#L1-L188) ·
 [C++ mixed-numeric benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L426-L503)
 
 This fixture models a large spreadsheet with 10,000,000 rows and six fixed columns:
@@ -418,6 +424,15 @@ but the compile database confirms that optimization remains `-O3`. Rust uses the
 table API in the ordinary optimized release profile, with `-C target-cpu=native` only
 for the named Core Ultra native configuration. No unchecked Rust comparison is
 included.
+
+The M3 nightly maximum is reproduced separately; `std::simd` remains an unstable
+standard-library API and is not part of the crate's Rust 1.86 compatibility surface:
+
+```sh
+CARGO_TARGET_DIR=target/nightly-simd-release \
+  RUSTFLAGS='--cfg nightly_simd' \
+  cargo +nightly bench --bench table_nightly_simd
+```
 
 Central estimates:
 
@@ -496,6 +511,26 @@ denominator.
 | `u64` | 8.203 ms | 11.463 ms | 13.353 ms | 1.411 ms | 1.404 ms | ×9.46 | ×1.00 | ×5.81 | ×5.84 |
 | `f32` | 8.200 ms | 11.456 ms | 13.397 ms | 5.334 ms | 5.332 ms | ×2.51 | ×1.00 | ×1.54 | ×1.54 |
 | `i32` | 8.185 ms | 11.464 ms | 13.374 ms | 0.423 ms | 0.429 ms | ×31.64 | ×0.99 | ×19.36 | ×19.08 |
+
+**M3 Max nightly `std::simd`**
+
+| Field | C++ off | Rust stable `&[T]` | Rust nightly `std::simd` | `stable / std::simd` | `C++ off / std::simd` |
+|---|---:|---:|---:|---:|---:|
+| `u8` | 8.190 ms | 0.096 ms | 0.097 ms | ×0.99 | ×84.18 |
+| `f64` | 8.190 ms | 5.335 ms | 1.465 ms | ×3.64 | ×5.59 |
+| `u16` | 8.203 ms | 0.197 ms | 0.205 ms | ×0.96 | ×40.05 |
+| `u64` | 8.203 ms | 1.404 ms | 1.449 ms | ×0.97 | ×5.66 |
+| `f32` | 8.200 ms | 5.332 ms | 0.735 ms | ×7.25 | ×11.15 |
+| `i32` | 8.185 ms | 0.429 ms | 0.465 ms | ×0.92 | ×17.59 |
+
+The nightly path explicitly loads 128-bit `Simd` values and uses four independent
+vector accumulators, allowing the M3 to overlap reductions instead of serializing every
+vector maximum through one dependency chain. This makes the finite `f64` maximum
+×3.64 faster than the stable typed-slice loop and the finite `f32` maximum ×7.25
+faster. The integer stable loops are already as fast or slightly faster, so explicit
+SIMD is not a blanket improvement. The fixture contains no NaNs; adopting this as a
+table API would require an explicit floating-point NaN and signed-zero policy rather
+than assuming scalar and `simd_max` edge semantics are interchangeable.
 
 **Core Ultra portable**
 
@@ -618,13 +653,15 @@ reconstruction for every cell. `Column::for_each_value` hoists storage and nulla
 dispatch out of the loop while retaining a `ValueRef` callback. For simple averages
 and maxima it is close to the typed slice in almost every case. This is consistent with
 LLVM inlining the callback and eliminating the known `ValueRef` variant; the timings
-alone do not prove which loops were auto-vectorized. `Column::as_slice::<T>` remains
-the explicit way to guarantee a monomorphic contiguous input.
+alone do not prove which stable loops were auto-vectorized. `Column::as_slice::<T>`
+remains the explicit way to guarantee a monomorphic contiguous input. The separate
+nightly maximum uses `std::simd` explicitly and is not one of these three stable paths.
 
-The Maximum paths use the same explicit accumulator loop for all three Rust APIs so the
-access mechanisms are compared with the same reduction shape. The float fixture
+The stable Maximum paths use the same explicit accumulator loop for all three Rust APIs
+so the access mechanisms are compared with the same reduction shape. The float fixture
 contains no NaNs; both languages use ordinary finite comparisons in these bulk cases.
-Table ordering elsewhere continues to use `total_cmp`.
+Table ordering elsewhere continues to use `total_cmp`. The nightly SIMD path is a
+separate algorithmic comparison with four vector accumulators.
 
 Median copies one scratch vector and partitions it with `std::nth_element` or
 `select_nth_unstable`. A typed slice iterator can be collected with a bulk copy,
@@ -648,6 +685,13 @@ For maximum, however, `u8` remains about 0.21 ms and `f64` remains about 8.8 ms.
 the entire native mixed-numeric group reproduced those results. `target-cpu=native`
 therefore is not a universal speed switch even for contiguous slices; LLVM selects
 different reduction strategies for different operations and element types.
+
+The M3 nightly experiment isolates a different variable: an explicit four-accumulator
+SIMD reduction with ordinary release ISA defaults. Its large `f32` and `f64` gains,
+alongside parity or small regressions for integers, show that the stable floating-point
+maximum shape was leaving reduction parallelism unavailable while the integer cases
+were not. This evidence is specific to finite maximum reduction and does not generalize
+to average or median.
 
 Memory traffic still cannot be removed from the explanation. A Rust `u8` column is
 10 MB and its `f64` column is 80 MB. A 128-bit vector also holds eight times as many
