@@ -1302,6 +1302,81 @@ impl<'a> Column<'a> {
     pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
         (0..self.len()).map(move |row| self.get(row).unwrap_or(ValueRef::Null))
     }
+
+    /// Calls `operation` for every cell after dispatching the column's storage
+    /// type and nullability once.
+    ///
+    /// Unlike [`Column::iter`], this avoids repeating the `ColumnStorage` and
+    /// `ColumnData` matches and bounds check for every cell. Values remain
+    /// dynamically represented as [`ValueRef`]; use [`Column::as_slice`] when
+    /// the fixed-width type is known and a fully typed loop is preferred.
+    pub fn for_each_value(self, mut operation: impl FnMut(ValueRef<'a>)) {
+        macro_rules! copied {
+            ($values:expr, $variant:ident) => {
+                match $values {
+                    ColumnData::Required(values) => {
+                        for value in values {
+                            operation(ValueRef::$variant(*value));
+                        }
+                    }
+                    ColumnData::Nullable(values) => {
+                        for value in values {
+                            operation(
+                                value
+                                    .as_ref()
+                                    .map_or(ValueRef::Null, |value| ValueRef::$variant(*value)),
+                            );
+                        }
+                    }
+                }
+            };
+        }
+
+        macro_rules! borrowed {
+            ($values:expr, $variant:ident, $borrow:expr) => {
+                match $values {
+                    ColumnData::Required(values) => {
+                        for value in values {
+                            operation(ValueRef::$variant($borrow(value)));
+                        }
+                    }
+                    ColumnData::Nullable(values) => {
+                        for value in values {
+                            operation(value.as_ref().map_or(ValueRef::Null, |value| {
+                                ValueRef::$variant($borrow(value))
+                            }));
+                        }
+                    }
+                }
+            };
+        }
+
+        match self.storage {
+            ColumnStorage::Null(len) => {
+                for _ in 0..*len {
+                    operation(ValueRef::Null);
+                }
+            }
+            ColumnStorage::Bool(values) => copied!(values, Bool),
+            ColumnStorage::I8(values) => copied!(values, I8),
+            ColumnStorage::I16(values) => copied!(values, I16),
+            ColumnStorage::I32(values) => copied!(values, I32),
+            ColumnStorage::I64(values) => copied!(values, I64),
+            ColumnStorage::U8(values) => copied!(values, U8),
+            ColumnStorage::U16(values) => copied!(values, U16),
+            ColumnStorage::U32(values) => copied!(values, U32),
+            ColumnStorage::U64(values) => copied!(values, U64),
+            ColumnStorage::F32(values) => copied!(values, F32),
+            ColumnStorage::F64(values) => copied!(values, F64),
+            ColumnStorage::String(values) => {
+                borrowed!(values, String, |value: &'a CompactString| value.as_str());
+            }
+            ColumnStorage::Bytes(values) => {
+                borrowed!(values, Bytes, |value: &'a [u8]| value);
+            }
+            ColumnStorage::Uuid(values) => copied!(values, Uuid),
+        }
+    }
 }
 
 /// A borrowing view over one table row.

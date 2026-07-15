@@ -112,7 +112,7 @@ slice. The supported element types are `bool`, the fixed-width integer and
 floating-point primitives, and `Uuid`:
 
 ```rust
-use gd::{ColumnSpec, DataType, Schema, Table, Value};
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
 
 let schema = Schema::new([ColumnSpec::new("requests", DataType::U64)]).unwrap();
 let mut table = Table::new(schema);
@@ -159,6 +159,23 @@ Keeping the returned type as `&[T]` makes the hot loop monomorphic and contiguou
 also lets LLVM eliminate bounds checks and auto-vectorize suitable integer reductions
 and element-wise transformations. For a table filter, retain row identity by using
 `enumerate` and collecting positions as above.
+
+When the column type is not known until runtime, `Column::for_each_value` retains a
+`ValueRef` callback but dispatches the column's storage type and nullability only once:
+
+```rust
+let column = table.column_named("requests").unwrap();
+let mut total = 0_u64;
+column.for_each_value(|value| {
+    if let ValueRef::U64(value) = value {
+        total = total.saturating_add(value);
+    }
+});
+```
+
+Use `iter` when iterator composition or early termination matters. Use
+`for_each_value` for a terminal dynamic scan, and `as_slice::<T>` when the caller knows
+the fixed-width type.
 
 ## Mutation
 

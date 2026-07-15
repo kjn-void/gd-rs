@@ -200,66 +200,80 @@ Central estimates:
 
 | Build 10,000,000 rows | C++ assertions off | C++ assertions on | Rust |
 |---|---:|---:|---:|
-| complete table | 329 ms | 335 ms | 223.49 ms |
+| complete table | 329 ms | 335 ms | 224.88 ms |
 
 Every bulk operation below scans exactly one named field over all 10,000,000 rows; no
 row combines multiple fields and no timing aggregates several operations. C++ values
 are means of three optimized repetitions. Rust values are Criterion means from ten
-flat samples. “Slice gain” is `ValueRef time / &[T] time`; “Slice vs C++ off” is
-`C++ time / &[T] time`, so a value above one means the Rust slice is faster. Minimum
-is still checked when validating the fixture, but is not timed separately because it
-has the same traversal and reduction shape as Maximum.
+flat samples. `ValueRef` uses `Column::iter` and repeats dynamic storage dispatch for
+each cell. “Dispatch once” uses `Column::for_each_value`, which selects storage and
+nullability once but still presents every cell to the callback as `ValueRef`. `&[T]`
+is the explicitly typed slice path. “Dispatch gain” is `ValueRef time / dispatch-once
+time`; “dispatch / slice” is the two Rust times divided, so ×1.00 is parity, above one
+means dispatch-once is slower, and below one means it is faster. The final two columns
+are `C++ assertions-off time / Rust time`, where a value above one favors Rust.
+Minimum is still checked when validating the fixture, but is not timed separately
+because it has the same traversal and reduction shape as Maximum.
 
 Average:
 
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
-|---|---:|---:|---:|---:|---:|---:|
-| `u8` | 8.316 ms | 11.695 ms | 13.313 ms | 0.178 ms | ×74.79 | ×46.71 |
-| `f64` | 8.231 ms | 11.680 ms | 13.598 ms | 7.038 ms | ×1.93 | ×1.17 |
-| `u16` | 8.248 ms | 11.391 ms | 13.385 ms | 0.702 ms | ×19.06 | ×11.74 |
-| `u64` | 10.940 ms | 11.407 ms | 13.395 ms | 0.954 ms | ×14.05 | ×11.47 |
-| `f32` | 8.244 ms | 11.733 ms | 13.620 ms | 6.882 ms | ×1.98 | ×1.20 |
-| `i32` | 8.251 ms | 11.426 ms | 13.362 ms | 0.700 ms | ×19.08 | ×11.78 |
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust dispatch once | Rust `&[T]` | Dispatch gain | Dispatch / slice | Dispatch vs C++ off | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `u8` | 8.316 ms | 11.695 ms | 13.351 ms | 0.178 ms | 0.179 ms | ×74.88 | ×1.00 | ×46.64 | ×46.54 |
+| `f64` | 8.231 ms | 11.680 ms | 13.392 ms | 6.488 ms | 6.929 ms | ×2.06 | ×0.94 | ×1.27 | ×1.19 |
+| `u16` | 8.248 ms | 11.391 ms | 13.373 ms | 0.704 ms | 0.703 ms | ×18.98 | ×1.00 | ×11.71 | ×11.74 |
+| `u64` | 10.940 ms | 11.407 ms | 13.402 ms | 0.954 ms | 0.958 ms | ×14.05 | ×1.00 | ×11.47 | ×11.42 |
+| `f32` | 8.244 ms | 11.733 ms | 13.396 ms | 6.712 ms | 6.773 ms | ×2.00 | ×0.99 | ×1.23 | ×1.22 |
+| `i32` | 8.251 ms | 11.426 ms | 13.389 ms | 0.701 ms | 0.701 ms | ×19.11 | ×1.00 | ×11.78 | ×11.77 |
 
 Maximum:
 
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
-|---|---:|---:|---:|---:|---:|---:|
-| `u8` | 8.261 ms | 12.032 ms | 13.345 ms | 0.102 ms | ×130.81 | ×80.97 |
-| `f64` | 8.220 ms | 11.706 ms | 13.582 ms | 5.358 ms | ×2.53 | ×1.53 |
-| `u16` | 8.256 ms | 12.065 ms | 13.370 ms | 0.215 ms | ×62.19 | ×38.40 |
-| `u64` | 8.242 ms | 13.597 ms | 13.462 ms | 1.414 ms | ×9.52 | ×5.83 |
-| `f32` | 8.242 ms | 11.670 ms | 13.575 ms | 5.405 ms | ×2.51 | ×1.52 |
-| `i32` | 8.385 ms | 11.702 ms | 16.108 ms | 0.464 ms | ×34.69 | ×18.06 |
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust dispatch once | Rust `&[T]` | Dispatch gain | Dispatch / slice | Dispatch vs C++ off | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `u8` | 8.261 ms | 12.032 ms | 13.510 ms | 0.098 ms | 0.098 ms | ×138.13 | ×1.00 | ×84.46 | ×84.53 |
+| `f64` | 8.220 ms | 11.706 ms | 13.530 ms | 5.383 ms | 5.380 ms | ×2.51 | ×1.00 | ×1.53 | ×1.53 |
+| `u16` | 8.256 ms | 12.065 ms | 13.522 ms | 0.206 ms | 0.207 ms | ×65.76 | ×1.00 | ×40.15 | ×39.96 |
+| `u64` | 8.242 ms | 13.597 ms | 13.620 ms | 1.439 ms | 1.460 ms | ×9.47 | ×0.99 | ×5.73 | ×5.64 |
+| `f32` | 8.242 ms | 11.670 ms | 13.470 ms | 5.411 ms | 5.417 ms | ×2.49 | ×1.00 | ×1.52 | ×1.52 |
+| `i32` | 8.385 ms | 11.702 ms | 13.528 ms | 0.468 ms | 0.491 ms | ×28.91 | ×0.95 | ×17.92 | ×17.08 |
 
 Median:
 
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
-|---|---:|---:|---:|---:|---:|---:|
-| `u8` | 40.224 ms | 44.783 ms | 22.859 ms | 9.570 ms | ×2.39 | ×4.20 |
-| `f64` | 13.981 ms | 21.321 ms | 26.141 ms | 13.719 ms | ×1.91 | ×1.02 |
-| `u16` | 43.220 ms | 46.828 ms | 23.147 ms | 10.318 ms | ×2.24 | ×4.19 |
-| `u64` | 14.073 ms | 21.014 ms | 25.192 ms | 12.862 ms | ×1.96 | ×1.09 |
-| `f32` | 13.957 ms | 17.891 ms | 25.073 ms | 12.103 ms | ×2.07 | ×1.15 |
-| `i32` | 12.478 ms | 16.442 ms | 22.947 ms | 9.804 ms | ×2.34 | ×1.27 |
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust dispatch once | Rust `&[T]` | Dispatch gain | Dispatch / slice | Dispatch vs C++ off | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `u8` | 40.224 ms | 44.783 ms | 22.785 ms | 14.753 ms | 9.574 ms | ×1.54 | ×1.54 | ×2.73 | ×4.20 |
+| `f64` | 13.981 ms | 21.321 ms | 25.599 ms | 18.108 ms | 13.406 ms | ×1.41 | ×1.35 | ×0.77 | ×1.04 |
+| `u16` | 43.220 ms | 46.828 ms | 23.105 ms | 15.130 ms | 10.040 ms | ×1.53 | ×1.51 | ×2.86 | ×4.30 |
+| `u64` | 14.073 ms | 21.014 ms | 24.924 ms | 16.866 ms | 12.743 ms | ×1.48 | ×1.32 | ×0.83 | ×1.10 |
+| `f32` | 13.957 ms | 17.891 ms | 24.713 ms | 17.052 ms | 11.748 ms | ×1.45 | ×1.45 | ×0.82 | ×1.19 |
+| `i32` | 12.478 ms | 16.442 ms | 22.699 ms | 14.559 ms | 9.755 ms | ×1.56 | ×1.49 | ×0.86 | ×1.28 |
 
 The C++ benchmark copies each cell into an aligned local value with fixed-size
 `memcpy`; this retains `cell_get` assertions in the assertions-on build while avoiding
 undefined behavior from dereferencing the `f64` field at offset 4. This is
 source-level defined behavior, not sanitizer instrumentation.
 
-Rust `ValueRef` performs runtime storage dispatch and dynamic tag reconstruction for
-every cell. `Column::as_slice::<T>` performs the type/nullability check once and gives
-the loop a monomorphic contiguous slice. The integer average/minimum/maximum results
-are consistent with LLVM auto-vectorizing the slice reductions and with scanning only
-the selected column's bytes. Floating-point reductions improve less because strict
-floating addition is order-dependent and native finite min/max still require scalar
-comparison semantics. The float fixture contains no NaNs; both languages use ordinary
-finite comparisons in these bulk cases. Table ordering continues to use `total_cmp`.
+Rust `ValueRef` iteration performs runtime storage dispatch, bounds checking, and
+dynamic tag reconstruction for every cell. `Column::for_each_value` hoists storage and
+nullability dispatch out of the loop while retaining a `ValueRef` callback. For simple
+averages and extrema it is at parity with the typed slice in almost every case; this is
+consistent with LLVM inlining the callback, eliminating the known `ValueRef` variant,
+and vectorizing the resulting direct slice loop. `Column::as_slice::<T>` remains the
+explicit way to guarantee a monomorphic contiguous input.
 
-Median copies one typed scratch vector and partitions it with `std::nth_element` or
-`select_nth_unstable`. Typed access still removes source gathering overhead, but the
-branch-heavy selection phase limits the gain compared with simple integer reductions.
+The Maximum paths use the same explicit accumulator loop for all three Rust APIs. An
+earlier typed-`f32` measurement used `Iterator::reduce` instead and took about twice as
+long; repeating it confirmed the number, but aligning the reduction shape restored
+typed-slice and dispatch-once parity (5.417 and 5.411 ms). That discrepancy was compiler
+code generation for different loop forms, not slice-access overhead. The float fixture
+contains no NaNs; both languages use ordinary finite comparisons in these bulk cases.
+Table ordering continues to use `total_cmp`.
+
+Median copies one scratch vector and partitions it with `std::nth_element` or
+`select_nth_unstable`. Dispatch-once improves the old `ValueRef` path by ×1.41–×1.56,
+but remains ×1.32–×1.54 slower than the typed path. A typed slice iterator can be
+collected with a bulk copy, whereas the callback writes one reconstructed value at a
+time; the branch-heavy selection phase then dominates both paths.
 
 Row-bearing capacity accounting is:
 
@@ -281,9 +295,9 @@ byte offset   00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
 byte offset   16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
               ├────────── u64 ──────────┤├── f32 ──┤├── i32 ──┤
 
-payload: 1 + 8 + 2 + 8 + 4 + 4 = 27 bytes
-padding: 3 after u8 + 2 after u16 = 5 bytes
-physical row:                         32 bytes
+payload: 1 + 8 + 2 + 8 + 4 + 4    = 27 bytes
+padding: 3 after u8 + 2 after u16 =  5 bytes
+physical row:                       32 bytes
 ```
 
 The `f64` begins at offset 4, which satisfies GD's four-byte rule but not C++'s
@@ -299,7 +313,7 @@ contribution obtained by adding one same-index element from each separate vector
 ```text
 Rust Table: separate allocations (not adjacent in RAM)
 
-Vec<u8>       [u8₀ ][u8₁ ][u8₂ ]...     1 byte  × 10M =  10 MB
+Vec<u8>       [u8₀ ][u8₁ ][u8₂ ]...      1 byte  × 10M =  10 MB
 Vec<f64>      [ f64₀ ][ f64₁ ]...        8 bytes × 10M =  80 MB
 Vec<u16>      [u16₀][u16₁][u16₂]...      2 bytes × 10M =  20 MB
 Vec<u64>      [ u64₀ ][ u64₁ ]...        8 bytes × 10M =  80 MB
@@ -322,7 +336,7 @@ is eight bytes on this target, so an open ten-million-row table reserves another
 80,000,000 bytes even when every slot is `None`:
 
 ```text
-closed schema: 27 typed bytes                         = 27 bytes/row = 270 MB
+closed schema: 27 typed bytes                        = 27 bytes/row = 270 MB
 open schema:   27 typed bytes + 8-byte sidecar slot  = 35 bytes/row = 350 MB
 ```
 

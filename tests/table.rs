@@ -454,6 +454,25 @@ fn required_fixed_width_columns_expose_typed_slices() {
 }
 
 #[test]
+fn dispatch_once_visitation_matches_column_iteration() {
+    let mut table = Table::new(people_schema());
+    table
+        .push_row([Value::U64(7), Value::from("Ada"), Value::I32(42)])
+        .unwrap();
+    table
+        .push_row([Value::U64(8), Value::from("Grace"), Value::Null])
+        .unwrap();
+
+    for column in 0..table.column_count() {
+        let column = table.column(column).unwrap();
+        let expected = column.iter().collect::<Vec<_>>();
+        let mut visited = Vec::new();
+        column.for_each_value(|value| visited.push(value));
+        assert_eq!(visited, expected);
+    }
+}
+
+#[test]
 fn typed_slices_use_standard_map_filter_and_fold_operations() {
     let schema = Schema::new([ColumnSpec::new("count", DataType::I64)]).unwrap();
     let mut table = Table::new(schema);

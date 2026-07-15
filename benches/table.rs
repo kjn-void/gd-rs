@@ -399,7 +399,17 @@ fn median<T>(
 where
     T: Copy,
 {
-    let mut values: Vec<_> = values.collect();
+    median_vec(values.collect(), compare, convert)
+}
+
+fn median_vec<T>(
+    mut values: Vec<T>,
+    compare: impl Fn(&T, &T) -> Ordering + Copy,
+    convert: impl Fn(T) -> f64,
+) -> f64
+where
+    T: Copy,
+{
     let middle = values.len() / 2;
     let (lower, upper_middle, _) = values.select_nth_unstable_by(middle, compare);
     let lower_middle = *lower
@@ -407,15 +417,6 @@ where
         .max_by(|left, right| compare(left, right))
         .unwrap();
     f64::midpoint(convert(lower_middle), convert(*upper_middle))
-}
-
-fn maximum_float<T>(values: impl Iterator<Item = T>) -> T
-where
-    T: Copy + PartialOrd,
-{
-    values
-        .reduce(|maximum, value| if value > maximum { value } else { maximum })
-        .unwrap()
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // Slice selection requires a reference comparator.
@@ -433,10 +434,14 @@ fn benchmark_column_paths<Result>(
     field: &str,
     table: &Table,
     value_ref: impl Fn(&Table) -> Result,
+    dispatch_once: impl Fn(&Table) -> Result,
     typed_slice: impl Fn(&Table) -> Result,
 ) {
     group.bench_function(BenchmarkId::new("ValueRef", field), |bencher| {
         bencher.iter(|| black_box(value_ref(black_box(table))));
+    });
+    group.bench_function(BenchmarkId::new("DispatchOnce", field), |bencher| {
+        bencher.iter(|| black_box(dispatch_once(black_box(table))));
     });
     group.bench_function(BenchmarkId::new("TypedSlice", field), |bencher| {
         bencher.iter(|| black_box(typed_slice(black_box(table))));
@@ -483,6 +488,16 @@ macro_rules! benchmark_average_unsigned {
             $field,
             $table,
             |table| average_unsigned(value_ref_values!(table, $column, $variant)),
+            |table| {
+                let column = table.column($column).unwrap();
+                let count = column.len();
+                let mut sum = 0_u64;
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => sum += u64::from(value),
+                    _ => unreachable!(),
+                });
+                sum as f64 / count as f64
+            },
             |table| average_unsigned(typed_values!(table, $column, $type)),
         );
     };
@@ -495,6 +510,16 @@ macro_rules! benchmark_average_signed {
             $field,
             $table,
             |table| average_signed(value_ref_values!(table, $column, $variant)),
+            |table| {
+                let column = table.column($column).unwrap();
+                let count = column.len();
+                let mut sum = 0_i64;
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => sum += i64::from(value),
+                    _ => unreachable!(),
+                });
+                sum as f64 / count as f64
+            },
             |table| average_signed(typed_values!(table, $column, $type)),
         );
     };
@@ -507,6 +532,16 @@ macro_rules! benchmark_average_float {
             $field,
             $table,
             |table| average_float(value_ref_values!(table, $column, $variant), $convert),
+            |table| {
+                let column = table.column($column).unwrap();
+                let count = column.len();
+                let mut sum = 0.0_f64;
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => sum += ($convert)(value),
+                    _ => unreachable!(),
+                });
+                sum / count as f64
+            },
             |table| average_float(typed_values!(table, $column, $type), $convert),
         );
     };
@@ -519,23 +554,65 @@ macro_rules! benchmark_ordered_extreme {
             $field,
             $table,
             |table| {
-                value_ref_values!(table, $column, $variant)
-                    .$method()
-                    .unwrap()
+                let mut extreme = <$type>::MIN;
+                for value in value_ref_values!(table, $column, $variant) {
+                    extreme = extreme.$method(value);
+                }
+                extreme
             },
-            |table| typed_values!(table, $column, $type).$method().unwrap(),
+            |table| {
+                let column = table.column($column).unwrap();
+                let mut extreme = <$type>::MIN;
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => {
+                        extreme = extreme.$method(value);
+                    }
+                    _ => unreachable!(),
+                });
+                extreme
+            },
+            |table| {
+                let mut extreme = <$type>::MIN;
+                for value in typed_values!(table, $column, $type) {
+                    extreme = extreme.$method(value);
+                }
+                extreme
+            },
         );
     };
 }
 
 macro_rules! benchmark_float_extreme {
-    ($group:expr, $table:expr, $field:literal, $column:expr, $type:ty, $variant:ident, $operation:path) => {
+    ($group:expr, $table:expr, $field:literal, $column:expr, $type:ty, $variant:ident) => {
         benchmark_column_paths(
             $group,
             $field,
             $table,
-            |table| $operation(value_ref_values!(table, $column, $variant)),
-            |table| $operation(typed_values!(table, $column, $type)),
+            |table| {
+                let mut extreme = <$type>::NEG_INFINITY;
+                for value in value_ref_values!(table, $column, $variant) {
+                    extreme = if value > extreme { value } else { extreme };
+                }
+                extreme
+            },
+            |table| {
+                let column = table.column($column).unwrap();
+                let mut extreme = <$type>::NEG_INFINITY;
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => {
+                        extreme = if value > extreme { value } else { extreme };
+                    }
+                    _ => unreachable!(),
+                });
+                extreme
+            },
+            |table| {
+                let mut extreme = <$type>::NEG_INFINITY;
+                for value in typed_values!(table, $column, $type) {
+                    extreme = if value > extreme { value } else { extreme };
+                }
+                extreme
+            },
         );
     };
 }
@@ -552,6 +629,15 @@ macro_rules! benchmark_median {
                     $compare,
                     $convert,
                 )
+            },
+            |table| {
+                let column = table.column($column).unwrap();
+                let mut values = Vec::<$type>::with_capacity(column.len());
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => values.push(value),
+                    _ => unreachable!(),
+                });
+                median_vec(values, $compare, $convert)
             },
             |table| median(typed_values!(table, $column, $type), $compare, $convert),
         );
@@ -800,10 +886,10 @@ fn mixed_numeric_statistics(criterion: &mut Criterion) {
         let mut group = criterion.benchmark_group("Table/MixedNumeric/10000000/Maximum");
         configure_bulk_group(&mut group);
         benchmark_ordered_extreme!(&mut group, &table, "u8", 0, u8, U8, max);
-        benchmark_float_extreme!(&mut group, &table, "f64", 1, f64, F64, maximum_float);
+        benchmark_float_extreme!(&mut group, &table, "f64", 1, f64, F64);
         benchmark_ordered_extreme!(&mut group, &table, "u16", 2, u16, U16, max);
         benchmark_ordered_extreme!(&mut group, &table, "u64", 3, u64, U64, max);
-        benchmark_float_extreme!(&mut group, &table, "f32", 4, f32, F32, maximum_float);
+        benchmark_float_extreme!(&mut group, &table, "f32", 4, f32, F32);
         benchmark_ordered_extreme!(&mut group, &table, "i32", 5, i32, I32, max);
         group.finish();
     }

@@ -109,6 +109,13 @@ contiguous slice, which is the form most suitable for bounds-check elimination a
 auto-vectorization. Filtering preserves table correspondence by collecting row
 positions; callers that only need values can use ordinary `filter` directly.
 
+For code that does not know the column type until runtime, `Column::for_each_value`
+matches storage type and nullability once, then calls a `ValueRef` closure for every
+cell. This avoids the repeated storage dispatch and bounds check in `Column::iter`
+without fragmenting the dynamic value API. It is a terminal operation; use `iter` for
+composable or short-circuiting traversal, and `as_slice::<T>` for an explicitly typed
+loop.
+
 ## Views and indexes
 
 A dynamic column scan yields `ValueRef`; a required fixed-width scan can instead walk
