@@ -1,10 +1,10 @@
-# Benchmark methodology and initial results
+# Benchmark methodology and results
 
-The C++ baseline uses Google Benchmark from the pinned CMake release preset. Rust uses
-Criterion with the release profile. Results below were produced on the same Apple
-Silicon host on 2026-07-13; the open-schema measurements were refreshed on
-2026-07-14 and the mixed-numeric table measurements were added on 2026-07-15.
-They are snapshots, not cross-machine thresholds.
+The C++ reference uses Google Benchmark and the pinned CMake release presets. Rust uses
+Criterion and Cargo's release profile. Results below were produced on the same Apple
+Silicon host on 2026-07-13; the open-schema measurements were refreshed on 2026-07-14,
+and the mixed-numeric table measurements were added on 2026-07-15. These are local
+snapshots, not thresholds that can be compared across machines.
 
 Commands:
 
@@ -16,6 +16,16 @@ cmake --build --preset release
 
 cd ../..
 cargo bench
+```
+
+The mixed-numeric C++ workload also has an optimized assertions-on build:
+
+```sh
+cd benches/cpp-reference
+cmake --preset release-asserts
+cmake --build --preset release-asserts
+../../target/cpp-reference/release-asserts/gd_cpp_reference_benchmarks \
+  --benchmark_filter=MixedNumeric
 ```
 
 The open-schema subset can be reproduced directly with:
@@ -32,13 +42,15 @@ cd ../..
 cargo bench --bench table -- OpenSchema
 ```
 
-Both harnesses use optimized builds, warm-up, repeated sampling, and black-box barriers.
-Small sub-nanosecond view benchmarks mostly confirm that no allocation or payload copy
-occurs; differences at that scale should not be interpreted as application throughput.
+Both harnesses use optimized builds, adaptive measurement, repeated sampling, and
+black-box barriers. Small sub-nanosecond view benchmarks mostly confirm that no
+allocation or payload copy occurs; differences at that scale should not be interpreted
+as application throughput.
 
-Every `Rust/C++` column is a speed factor calculated as **C++ elapsed time divided by
-Rust elapsed time**. Therefore **×1.20 means Rust is 1.20 times faster**, ×1.00 is a
-tie, and ×0.80 means Rust is 0.80 times as fast as C++.
+Every `Rust/C++` column reports **C++ elapsed time divided by Rust elapsed time**.
+Therefore **×1.20 means Rust is 1.20 times faster**, ×1.00 is parity, and ×0.80 means
+Rust is 0.80 times as fast as C++ for that fixture.
+`n/a` means that no equivalent checked-in API or measurement exists.
 
 Rust timings use Criterion's reported point estimates. C++ timings use Google
 Benchmark's CPU estimate; each matched pair was run sequentially to avoid contention.
@@ -58,7 +70,7 @@ Central point estimates in nanoseconds:
 | construct 512-byte string | 27.2 | 26.7 | ×1.02 |
 | construct 4 KiB string | 62.9 | 58.7 | ×1.07 |
 | construct 32 KiB string | 652 | 360 | ×1.81 |
-| borrow string | 0.31 | about 0.89 | about ×0.35 |
+| borrow string view, all tested sizes | 0.31 | about 0.89 | about ×0.35 |
 
 The 8-byte result reflects inline `CompactString` storage. At 64 bytes and above both
 implementations allocate. The 32 KiB measurement has allocator variance and must be
@@ -67,17 +79,17 @@ repeated when comparing changes.
 ## URI-shaped arguments
 
 Benchmark sources: [Rust `uri`](../../benches/arguments.rs#L90-L150) ·
-[C++ URI reads and companion construction](../../benches/cpp-reference/arguments_benchmark.cpp#L77-L130)
-(the C++ side has no hash-name-index equivalent)
+[C++ URI reads and companion construction](../../benches/cpp-reference/arguments_benchmark.cpp#L77-L130).
+The C++ side has no hash-name-index equivalent.
 
 The fixture contains eleven named string, integer, and Boolean fields.
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| read all fields by linear name lookup | 186 ns | 122 ns | ×1.52 |
-| read all fields positionally | 46 ns | 22.4 ns | ×2.06 |
-| read all fields through hash name index | n/a | 88.4 ns | n/a |
-| build companion/index structure | 47 ns | 140 ns | ×0.34 |
+| read by name using a linear scan | 186 ns | 122 ns | ×1.52 |
+| read positionally: C++ companion / Rust direct iteration | 46 ns | 22.4 ns | ×2.06 |
+| read by name using Rust's `AHashMap` index | n/a | 88.4 ns | n/a |
+| build C++ positional companion / Rust name index | 47 ns | 140 ns | ×0.34 |
 
 The C++ companion structure accelerates positional access but still scans its slots for
 name lookup. Rust already has direct positional vector access; its optional structure is
@@ -109,22 +121,26 @@ For a 100,000-row `i64` scan:
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| resolve column once, scan by position/view | 212 µs | 106 µs | ×1.99 |
-| resolve name for every cell | 882 µs | 719 µs | ×1.23 |
+| C++ cell view by column index / Rust pre-resolved `Column::iter` | 212 µs | 106 µs | ×1.99 |
+| resolve the column name for every cell | 882 µs | 719 µs | ×1.23 |
 
-The typed Rust column scan does less decoding and has contiguous values. Allocation
-counts and retained bytes are still required before drawing a memory conclusion.
+The Rust column-view scan resolves the column once and traverses its contiguous
+column-major storage, but still yields `ValueRef`; it is not the typed-slice API used
+later in the mixed-numeric benchmark. Allocation counts and retained bytes are still
+required before drawing a memory conclusion.
 
 ### Open schemas
 
 Benchmark sources: [Rust open-schema benchmarks](../../benches/table.rs#L763-L850) ·
-[C++ open-schema benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L354-L424)
-(the C++ side has no atomic validated-build equivalent)
+[C++ open-schema benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L354-L424).
+The C++ side has no equivalent to Rust's validated atomic row build.
 
 The small fixture reserves its rows with one fixed `u64` column and stores two short
 extra strings per row. “Late” adds each field through the ordinary named setter;
-“atomic” supplies both extras to `push_row_with_extras`. The C++ comparison has no
-single-call equivalent to the atomic Rust operation.
+“atomic” supplies the fixed row and both extras to `push_row_with_extras` as one
+all-or-nothing validation and insertion operation. Here, atomic describes failure
+semantics, not thread synchronization. The C++ comparison has no single-call
+equivalent.
 
 Construction point estimates:
 
@@ -144,11 +160,10 @@ Lookup reads both extras by name on every row:
 | 100,000 | 2.01 ms | 1.81 ms | ×1.11 |
 
 The Rust sidecar keeps up to four fields in a compact linear representation, with the
-first two entries inline. It promotes to an `AHashMap` on the fifth unique name. The
-promotion threshold was selected from a container crossover measurement: at four
-entries linear lookup measured about 11.5 ns versus 6.0 ns for hashing, while compact
-construction was still substantially cheaper. The two-field fast path therefore does
-not allocate a hash table.
+first two entries inline, and promotes to an `AHashMap` on the fifth unique name. The
+small fixture above exercises the two-field inline path; the wide fixture below
+exercises the hashed path. The checked-in suite does not separately measure the
+four-to-five-field crossover.
 
 The wide fixture stresses the promoted representation with **1,000 rows × 1,000
 extra `u64` fields**, or one million extras. Both implementations reserve all rows and
@@ -157,15 +172,15 @@ prepare the 1,000 field names before timing.
 | Wide open-schema workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
 | build through replacement-capable named setters | 1.168 s | 32.90 ms | ×35.50 |
-| Rust atomic validated build | no exact API | 20.15 ms | n/a |
-| C++ append-only build / Rust atomic build | 8.90 ms | 20.15 ms | ×0.44 |
+| validated atomic row build (Rust only) | no exact API | 20.15 ms | n/a |
+| C++ append-only / Rust validated atomic (different contracts) | 8.90 ms | 20.15 ms | ×0.44 |
 | look up all one million fields by name | 1.160 s | 23.59 ms | ×49.16 |
 
 The replacement-capable C++ setter searches the row's packed argument buffer before
-every insertion, making this construction shape quadratic in fields per row. Its
-named lookup is also linear: a separate position probe measured approximately 16 ns
-for the first field, 1.17 µs for the middle field, and 2.32 µs for the last. Rust
-lookups remained approximately 19 ns at every position after promotion.
+every insertion, making this construction shape quadratic in fields per row. Named
+C++ lookup also scans the packed row, while promoted Rust lookup uses an `AHashMap` with
+expected constant-time access. The one-million-lookup row measures those complete
+lookup paths rather than isolated first, middle, and last positions.
 
 `cell_add_argument` explains the fast C++ append-only result: it assumes the name is
 new, skips replacement lookup, permits duplicates, and appends directly to the packed
@@ -173,12 +188,13 @@ buffer. Rust's atomic API still rejects fixed-schema conflicts and gives repeate
 extra names last-value-wins semantics, so that row is useful as an upper-bound
 comparison rather than an equivalent contract.
 
-Peak process RSS while constructing one wide table was approximately 33.3 MiB for C++
-and 111.6 MiB for Rust. This is a process-level peak rather than retained-allocation
-accounting, but it exposes the expected trade-off: the C++ packed buffer is much more
+A separate, non-harness observation of peak process RSS while constructing one wide
+table was approximately 33.3 MiB for C++ and 111.6 MiB for Rust. This is process-level
+peak RSS, not retained-allocation accounting or a Criterion/Google Benchmark result.
+It nevertheless illustrates the expected trade-off: the C++ packed buffer is more
 compact, while Rust spends hash-table capacity to make large-row lookup and replacement
 expected constant time. A thousand row-local extras should still be treated as an
-exceptional shape; fields that are common across rows belong in typed schema columns.
+exceptional shape; fields common across rows belong in typed schema columns.
 
 ### Ten-million-row mixed-numeric sheet
 
@@ -186,10 +202,11 @@ Benchmark sources: [Rust `mixed_numeric_statistics`](../../benches/table.rs#L853
 [C++ mixed-numeric benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L426-L503)
 
 This fixture models a large spreadsheet with 10,000,000 rows and six fixed columns:
-`u8`, `f64`, `u16`, `u64`, `f32`, and `i32`, in that order. Construction allocates the complete table
-and inserts every row. The statistics workload excludes construction and calculates
-average, minimum, maximum, and median for every column. For the even row count, median
-is the mean of the two central values, matching spreadsheet `MEDIAN` behavior.
+`u8`, `f64`, `u16`, `u64`, `f32`, and `i32`, in that order. Construction allocates the
+complete table and inserts every row. Validation calculates average, minimum, maximum,
+and median for every column. The timed statistics are average, maximum, and median;
+minimum is validated but not timed separately. For the even row count, median is the
+mean of the two central values, matching spreadsheet `MEDIAN` behavior.
 
 Rows use the deterministic permutation `p = (row × 48271) mod 10000000`, so median
 selection does not receive pre-sorted input. The six values are `p mod 251`,
@@ -221,22 +238,19 @@ Central estimates:
 |---|---:|---:|---:|
 | complete table | 329 ms | 335 ms | 224.88 ms |
 
-Every bulk operation below scans exactly one named field over all 10,000,000 rows; no
-row combines multiple fields and no timing aggregates several operations. C++ values
-are means of three optimized repetitions. Rust values are Criterion means from ten
-flat samples. `ValueRef` uses `Column::iter` and repeats dynamic storage dispatch for
-each cell. “Dispatch once” uses `Column::for_each_value`, which selects storage and
-nullability once but still presents every cell to the callback as `ValueRef`. `&[T]`
-is the explicitly typed slice path. “Dispatch gain” is `ValueRef time / dispatch-once
-time`; “dispatch / slice” is the two Rust times divided, so ×1.00 is parity, above one
-means dispatch-once is slower, and below one means it is faster. The final two columns
-are `C++ assertions-off time / Rust time`, where a value above one favors Rust.
-Minimum is still checked when validating the fixture, but is not timed separately
-because it has the same traversal and reduction shape as Maximum.
+Every bulk operation below scans exactly one column over all 10,000,000 rows; no timing
+combines multiple columns or aggregates several operations. C++ values are means of
+three optimized repetitions. Rust values are Criterion means from ten
+flat samples. The three Rust paths are `Column::iter` (shown as `iter`),
+`Column::for_each_value` (shown as `for_each_value`), and `Column::as_slice::<T>` (shown
+as `&[T]`). `iter` repeats storage dispatch for every cell. `for_each_value` selects
+storage and nullability once, then presents each value to its callback as `ValueRef`.
+The ratio headers state their formulas directly; values above ×1.00 favor the
+denominator.
 
-Average:
+#### Average
 
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust dispatch once | Rust `&[T]` | Dispatch gain | Dispatch / slice | Dispatch vs C++ off | Slice vs C++ off |
+| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `u8` | 8.316 ms | 11.695 ms | 13.351 ms | 0.178 ms | 0.179 ms | ×74.88 | ×1.00 | ×46.64 | ×46.54 |
 | `f64` | 8.231 ms | 11.680 ms | 13.392 ms | 6.488 ms | 6.929 ms | ×2.06 | ×0.94 | ×1.27 | ×1.19 |
@@ -245,9 +259,9 @@ Average:
 | `f32` | 8.244 ms | 11.733 ms | 13.396 ms | 6.712 ms | 6.773 ms | ×2.00 | ×0.99 | ×1.23 | ×1.22 |
 | `i32` | 8.251 ms | 11.426 ms | 13.389 ms | 0.701 ms | 0.701 ms | ×19.11 | ×1.00 | ×11.78 | ×11.77 |
 
-Maximum:
+#### Maximum
 
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust dispatch once | Rust `&[T]` | Dispatch gain | Dispatch / slice | Dispatch vs C++ off | Slice vs C++ off |
+| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `u8` | 8.261 ms | 12.032 ms | 13.510 ms | 0.098 ms | 0.098 ms | ×138.13 | ×1.00 | ×84.46 | ×84.53 |
 | `f64` | 8.220 ms | 11.706 ms | 13.530 ms | 5.383 ms | 5.380 ms | ×2.51 | ×1.00 | ×1.53 | ×1.53 |
@@ -256,9 +270,9 @@ Maximum:
 | `f32` | 8.242 ms | 11.670 ms | 13.470 ms | 5.411 ms | 5.417 ms | ×2.49 | ×1.00 | ×1.52 | ×1.52 |
 | `i32` | 8.385 ms | 11.702 ms | 13.528 ms | 0.468 ms | 0.491 ms | ×28.91 | ×0.95 | ×17.92 | ×17.08 |
 
-Median:
+#### Median
 
-| Field | C++ off | C++ on | Rust `ValueRef` | Rust dispatch once | Rust `&[T]` | Dispatch gain | Dispatch / slice | Dispatch vs C++ off | Slice vs C++ off |
+| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | `u8` | 40.224 ms | 44.783 ms | 22.785 ms | 14.753 ms | 9.574 ms | ×1.54 | ×1.54 | ×2.73 | ×4.20 |
 | `f64` | 13.981 ms | 21.321 ms | 25.599 ms | 18.108 ms | 13.406 ms | ×1.41 | ×1.35 | ×0.77 | ×1.04 |
@@ -272,38 +286,40 @@ The C++ benchmark copies each cell into an aligned local value with fixed-size
 undefined behavior from dereferencing the `f64` field at offset 4. This is
 source-level defined behavior, not sanitizer instrumentation.
 
-Rust `ValueRef` iteration performs runtime storage dispatch, bounds checking, and
-dynamic tag reconstruction for every cell. `Column::for_each_value` hoists storage and
-nullability dispatch out of the loop while retaining a `ValueRef` callback. For simple
-averages and extrema it is at parity with the typed slice in almost every case; this is
-consistent with LLVM inlining the callback, eliminating the known `ValueRef` variant,
-and vectorizing the resulting direct slice loop. `Column::as_slice::<T>` remains the
-explicit way to guarantee a monomorphic contiguous input.
+`Column::iter` performs runtime storage dispatch, bounds checking, and dynamic tag
+reconstruction for every cell. `Column::for_each_value` hoists storage and nullability
+dispatch out of the loop while retaining a `ValueRef` callback. For simple averages
+and maxima it is close to the typed slice in almost every case. This is consistent with
+LLVM inlining the callback and eliminating the known `ValueRef` variant; the timings
+alone do not prove which loops were auto-vectorized. `Column::as_slice::<T>` remains
+the explicit way to guarantee a monomorphic contiguous input.
 
-The Maximum paths use the same explicit accumulator loop for all three Rust APIs. An
-earlier typed-`f32` measurement used `Iterator::reduce` instead and took about twice as
-long; repeating it confirmed the number, but aligning the reduction shape restored
-typed-slice and dispatch-once parity (5.417 and 5.411 ms). That discrepancy was compiler
-code generation for different loop forms, not slice-access overhead. The float fixture
+The Maximum paths use the same explicit accumulator loop for all three Rust APIs so the
+access mechanisms are compared with the same reduction shape. The float fixture
 contains no NaNs; both languages use ordinary finite comparisons in these bulk cases.
-Table ordering continues to use `total_cmp`.
+Table ordering elsewhere continues to use `total_cmp`.
 
 Median copies one scratch vector and partitions it with `std::nth_element` or
-`select_nth_unstable`. Dispatch-once improves the old `ValueRef` path by ×1.41–×1.56,
-but remains ×1.32–×1.54 slower than the typed path. A typed slice iterator can be
-collected with a bulk copy, whereas the callback writes one reconstructed value at a
-time; the branch-heavy selection phase then dominates both paths.
+`select_nth_unstable`. `for_each_value` is ×1.41–×1.56 faster than `iter`, but remains
+×1.32–×1.54 slower than the `&[T]` path. A typed slice iterator can be collected with a
+bulk copy, whereas the callback writes one reconstructed value at a time; the
+branch-heavy selection phase then dominates both paths.
 
-Row-bearing capacity accounting is:
+#### Row-storage accounting
 
-| Implementation | Row model | Bytes per row | Table bytes | MiB | Relative to C++ |
+This is capacity accounting, not RSS:
+
+| Implementation | Row model | Bytes per row | Row-storage bytes | MiB | Relative bytes |
 |---|---|---:|---:|---:|---:|
 | C++ | physical fixed-stride row | 32 | 320,000,000 | 305.18 | ×1.00 |
 | Rust | virtual sum across typed vectors | 27 | 270,000,000 | 257.49 | ×0.84 |
 
-These figures exclude allocator bookkeeping and the small fixed table/schema objects.
-The C++ figure comes from `size_reserved_total()`. GD aligns the start of every field
-to four bytes, not to that field's natural alignment. Its physical 32-byte row is:
+These figures cover row-bearing payload capacity and exclude allocator bookkeeping and
+the small fixed table/schema objects. The C++ fixture checks `size_reserved_total()`.
+The Rust figure is the requested row capacity multiplied by the sum of the six element
+widths; it is logical payload accounting, not allocator-reported usable size. GD aligns
+the start of every field to four bytes, not to that field's natural alignment. Its
+physical 32-byte row is:
 
 ```text
 C++ table_column_buffer: one physical row, repeated 10,000,000 times
@@ -328,6 +344,9 @@ Rust has no physical row object. Each required column is an independent `Vec<T>`
 allocation starts suitably aligned for `T`; adjacent elements have exactly
 `size_of::<T>()` stride. “27 bytes per row” is therefore a virtual or amortized row
 contribution obtained by adding one same-index element from each separate vector:
+
+The `MB` labels in the diagram are decimal millions of bytes; the table above also
+shows the binary MiB equivalents.
 
 ```text
 Rust Table: separate allocations (not adjacent in RAM)
@@ -368,7 +387,7 @@ of live scratch space in either implementation; that scratch is not part of the 
 figures. A validity bitmap would be a more compact future representation for nullable
 primitive columns.
 
-`Column::as_slice::<T>` now exposes dense required columns without exposing the storage
+`Column::as_slice::<T>` exposes dense required columns without exposing the storage
 enum itself. Borrowing ties the slice lifetime to the table and prevents mutation while
 it is in use. Nullable columns deliberately reject this API until they have an explicit
 typed nullable view; callers can continue using `ValueRef` iteration for them.
@@ -399,8 +418,8 @@ Benchmark sources: [Rust binary benchmarks](../../benches/binary.rs#L8-L61) ·
 [C++ binary benchmarks](../../benches/cpp-reference/binary_benchmark.cpp#L11-L81)
 
 The hex fixture converts byte arrays to lowercase text and back. The endian fixture
-writes or reads 4,096 `u64` values in big-endian order. The search fixture looks for a
-16-byte sequence near the end of a 64 KiB buffer.
+writes or reads 4,096 `u64` values in big-endian order. The search fixture looks for the
+six-byte string `needle`, appended after a 64 KiB buffer.
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -426,7 +445,8 @@ character, URI punctuation, and a newline. The JSON workload produces a complete
 quoted string literal in both languages. The URI decoder writes/returns validated
 UTF-8; Rust additionally checks every percent triple before decoding.
 
-Central estimates for 64 KiB of input:
+Central estimates for a 64 KiB source fixture (the percent-encoded decoder input is
+larger than the source):
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -498,18 +518,17 @@ crate's declared Rust 1.86 minimum. Both use the same in-memory table with colum
 the timed region. Timing includes statement preparation, row stepping, SQLite storage-
 class validation, owned text copies, and materialization into typed column vectors.
 
-The existing C++ SQLite record wrapper is not a valid comparison target: its copy and
-move ownership, record-buffer deletion, binding lifetimes, alignment, and `BLOB`
-classification have confirmed defects. Because product files below `../gd/source`
-must remain unchanged, the Google Benchmark fixture uses the SQLite C API and a small
-typed structure-of-arrays adapter. Rust measures `query_table_with_schema`, including
-construction of its `Schema`, null metadata, and `ahash` column-name index. The two
-adapters therefore implement the same observable row result, but do not have identical
-metadata overhead.
+The existing C++ SQLite record wrapper is not a valid comparison target because of the
+[documented ownership, lifetime, alignment, deletion, and `BLOB` classification defects](../port/cpp-gd-issues.md#sqlite-connection-copies-can-double-close-the-same-handle).
+The Google Benchmark fixture therefore uses the SQLite C API and a small typed
+structure-of-arrays adapter rather than modifying C++ product code. Rust measures
+`query_table_with_schema`, including construction of its `Schema`, null metadata, and
+`ahash` column-name index. The two adapters produce the same observable rows but do not
+have identical metadata overhead.
 
 Central estimates:
 
-| Rows | C++ median | Rust median | Rust/C++ |
+| Rows | C++ median time | Rust point estimate | Rust/C++ |
 |---:|---:|---:|---:|
 | 100 | 12.72 µs | 12.60 µs | ×1.01 |
 | 1,000 | 118.97 µs | 109.77 µs | ×1.08 |

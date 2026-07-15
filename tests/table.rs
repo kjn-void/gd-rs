@@ -454,7 +454,7 @@ fn required_fixed_width_columns_expose_typed_slices() {
 }
 
 #[test]
-fn dispatch_once_visitation_matches_column_iteration() {
+fn for_each_value_matches_column_iteration() {
     let mut table = Table::new(people_schema());
     table
         .push_row([Value::U64(7), Value::from("Ada"), Value::I32(42)])

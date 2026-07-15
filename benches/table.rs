@@ -434,14 +434,14 @@ fn benchmark_column_paths<Result>(
     field: &str,
     table: &Table,
     value_ref: impl Fn(&Table) -> Result,
-    dispatch_once: impl Fn(&Table) -> Result,
+    for_each_value: impl Fn(&Table) -> Result,
     typed_slice: impl Fn(&Table) -> Result,
 ) {
     group.bench_function(BenchmarkId::new("ValueRef", field), |bencher| {
         bencher.iter(|| black_box(value_ref(black_box(table))));
     });
-    group.bench_function(BenchmarkId::new("DispatchOnce", field), |bencher| {
-        bencher.iter(|| black_box(dispatch_once(black_box(table))));
+    group.bench_function(BenchmarkId::new("ForEachValue", field), |bencher| {
+        bencher.iter(|| black_box(for_each_value(black_box(table))));
     });
     group.bench_function(BenchmarkId::new("TypedSlice", field), |bencher| {
         bencher.iter(|| black_box(typed_slice(black_box(table))));
@@ -548,70 +548,70 @@ macro_rules! benchmark_average_float {
 }
 
 macro_rules! benchmark_ordered_maximum {
-    ($group:expr, $table:expr, $field:literal, $column:expr, $type:ty, $variant:ident, $method:ident) => {
-        benchmark_column_paths(
-            $group,
-            $field,
-            $table,
-            |table| {
-                let mut extreme = <$type>::MIN;
-                for value in value_ref_values!(table, $column, $variant) {
-                    extreme = extreme.$method(value);
-                }
-                extreme
-            },
-            |table| {
-                let column = table.column($column).unwrap();
-                let mut extreme = <$type>::MIN;
-                column.for_each_value(|value| match value {
-                    ValueRef::$variant(value) => {
-                        extreme = extreme.$method(value);
-                    }
-                    _ => unreachable!(),
-                });
-                extreme
-            },
-            |table| {
-                let mut extreme = <$type>::MIN;
-                for value in typed_values!(table, $column, $type) {
-                    extreme = extreme.$method(value);
-                }
-                extreme
-            },
-        );
-    };
-}
-
-macro_rules! benchmark_float_extreme {
     ($group:expr, $table:expr, $field:literal, $column:expr, $type:ty, $variant:ident) => {
         benchmark_column_paths(
             $group,
             $field,
             $table,
             |table| {
-                let mut extreme = <$type>::NEG_INFINITY;
+                let mut maximum = <$type>::MIN;
                 for value in value_ref_values!(table, $column, $variant) {
-                    extreme = if value > extreme { value } else { extreme };
+                    maximum = maximum.max(value);
                 }
-                extreme
+                maximum
             },
             |table| {
                 let column = table.column($column).unwrap();
-                let mut extreme = <$type>::NEG_INFINITY;
+                let mut maximum = <$type>::MIN;
                 column.for_each_value(|value| match value {
                     ValueRef::$variant(value) => {
-                        extreme = if value > extreme { value } else { extreme };
+                        maximum = maximum.max(value);
                     }
                     _ => unreachable!(),
                 });
-                extreme
+                maximum
             },
             |table| {
-                let mut extreme = <$type>::NEG_INFINITY;
+                let mut maximum = <$type>::MIN;
                 for value in typed_values!(table, $column, $type) {
-                    extreme = if value > extreme { value } else { extreme };
+                    maximum = maximum.max(value);
                 }
-                extreme
+                maximum
+            },
+        );
+    };
+}
+
+macro_rules! benchmark_float_maximum {
+    ($group:expr, $table:expr, $field:literal, $column:expr, $type:ty, $variant:ident) => {
+        benchmark_column_paths(
+            $group,
+            $field,
+            $table,
+            |table| {
+                let mut maximum = <$type>::NEG_INFINITY;
+                for value in value_ref_values!(table, $column, $variant) {
+                    maximum = if value > maximum { value } else { maximum };
+                }
+                maximum
+            },
+            |table| {
+                let column = table.column($column).unwrap();
+                let mut maximum = <$type>::NEG_INFINITY;
+                column.for_each_value(|value| match value {
+                    ValueRef::$variant(value) => {
+                        maximum = if value > maximum { value } else { maximum };
+                    }
+                    _ => unreachable!(),
+                });
+                maximum
+            },
+            |table| {
+                let mut maximum = <$type>::NEG_INFINITY;
+                for value in typed_values!(table, $column, $type) {
+                    maximum = if value > maximum { value } else { maximum };
+                }
+                maximum
             },
         );
     };
@@ -885,12 +885,12 @@ fn mixed_numeric_statistics(criterion: &mut Criterion) {
     {
         let mut group = criterion.benchmark_group("Table/MixedNumeric/10000000/Maximum");
         configure_bulk_group(&mut group);
-        benchmark_ordered_maximum!(&mut group, &table, "u8", 0, u8, U8, max);
-        benchmark_float_extreme!(&mut group, &table, "f64", 1, f64, F64);
-        benchmark_ordered_maximum!(&mut group, &table, "u16", 2, u16, U16, max);
-        benchmark_ordered_maximum!(&mut group, &table, "u64", 3, u64, U64, max);
-        benchmark_float_extreme!(&mut group, &table, "f32", 4, f32, F32);
-        benchmark_ordered_maximum!(&mut group, &table, "i32", 5, i32, I32, max);
+        benchmark_ordered_maximum!(&mut group, &table, "u8", 0, u8, U8);
+        benchmark_float_maximum!(&mut group, &table, "f64", 1, f64, F64);
+        benchmark_ordered_maximum!(&mut group, &table, "u16", 2, u16, U16);
+        benchmark_ordered_maximum!(&mut group, &table, "u64", 3, u64, U64);
+        benchmark_float_maximum!(&mut group, &table, "f32", 4, f32, F32);
+        benchmark_ordered_maximum!(&mut group, &table, "i32", 5, i32, I32);
         group.finish();
     }
 
