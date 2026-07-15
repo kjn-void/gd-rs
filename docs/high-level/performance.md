@@ -45,6 +45,9 @@ Benchmark's CPU estimate; each matched pair was run sequentially to avoid conten
 
 ## Dynamic values
 
+Benchmark sources: [Rust `construct_integer` and `dynamic_strings`](../../benches/value.rs#L8-L35) ·
+[C++ `ConstructInteger`, `ConstructString`, and `BorrowString`](../../benches/cpp-reference/variant_benchmark.cpp#L11-L43)
+
 Central point estimates in nanoseconds:
 
 | Workload | C++ | Rust | Rust/C++ |
@@ -63,6 +66,10 @@ repeated when comparing changes.
 
 ## URI-shaped arguments
 
+Benchmark sources: [Rust `uri`](../../benches/arguments.rs#L90-L150) ·
+[C++ URI reads and companion construction](../../benches/cpp-reference/arguments_benchmark.cpp#L77-L130)
+(the C++ side has no hash-name-index equivalent)
+
 The fixture contains eleven named string, integer, and Boolean fields.
 
 | Workload | C++ | Rust | Rust/C++ |
@@ -79,6 +86,9 @@ semantically identical. For eleven fields, the Rust hash index pays for itself o
 across repeated name reads.
 
 ## Three-column table
+
+Benchmark sources: [Rust `append_rows` and `scans`](../../benches/table.rs#L703-L761) ·
+[C++ append and scan benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L299-L352)
 
 Rows contain `u64 id`, a 16-way short group name, and `i64 value`. Construction includes
 group-name formatting in both fixtures.
@@ -106,6 +116,10 @@ The typed Rust column scan does less decoding and has contiguous values. Allocat
 counts and retained bytes are still required before drawing a memory conclusion.
 
 ### Open schemas
+
+Benchmark sources: [Rust open-schema benchmarks](../../benches/table.rs#L763-L850) ·
+[C++ open-schema benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L354-L424)
+(the C++ side has no atomic validated-build equivalent)
 
 The small fixture reserves its rows with one fixed `u64` column and stores two short
 extra strings per row. “Late” adds each field through the ordinary named setter;
@@ -168,6 +182,9 @@ exceptional shape; fields that are common across rows belong in typed schema col
 
 ### Ten-million-row mixed-numeric sheet
 
+Benchmark sources: [Rust `mixed_numeric_statistics`](../../benches/table.rs#L853-L935) ·
+[C++ mixed-numeric benchmarks](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L426-L503)
+
 This fixture models a large spreadsheet with 10,000,000 rows and six fixed columns:
 `u8`, `f64`, `u16`, `u64`, `f32`, and `i32`, in that order. Construction allocates the complete table
 and inserts every row. The statistics workload excludes construction and calculates
@@ -189,7 +206,9 @@ timed loop:
 | `f32` | -0.5 | -5000000 | 4999999 | -0.5 |
 | `i32` | -0.5 | -5000000 | 4999999 | -0.5 |
 
-The C++ benchmark was compiled twice. Both binaries and the GD core use `-O3` and no
+The C++ benchmark was compiled twice using the
+[release and release-asserts presets](../../benches/cpp-reference/CMakePresets.json#L19-L43).
+Both binaries and the GD core use `-O3` and no
 sanitizers; the assertions-off build additionally uses `-DNDEBUG`. Google Benchmark
 labels the assertions-on binary as a debug library solely because `NDEBUG` is absent,
 but the compile database confirms that optimization remains `-O3`. Rust uses the
@@ -356,6 +375,9 @@ typed nullable view; callers can continue using `ValueRef` iteration for them.
 
 ### Row ordering
 
+Benchmark sources: [Rust `row_order`](../../benches/table.rs#L960-L981) ·
+[C++ `RowSortSelection`](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L505-L519)
+
 The fixture orders one deterministic `u64` key column. C++ selection sort mutates the
 table; Rust constructs a stable borrowed row permutation and leaves payload columns
 in place. Fixture construction is outside both timed regions.
@@ -372,6 +394,9 @@ permutation. These APIs do different post-sort work: C++ has physically reordere
 rows, while Rust consumers traverse the returned order.
 
 ## Binary operations
+
+Benchmark sources: [Rust binary benchmarks](../../benches/binary.rs#L8-L61) ·
+[C++ binary benchmarks](../../benches/cpp-reference/binary_benchmark.cpp#L11-L81)
 
 The hex fixture converts byte arrays to lowercase text and back. The endian fixture
 writes or reads 4,096 `u64` values in big-endian order. The search fixture looks for a
@@ -392,6 +417,9 @@ specialized substring-search implementation while keeping **O(1)** auxiliary spa
 for this call site.
 
 ## Text conversion
+
+Benchmark sources: [Rust `text_benchmarks`](../../benches/text.rs#L18-L55) ·
+[C++ UTF-8/text benchmarks](../../benches/cpp-reference/utf8_benchmark.cpp#L25-L82)
 
 The fixture repeats ASCII, XML punctuation, an accented character, an astral
 character, URI punctuation, and a newline. The JSON workload produces a complete
@@ -416,6 +444,9 @@ and allocate output proportional to the encoded or decoded result.
 
 ## Compiled expressions
 
+Benchmark sources: [Rust compile and evaluate benchmarks](../../benches/expression.rs#L14-L50) ·
+[C++ compile and evaluate benchmarks](../../benches/cpp-reference/expression_benchmark.cpp#L49-L84)
+
 Both harnesses preload `x = 10` and `y = 20`. Compilation includes parsing and owned
 compiled-form construction. Evaluation starts from an already compiled formula and
 returns an owned scalar; the Rust timing includes conversion from Rhai's dynamic
@@ -435,6 +466,10 @@ claim.
 
 ## Interchange formatting
 
+Benchmark sources: [Rust table and argument formatting](../../benches/format.rs#L37-L77) ·
+[C++ table formatting](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L521-L551) ·
+[C++ argument formatting](../../benches/cpp-reference/arguments_benchmark.cpp#L132-L145)
+
 The table fixture has 10,000 rows containing `u64`, one of 16 short strings, and
 `i64`. JSON is a complete array of named row objects. CSV includes a header. Both
 timed regions begin with an already constructed table.
@@ -452,6 +487,9 @@ and both Rust argument formats reject unnamed entries rather than silently omitt
 them. All three workloads are **O(values + output bytes)**.
 
 ## SQLite table materialization
+
+Benchmark sources: [Rust `query`](../../benches/sqlite.rs#L41-L70) ·
+[C++ `QueryTableSchema`](../../benches/cpp-reference/sqlite_benchmark.cpp#L128-L145)
 
 The C++ fixture uses bundled SQLite 3.53.2. Rust uses bundled SQLite 3.51.3 from
 `libsqlite3-sys` 0.37, the newest dependency line in this pass that compiles on the

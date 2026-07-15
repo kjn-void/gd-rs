@@ -29,3 +29,11 @@ cargo test --lib --tests --no-default-features
 ```
 
 Do not commit if either command fails.
+
+## 4. Link performance results to their benchmarks
+
+Before committing added or changed results in
+[`docs/high-level/performance.md`](docs/high-level/performance.md), verify that every
+result section links directly to the checked-in Rust and C++ benchmark sources that
+produce its numbers. If one implementation has no exact counterpart, state that next
+to the source links instead of implying a matched benchmark exists.
