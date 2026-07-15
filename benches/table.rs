@@ -547,7 +547,7 @@ macro_rules! benchmark_average_float {
     };
 }
 
-macro_rules! benchmark_ordered_extreme {
+macro_rules! benchmark_ordered_maximum {
     ($group:expr, $table:expr, $field:literal, $column:expr, $type:ty, $variant:ident, $method:ident) => {
         benchmark_column_paths(
             $group,
@@ -885,12 +885,12 @@ fn mixed_numeric_statistics(criterion: &mut Criterion) {
     {
         let mut group = criterion.benchmark_group("Table/MixedNumeric/10000000/Maximum");
         configure_bulk_group(&mut group);
-        benchmark_ordered_extreme!(&mut group, &table, "u8", 0, u8, U8, max);
+        benchmark_ordered_maximum!(&mut group, &table, "u8", 0, u8, U8, max);
         benchmark_float_extreme!(&mut group, &table, "f64", 1, f64, F64);
-        benchmark_ordered_extreme!(&mut group, &table, "u16", 2, u16, U16, max);
-        benchmark_ordered_extreme!(&mut group, &table, "u64", 3, u64, U64, max);
+        benchmark_ordered_maximum!(&mut group, &table, "u16", 2, u16, U16, max);
+        benchmark_ordered_maximum!(&mut group, &table, "u64", 3, u64, U64, max);
         benchmark_float_extreme!(&mut group, &table, "f32", 4, f32, F32);
-        benchmark_ordered_extreme!(&mut group, &table, "i32", 5, i32, I32, max);
+        benchmark_ordered_maximum!(&mut group, &table, "i32", 5, i32, I32, max);
         group.finish();
     }
 
