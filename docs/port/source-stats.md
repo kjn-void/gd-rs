@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and sibling `gd` baseline measured
-on 2026-07-14. It measures source shape, not
+on 2026-07-15. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include the current
@@ -15,17 +15,17 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 9 | 3,504 | 99 | 216 | 2.18 |
-| Rust product + tests (`src`, `tests`) | 17 | 4,635 | 158 | 301 | 1.91 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 25 | 5,405 | 192 | 423 | 2.20 |
-| C++ product (`source`) | 138 | 62,729 | 8,309 | 19,343 | 2.33 |
-| C++ product + tests (`source`, `tests`) | 157 | 63,441 | 8,353 | 19,418 | 2.32 |
-| C++ product + tests + benchmarks (`source`, `tests`, `benchmarks`) | 165 | 64,289 | 8,407 | 19,557 | 2.33 |
+| Rust product (`src`) | 9 | 3,616 | 89 | 198 | 2.22 |
+| Rust product + tests (`src`, `tests`) | 17 | 4,812 | 150 | 286 | 1.91 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 25 | 6,143 | 202 | 448 | 2.22 |
+| C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
+| C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
+| C++ product + tests + benchmarks (`source`, `tests`, `benchmarks`) | 165 | 64,600 | 8,441 | 19,617 | 2.32 |
 
-The requested Rust totals are therefore **3,504 SLOC without test/benchmark code**
-and **5,405 SLOC with both**. Tests account for 1,131 SLOC and benchmarks for 770
+The requested Rust totals are therefore **3,616 SLOC without test/benchmark code**
+and **6,143 SLOC with both**. Tests account for 1,196 SLOC and benchmarks for 1,331
 SLOC. In the C++ scopes, tests account for 712 SLOC and benchmarks for a further
-848 SLOC.
+1,080 SLOC.
 
 These totals should not be read as a claim that Rust needs 5.6% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while

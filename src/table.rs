@@ -313,46 +313,217 @@ pub enum NullOrder {
     Last,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-enum ColumnStorage {
-    Null(usize),
-    Bool(Vec<Option<bool>>),
-    I8(Vec<Option<i8>>),
-    I16(Vec<Option<i16>>),
-    I32(Vec<Option<i32>>),
-    I64(Vec<Option<i64>>),
-    U8(Vec<Option<u8>>),
-    U16(Vec<Option<u16>>),
-    U32(Vec<Option<u32>>),
-    U64(Vec<Option<u64>>),
-    F32(Vec<Option<f32>>),
-    F64(Vec<Option<f64>>),
-    String(Vec<Option<CompactString>>),
-    Bytes(Vec<Option<Box<[u8]>>>),
-    Uuid(Vec<Option<Uuid>>),
+/// Error returned when requesting a required typed slice from a column.
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+pub enum ColumnSliceError {
+    /// The requested Rust element type does not match the schema type.
+    #[error("expected a {expected} column, found {actual}")]
+    TypeMismatch {
+        /// Logical type corresponding to the requested Rust type.
+        expected: DataType,
+        /// Logical type declared by the column schema.
+        actual: DataType,
+    },
+    /// Nullable storage cannot be represented as a dense `&[T]`.
+    #[error("the {data_type} column is nullable and has no dense required-value slice")]
+    Nullable {
+        /// Logical type declared by the column schema.
+        data_type: DataType,
+    },
 }
 
-impl ColumnStorage {
-    fn new(data_type: DataType, capacity: usize) -> Self {
-        match data_type {
-            DataType::Null => Self::Null(0),
-            DataType::Bool => Self::Bool(Vec::with_capacity(capacity)),
-            DataType::I8 => Self::I8(Vec::with_capacity(capacity)),
-            DataType::I16 => Self::I16(Vec::with_capacity(capacity)),
-            DataType::I32 => Self::I32(Vec::with_capacity(capacity)),
-            DataType::I64 => Self::I64(Vec::with_capacity(capacity)),
-            DataType::U8 => Self::U8(Vec::with_capacity(capacity)),
-            DataType::U16 => Self::U16(Vec::with_capacity(capacity)),
-            DataType::U32 => Self::U32(Vec::with_capacity(capacity)),
-            DataType::U64 => Self::U64(Vec::with_capacity(capacity)),
-            DataType::F32 => Self::F32(Vec::with_capacity(capacity)),
-            DataType::F64 => Self::F64(Vec::with_capacity(capacity)),
-            DataType::String => Self::String(Vec::with_capacity(capacity)),
-            DataType::Bytes => Self::Bytes(Vec::with_capacity(capacity)),
-            DataType::Uuid => Self::Uuid(Vec::with_capacity(capacity)),
+#[derive(Clone, Debug, PartialEq)]
+enum ColumnData<T> {
+    Required(Vec<T>),
+    Nullable(Vec<Option<T>>),
+}
+
+enum CellValue<'a, T> {
+    OutOfBounds,
+    Null,
+    Value(&'a T),
+}
+
+impl<T> ColumnData<T> {
+    #[inline]
+    fn with_capacity(nullable: bool, capacity: usize) -> Self {
+        if nullable {
+            Self::Nullable(Vec::with_capacity(capacity))
+        } else {
+            Self::Required(Vec::with_capacity(capacity))
         }
     }
 
+    #[inline]
+    fn len(&self) -> usize {
+        match self {
+            Self::Required(values) => values.len(),
+            Self::Nullable(values) => values.len(),
+        }
+    }
+
+    #[inline]
+    fn get(&self, row: usize) -> CellValue<'_, T> {
+        match self {
+            Self::Required(values) => values
+                .get(row)
+                .map_or(CellValue::OutOfBounds, CellValue::Value),
+            Self::Nullable(values) => match values.get(row) {
+                None => CellValue::OutOfBounds,
+                Some(None) => CellValue::Null,
+                Some(Some(value)) => CellValue::Value(value),
+            },
+        }
+    }
+
+    #[inline]
+    fn value(&self, row: usize) -> Option<&T> {
+        match self.get(row) {
+            CellValue::OutOfBounds => panic!("column lengths match row count"),
+            CellValue::Null => None,
+            CellValue::Value(value) => Some(value),
+        }
+    }
+
+    #[inline]
+    fn push(&mut self, value: Option<T>) {
+        match self {
+            Self::Required(values) => {
+                values.push(value.expect("required column values were validated"));
+            }
+            Self::Nullable(values) => values.push(value),
+        }
+    }
+
+    #[inline]
+    fn set(&mut self, row: usize, value: Option<T>) {
+        match self {
+            Self::Required(values) => {
+                values[row] = value.expect("required column values were validated");
+            }
+            Self::Nullable(values) => values[row] = value,
+        }
+    }
+
+    #[inline]
+    fn pop(&mut self) {
+        match self {
+            Self::Required(values) => drop(values.pop()),
+            Self::Nullable(values) => drop(values.pop()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ColumnStorage {
+    Null(usize),
+    Bool(ColumnData<bool>),
+    I8(ColumnData<i8>),
+    I16(ColumnData<i16>),
+    I32(ColumnData<i32>),
+    I64(ColumnData<i64>),
+    U8(ColumnData<u8>),
+    U16(ColumnData<u16>),
+    U32(ColumnData<u32>),
+    U64(ColumnData<u64>),
+    F32(ColumnData<f32>),
+    F64(ColumnData<f64>),
+    String(ColumnData<CompactString>),
+    Bytes(ColumnData<Box<[u8]>>),
+    Uuid(ColumnData<Uuid>),
+}
+
+mod column_element_private {
+    use super::{ColumnData, ColumnStorage, DataType};
+    use uuid::Uuid;
+
+    pub trait Sealed: Sized {
+        const DATA_TYPE: DataType;
+
+        fn required_values(column: super::Column<'_>) -> Result<&[Self], super::ColumnSliceError>;
+    }
+
+    macro_rules! impl_column_element {
+        ($type:ty, $data_type:ident, $storage:ident) => {
+            impl Sealed for $type {
+                const DATA_TYPE: DataType = DataType::$data_type;
+
+                fn required_values(
+                    column: super::Column<'_>,
+                ) -> Result<&[Self], super::ColumnSliceError> {
+                    match column.storage {
+                        ColumnStorage::$storage(ColumnData::Required(values)) => Ok(values),
+                        ColumnStorage::$storage(ColumnData::Nullable(_)) => {
+                            Err(super::ColumnSliceError::Nullable {
+                                data_type: column.spec.data_type(),
+                            })
+                        }
+                        _ => Err(super::ColumnSliceError::TypeMismatch {
+                            expected: Self::DATA_TYPE,
+                            actual: column.spec.data_type(),
+                        }),
+                    }
+                }
+            }
+        };
+    }
+
+    impl_column_element!(bool, Bool, Bool);
+    impl_column_element!(i8, I8, I8);
+    impl_column_element!(i16, I16, I16);
+    impl_column_element!(i32, I32, I32);
+    impl_column_element!(i64, I64, I64);
+    impl_column_element!(u8, U8, U8);
+    impl_column_element!(u16, U16, U16);
+    impl_column_element!(u32, U32, U32);
+    impl_column_element!(u64, U64, U64);
+    impl_column_element!(f32, F32, F32);
+    impl_column_element!(f64, F64, F64);
+    impl_column_element!(Uuid, Uuid, Uuid);
+}
+
+/// A fixed-width Rust type that can borrow a required table column as a slice.
+///
+/// This trait is sealed. It is implemented for `bool`, the fixed-width integer
+/// and floating-point primitives, and [`Uuid`].
+pub trait ColumnElement: column_element_private::Sealed {}
+
+impl ColumnElement for bool {}
+impl ColumnElement for i8 {}
+impl ColumnElement for i16 {}
+impl ColumnElement for i32 {}
+impl ColumnElement for i64 {}
+impl ColumnElement for u8 {}
+impl ColumnElement for u16 {}
+impl ColumnElement for u32 {}
+impl ColumnElement for u64 {}
+impl ColumnElement for f32 {}
+impl ColumnElement for f64 {}
+impl ColumnElement for Uuid {}
+
+impl ColumnStorage {
+    #[inline]
+    fn new(data_type: DataType, nullable: bool, capacity: usize) -> Self {
+        match data_type {
+            DataType::Null => Self::Null(0),
+            DataType::Bool => Self::Bool(ColumnData::with_capacity(nullable, capacity)),
+            DataType::I8 => Self::I8(ColumnData::with_capacity(nullable, capacity)),
+            DataType::I16 => Self::I16(ColumnData::with_capacity(nullable, capacity)),
+            DataType::I32 => Self::I32(ColumnData::with_capacity(nullable, capacity)),
+            DataType::I64 => Self::I64(ColumnData::with_capacity(nullable, capacity)),
+            DataType::U8 => Self::U8(ColumnData::with_capacity(nullable, capacity)),
+            DataType::U16 => Self::U16(ColumnData::with_capacity(nullable, capacity)),
+            DataType::U32 => Self::U32(ColumnData::with_capacity(nullable, capacity)),
+            DataType::U64 => Self::U64(ColumnData::with_capacity(nullable, capacity)),
+            DataType::F32 => Self::F32(ColumnData::with_capacity(nullable, capacity)),
+            DataType::F64 => Self::F64(ColumnData::with_capacity(nullable, capacity)),
+            DataType::String => Self::String(ColumnData::with_capacity(nullable, capacity)),
+            DataType::Bytes => Self::Bytes(ColumnData::with_capacity(nullable, capacity)),
+            DataType::Uuid => Self::Uuid(ColumnData::with_capacity(nullable, capacity)),
+        }
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         match self {
             Self::Null(len) => *len,
@@ -373,13 +544,15 @@ impl ColumnStorage {
         }
     }
 
+    #[inline]
     fn get(&self, row: usize) -> Option<ValueRef<'_>> {
         macro_rules! copied {
             ($values:expr, $variant:ident) => {
-                $values.get(row).map(|value| match value {
-                    Some(value) => ValueRef::$variant(*value),
-                    None => ValueRef::Null,
-                })
+                match $values.get(row) {
+                    CellValue::OutOfBounds => None,
+                    CellValue::Null => Some(ValueRef::Null),
+                    CellValue::Value(value) => Some(ValueRef::$variant(*value)),
+                }
             };
         }
         match self {
@@ -395,26 +568,29 @@ impl ColumnStorage {
             Self::U64(values) => copied!(values, U64),
             Self::F32(values) => copied!(values, F32),
             Self::F64(values) => copied!(values, F64),
-            Self::String(values) => values.get(row).map(|value| match value {
-                Some(value) => ValueRef::String(value),
-                None => ValueRef::Null,
-            }),
-            Self::Bytes(values) => values.get(row).map(|value| match value {
-                Some(value) => ValueRef::Bytes(value),
-                None => ValueRef::Null,
-            }),
+            Self::String(values) => match values.get(row) {
+                CellValue::OutOfBounds => None,
+                CellValue::Null => Some(ValueRef::Null),
+                CellValue::Value(value) => Some(ValueRef::String(value)),
+            },
+            Self::Bytes(values) => match values.get(row) {
+                CellValue::OutOfBounds => None,
+                CellValue::Null => Some(ValueRef::Null),
+                CellValue::Value(value) => Some(ValueRef::Bytes(value)),
+            },
             Self::Uuid(values) => copied!(values, Uuid),
         }
     }
 
+    #[inline]
     fn push_validated(&mut self, value: Value) {
         macro_rules! push {
             ($values:expr, $value:expr, $variant:ident) => {
-                match $value {
-                    Value::Null => $values.push(None),
-                    Value::$variant(value) => $values.push(Some(value)),
+                $values.push(match $value {
+                    Value::Null => None,
+                    Value::$variant(value) => Some(value),
                     _ => unreachable!("value was validated against its column"),
-                }
+                })
             };
         }
         match self {
@@ -439,14 +615,18 @@ impl ColumnStorage {
         }
     }
 
+    #[inline]
     fn set_validated(&mut self, row: usize, value: Value) {
         macro_rules! set {
             ($values:expr, $value:expr, $variant:ident) => {
-                $values[row] = match $value {
-                    Value::Null => None,
-                    Value::$variant(value) => Some(value),
-                    _ => unreachable!("value was validated against its column"),
-                }
+                $values.set(
+                    row,
+                    match $value {
+                        Value::Null => None,
+                        Value::$variant(value) => Some(value),
+                        _ => unreachable!("value was validated against its column"),
+                    },
+                )
             };
         }
         match self {
@@ -468,23 +648,24 @@ impl ColumnStorage {
         }
     }
 
+    #[inline]
     fn pop(&mut self) {
         match self {
             Self::Null(len) => *len -= 1,
-            Self::Bool(values) => drop(values.pop()),
-            Self::I8(values) => drop(values.pop()),
-            Self::I16(values) => drop(values.pop()),
-            Self::I32(values) => drop(values.pop()),
-            Self::I64(values) => drop(values.pop()),
-            Self::U8(values) => drop(values.pop()),
-            Self::U16(values) => drop(values.pop()),
-            Self::U32(values) => drop(values.pop()),
-            Self::U64(values) => drop(values.pop()),
-            Self::F32(values) => drop(values.pop()),
-            Self::F64(values) => drop(values.pop()),
-            Self::String(values) => drop(values.pop()),
-            Self::Bytes(values) => drop(values.pop()),
-            Self::Uuid(values) => drop(values.pop()),
+            Self::Bool(values) => values.pop(),
+            Self::I8(values) => values.pop(),
+            Self::I16(values) => values.pop(),
+            Self::I32(values) => values.pop(),
+            Self::I64(values) => values.pop(),
+            Self::U8(values) => values.pop(),
+            Self::U16(values) => values.pop(),
+            Self::U32(values) => values.pop(),
+            Self::U64(values) => values.pop(),
+            Self::F32(values) => values.pop(),
+            Self::F64(values) => values.pop(),
+            Self::String(values) => values.pop(),
+            Self::Bytes(values) => values.pop(),
+            Self::Uuid(values) => values.pop(),
         }
     }
 
@@ -498,8 +679,8 @@ impl ColumnStorage {
         macro_rules! ordered {
             ($values:expr) => {
                 compare_optional(
-                    $values[left].as_ref(),
-                    $values[right].as_ref(),
+                    $values.value(left),
+                    $values.value(right),
                     direction,
                     null_order,
                     Ord::cmp,
@@ -518,15 +699,15 @@ impl ColumnStorage {
             Self::U32(values) => ordered!(values),
             Self::U64(values) => ordered!(values),
             Self::F32(values) => compare_optional(
-                values[left].as_ref(),
-                values[right].as_ref(),
+                values.value(left),
+                values.value(right),
                 direction,
                 null_order,
                 f32::total_cmp,
             ),
             Self::F64(values) => compare_optional(
-                values[left].as_ref(),
-                values[right].as_ref(),
+                values.value(left),
+                values.value(right),
                 direction,
                 null_order,
                 f64::total_cmp,
@@ -565,9 +746,8 @@ fn compare_optional<T>(
 /// A schema-driven table whose fixed columns store their primitive types
 /// directly and whose optional unknown fields are owned by individual rows.
 ///
-/// Each column is contiguous and uses `Option<T>` for nulls. That representation
-/// is intentionally straightforward; it can be replaced by a validity bitmap if
-/// retained-memory measurements justify the additional machinery.
+/// Required columns store contiguous `T` values directly. Nullable columns use
+/// `Option<T>` to represent null cells.
 #[derive(Clone, Debug)]
 pub struct Table {
     schema: Schema,
@@ -588,7 +768,7 @@ impl Table {
     pub fn with_capacity(schema: Schema, capacity: usize) -> Self {
         let columns = schema
             .iter()
-            .map(|column| ColumnStorage::new(column.data_type(), capacity))
+            .map(|column| ColumnStorage::new(column.data_type(), column.is_nullable(), capacity))
             .collect();
         Self {
             schema,
@@ -1043,6 +1223,21 @@ impl<'a> Column<'a> {
         self.storage.get(row)
     }
 
+    /// Borrows a required fixed-width column as one contiguous typed slice.
+    ///
+    /// Type and nullability are checked once before returning the slice. Loops
+    /// over the result contain no per-cell table lookup, dynamic value tag, or
+    /// null discriminant, making this the preferred interface for numerical
+    /// column operations and compiler auto-vectorization.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
+    /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
+    pub fn as_slice<T: ColumnElement>(self) -> Result<&'a [T], ColumnSliceError> {
+        <T as column_element_private::Sealed>::required_values(self)
+    }
+
     /// Iterates contiguously over this column.
     #[must_use]
     pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
@@ -1323,5 +1518,30 @@ impl<'a> ColumnIndex<'a> {
     #[must_use]
     pub fn distinct_key_count(&self) -> usize {
         self.by_key.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ColumnData, ColumnStorage, DataType};
+
+    #[test]
+    fn column_storage_follows_schema_nullability() {
+        assert!(matches!(
+            ColumnStorage::new(DataType::I64, false, 8),
+            ColumnStorage::I64(ColumnData::Required(values)) if values.capacity() >= 8
+        ));
+        assert!(matches!(
+            ColumnStorage::new(DataType::I64, true, 8),
+            ColumnStorage::I64(ColumnData::Nullable(values)) if values.capacity() >= 8
+        ));
+        assert!(matches!(
+            ColumnStorage::new(DataType::String, false, 8),
+            ColumnStorage::String(ColumnData::Required(values)) if values.capacity() >= 8
+        ));
+        assert!(matches!(
+            ColumnStorage::new(DataType::String, true, 8),
+            ColumnStorage::String(ColumnData::Nullable(values)) if values.capacity() >= 8
+        ));
     }
 }

@@ -1,14 +1,15 @@
 # Tables
 
 `Table` combines an immutable `Schema` with one typed vector per column. `Row` and
-`Column` are borrowing views; cells are returned as `ValueRef`.
+`Column` are borrowing views; ordinary cell access returns `ValueRef`, while required
+fixed-width columns can also expose a checked typed slice.
 
 ```mermaid
 flowchart TD
     Schema["Schema\nColumnSpec + ahash name/alias map"] --> Table
-    Table --> C0["Vec&lt;Option&lt;T0&gt;&gt;"]
-    Table --> C1["Vec&lt;Option&lt;T1&gt;&gt;"]
-    Table --> CN["Vec&lt;Option&lt;Tn&gt;&gt;"]
+    Table --> C0["required: Vec&lt;T0&gt;"]
+    Table --> C1["nullable: Vec&lt;Option&lt;T1&gt;&gt;"]
+    Table --> CN["required or nullable typed column"]
     Table --> Extras["optional Box&lt;RowExtras&gt; per row"]
     Table -->|"immutable borrow"| Index["ColumnIndex\ntyped AHashMap&lt;key, rows&gt;"]
     Table -->|"immutable borrow"| Order["RowOrder\nstable Vec&lt;row position&gt;"]
@@ -44,8 +45,8 @@ pointer or points to one row's extras object:
 ```mermaid
 flowchart LR
     Table["Table"] --> Fixed["fixed columns<br/>Vec&lt;ColumnStorage&gt;"]
-    Fixed --> Path["path: Vec&lt;Option&lt;String&gt;&gt;<br/>row 0 / row 1 / row 2"]
-    Fixed --> Size["size: Vec&lt;Option&lt;u64&gt;&gt;<br/>row 0 / row 1 / row 2"]
+    Fixed --> Path["path: Vec&lt;String&gt;<br/>row 0 / row 1 / row 2"]
+    Fixed --> Size["size: Vec&lt;u64&gt;<br/>row 0 / row 1 / row 2"]
 
     Table --> Sidecar["extras: Vec&lt;Option&lt;Box&lt;RowExtras&gt;&gt;&gt;"]
     Sidecar --> Slot0["row 0<br/>None / null pointer"]
@@ -70,16 +71,46 @@ columns.
 
 ## Null storage
 
-The current representation is `Vec<Option<T>>` per column. It is easy to inspect and
-keeps null state adjacent to each value. Its main cost is padding: for example,
-`Option<i64>` occupies 16 bytes on the current target. A separate validity bitmap could
-reduce retained memory for wide numeric tables, but would add another allocation and
-more indexing logic. The public API does not expose the storage representation.
+Required columns use dense `Vec<T>` storage because the schema and atomic row
+validation guarantee that every committed row contains a value. Nullable columns use
+`Vec<Option<T>>`; for example, `Option<i64>` occupies 16 bytes on the current target.
+A separate validity bitmap could reduce nullable-column memory, but would add another
+allocation and more indexing logic. The public API exposes dense required values as a
+slice, not the internal storage enum, so nullable representation can still change.
+
+## Typed bulk column operations
+
+`Column::as_slice::<T>` checks the runtime schema type and nullability once, then
+returns the required column as `&[T]`. It supports Boolean, fixed-width integer,
+floating-point, and UUID columns. A wrong type returns `ColumnSliceError::TypeMismatch`;
+a nullable column returns `ColumnSliceError::Nullable`.
+
+The slice uses standard iterator operations rather than table-specific versions of
+`map`, `filter`, and `fold`:
+
+```rust
+let values = table.column_named("requests").unwrap().as_slice::<u64>()?;
+
+let doubled: Vec<u64> = values.iter().map(|value| value * 2).collect();
+let large: Vec<u64> = values.iter().copied().filter(|value| *value >= 1_000).collect();
+let selected_rows: Vec<usize> = values
+    .iter()
+    .enumerate()
+    .filter_map(|(row, value)| (*value >= 1_000).then_some(row))
+    .collect();
+let total = values.iter().copied().fold(0_u64, u64::saturating_add);
+```
+
+This moves dynamic dispatch out of the hot loop. The compiler sees a monomorphic,
+contiguous slice, which is the form most suitable for bounds-check elimination and
+auto-vectorization. Filtering preserves table correspondence by collecting row
+positions; callers that only need values can use ordinary `filter` directly.
 
 ## Views and indexes
 
-A column scan walks one contiguous typed vector. Row iteration assembles a borrowing
-view across columns. `ColumnIndex` borrows the table, uses a typed `AHashMap`, preserves
+A dynamic column scan yields `ValueRef`; a required fixed-width scan can instead walk
+its typed slice directly. Row iteration assembles a borrowing view across columns.
+`ColumnIndex` borrows the table, uses a typed `AHashMap`, preserves
 duplicate row positions, and tracks null rows separately. Boolean, integer, string,
 byte, and UUID columns are indexable. Floating-point indexes are rejected until NaN
 and signed-zero equality have an explicit policy.

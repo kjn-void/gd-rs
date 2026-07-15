@@ -105,6 +105,61 @@ assert_eq!(names, ["Ada", "Grace"]);
 lookup; a `Column` scans one contiguous typed storage vector. The views do not own or
 copy cell payloads.
 
+### Typed bulk column operations
+
+Required fixed-width columns can be checked once and borrowed as an ordinary typed
+slice. The supported element types are `bool`, the fixed-width integer and
+floating-point primitives, and `Uuid`:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+
+let schema = Schema::new([ColumnSpec::new("requests", DataType::U64)]).unwrap();
+let mut table = Table::new(schema);
+for value in [500_u64, 1_000, 1_500, 2_000] {
+    table.push_row([Value::U64(value)]).unwrap();
+}
+
+let values = table
+    .column_named("requests")
+    .unwrap()
+    .as_slice::<u64>()
+    .unwrap();
+
+let doubled: Vec<_> = values.iter().map(|value| value * 2).collect();
+assert_eq!(doubled, [1_000, 2_000, 3_000, 4_000]);
+
+let large: Vec<_> = values
+    .iter()
+    .copied()
+    .filter(|value| *value >= 1_500)
+    .collect();
+assert_eq!(large, [1_500, 2_000]);
+
+let selected_rows: Vec<_> = values
+    .iter()
+    .enumerate()
+    .filter_map(|(row, value)| (*value >= 1_500).then_some(row))
+    .collect();
+assert_eq!(selected_rows, [2, 3]);
+
+let total = values
+    .iter()
+    .copied()
+    .fold(0_u64, u64::saturating_add);
+assert_eq!(total, 5_000);
+```
+
+These are the standard slice and `Iterator` `map`, `filter`, and `fold` operations;
+the table does not wrap them in a second collection API. `as_slice` performs runtime
+type and nullability checks once. It returns `ColumnSliceError::TypeMismatch` for the
+wrong `T` and `ColumnSliceError::Nullable` when a column can contain nulls.
+
+Keeping the returned type as `&[T]` makes the hot loop monomorphic and contiguous. It
+also lets LLVM eliminate bounds checks and auto-vectorize suitable integer reductions
+and element-wise transformations. For a table filter, retain row identity by using
+`enumerate` and collecting positions as above.
+
 ## Mutation
 
 `set_cell` validates position, exact type, and nullability before changing storage.
@@ -128,14 +183,16 @@ schema and table when the data model changes.
 
 ## Storage model
 
-Each logical column has a matching storage variant such as `Vec<Option<i64>>` or
-`Vec<Option<CompactString>>`. This differs from the C++ packed row buffer even where
-the older documentation calls that buffer columnar. The representation favors direct
-typed scans and simple validity rules.
+Each logical column has a matching storage variant. Required columns use dense storage
+such as `Vec<i64>` or `Vec<CompactString>`; nullable columns currently use
+`Vec<Option<i64>>` or `Vec<Option<CompactString>>`. This differs from the C++ packed row
+buffer even where the older documentation calls that buffer columnar. Required numeric
+columns expose `&[T]` for direct bulk scans, while dynamic `ValueRef` iteration remains
+available for code that does not know the type statically.
 
-Null state currently uses `Option<T>` rather than a separate bitmap. The public API
-does not expose this choice, so a measured future optimization can replace it without
-changing callers.
+Nullable null state currently uses `Option<T>` rather than a separate bitmap. The
+typed-slice API rejects nullable columns, so a measured future validity-bitmap
+optimization can replace that internal representation without changing callers.
 
 Cloning a `Table` clones its schema and column data. To construct several empty tables
 with the same layout, clone the `Schema` explicitly. The crate does not reproduce the

@@ -1,8 +1,8 @@
 //! Integration and property tests for schemas, typed columns, and column indexes.
 
 use gd::{
-    ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema, SortDirection, Table, TableError,
-    UnknownFields, Value, ValueRef,
+    ColumnSliceError, ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema, SortDirection, Table,
+    TableError, UnknownFields, Value, ValueRef,
 };
 use proptest::prelude::*;
 
@@ -424,6 +424,71 @@ fn floating_order_uses_total_cmp() {
     assert_eq!(order.positions(), &[1, 2, 0, 3]);
 }
 
+#[test]
+fn required_fixed_width_columns_expose_typed_slices() {
+    let mut table = Table::new(people_schema());
+    table
+        .push_row([Value::U64(7), Value::from("Ada"), Value::I32(42)])
+        .unwrap();
+    table
+        .push_row([Value::U64(8), Value::from("Grace"), Value::Null])
+        .unwrap();
+
+    assert_eq!(
+        table.column_named("id").unwrap().as_slice::<u64>(),
+        Ok(&[7, 8][..])
+    );
+    assert_eq!(
+        table.column_named("id").unwrap().as_slice::<i64>(),
+        Err(ColumnSliceError::TypeMismatch {
+            expected: DataType::I64,
+            actual: DataType::U64,
+        })
+    );
+    assert_eq!(
+        table.column_named("score").unwrap().as_slice::<i32>(),
+        Err(ColumnSliceError::Nullable {
+            data_type: DataType::I32,
+        })
+    );
+}
+
+#[test]
+fn typed_slices_use_standard_map_filter_and_fold_operations() {
+    let schema = Schema::new([ColumnSpec::new("count", DataType::I64)]).unwrap();
+    let mut table = Table::new(schema);
+    for value in [1_i64, 10, 20, 5] {
+        table.push_row([Value::I64(value)]).unwrap();
+    }
+
+    let values = table
+        .column_named("count")
+        .unwrap()
+        .as_slice::<i64>()
+        .unwrap();
+    assert_eq!(
+        values.iter().map(|value| value * 2).collect::<Vec<_>>(),
+        [2, 20, 40, 10]
+    );
+    assert_eq!(
+        values
+            .iter()
+            .copied()
+            .filter(|value| *value >= 10)
+            .collect::<Vec<_>>(),
+        [10, 20]
+    );
+    assert_eq!(
+        values
+            .iter()
+            .enumerate()
+            .filter_map(|(row, value)| (*value >= 10).then_some(row))
+            .collect::<Vec<_>>(),
+        [1, 2]
+    );
+    assert_eq!(values.iter().copied().fold(0_i64, i64::saturating_add), 36);
+}
+
 proptest! {
     #[test]
     fn typed_column_round_trips(values in prop::collection::vec(any::<i64>(), 0..512)) {
@@ -433,6 +498,10 @@ proptest! {
             table.push_row([Value::I64(*value)]).unwrap();
         }
 
+        prop_assert_eq!(
+            table.column(0).unwrap().as_slice::<i64>().unwrap(),
+            values.as_slice()
+        );
         let actual: Vec<_> = table
             .column(0)
             .unwrap()

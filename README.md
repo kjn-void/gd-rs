@@ -25,7 +25,7 @@ The implemented core currently provides:
 - compile-once expressions and scripts with bounded execution;
 - loss-aware argument and table JSON, URI, and CSV formatting;
 - checked SQLite parameter binding and typed-table materialization;
-- GoogleTest/Google Benchmark characterization in the sibling C++ tree;
+- checked-in C++ Google Benchmark references built against the sibling GD tree;
 - Rust integration/property tests and Criterion benchmarks.
 
 ## Documentation
@@ -54,6 +54,7 @@ The implemented core currently provides:
 
 ### Porting record
 
+- [Repository guardrails](AGENTS.md)
 - [Porting plan](docs/port/porting-plan.md)
 - [Compatibility decisions](docs/port/compatibility.md)
 - [Architecture postmortem](docs/port/postmortem.md)

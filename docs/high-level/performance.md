@@ -3,31 +3,32 @@
 The C++ baseline uses Google Benchmark from the pinned CMake release preset. Rust uses
 Criterion with the release profile. Results below were produced on the same Apple
 Silicon host on 2026-07-13; the open-schema measurements were refreshed on
-2026-07-14. They are snapshots, not cross-machine thresholds.
+2026-07-14 and the mixed-numeric table measurements were added on 2026-07-15.
+They are snapshots, not cross-machine thresholds.
 
 Commands:
 
 ```sh
-cd ../gd
+cd benches/cpp-reference
 cmake --preset release
 cmake --build --preset release
-./build/release/benchmarks/gd_core_benchmarks
+../../target/cpp-reference/release/gd_cpp_reference_benchmarks
 
-cd ../gd-rs
+cd ../..
 cargo bench
 ```
 
 The open-schema subset can be reproduced directly with:
 
 ```sh
-cd ../gd
-./build/release/benchmarks/gd_core_benchmarks \
+cd benches/cpp-reference
+../../target/cpp-reference/release/gd_cpp_reference_benchmarks \
   --benchmark_filter=OpenSchema \
   --benchmark_min_time=1s \
   --benchmark_repetitions=3 \
   --benchmark_report_aggregates_only=true
 
-cd ../gd-rs
+cd ../..
 cargo bench --bench table -- OpenSchema
 ```
 
@@ -164,6 +165,183 @@ accounting, but it exposes the expected trade-off: the C++ packed buffer is much
 compact, while Rust spends hash-table capacity to make large-row lookup and replacement
 expected constant time. A thousand row-local extras should still be treated as an
 exceptional shape; fields that are common across rows belong in typed schema columns.
+
+### Ten-million-row mixed-numeric sheet
+
+This fixture models a large spreadsheet with 10,000,000 rows and six fixed columns:
+`u8`, `f64`, `u16`, `u64`, `f32`, and `i32`, in that order. Construction allocates the complete table
+and inserts every row. The statistics workload excludes construction and calculates
+average, minimum, maximum, and median for every column. For the even row count, median
+is the mean of the two central values, matching spreadsheet `MEDIAN` behavior.
+
+Rows use the deterministic permutation `p = (row × 48271) mod 10000000`, so median
+selection does not receive pre-sorted input. The six values are `p mod 251`,
+`p × 0.5 - 2500000`, `p mod 65521`, `p × 1000`, `p - 5000000` as `f32`, and
+`p - 5000000` as `i32`. Both implementations validate these results outside the
+timed loop:
+
+| Field | Average | Minimum | Maximum | Median |
+|---|---:|---:|---:|---:|
+| `u8` | 124.999272 | 0 | 250 | 125 |
+| `f64` | -0.25 | -2500000 | 2499999.5 | -0.25 |
+| `u16` | 32709.5755948 | 0 | 65520 | 32679 |
+| `u64` | 4999999500 | 0 | 9999999000 | 4999999500 |
+| `f32` | -0.5 | -5000000 | 4999999 | -0.5 |
+| `i32` | -0.5 | -5000000 | 4999999 | -0.5 |
+
+The C++ benchmark was compiled twice. Both binaries and the GD core use `-O3` and no
+sanitizers; the assertions-off build additionally uses `-DNDEBUG`. Google Benchmark
+labels the assertions-on binary as a debug library solely because `NDEBUG` is absent,
+but the compile database confirms that optimization remains `-O3`. Rust uses the
+ordinary optimized release profile and safe table API; no unchecked Rust comparison is
+included.
+
+Central estimates:
+
+| Build 10,000,000 rows | C++ assertions off | C++ assertions on | Rust |
+|---|---:|---:|---:|
+| complete table | 329 ms | 335 ms | 229.16 ms |
+
+Every bulk operation below scans exactly one named field over all 10,000,000 rows; no
+row combines multiple fields and no timing aggregates several operations. C++ values
+are means of three optimized repetitions. Rust values are Criterion means from ten
+flat samples. “Slice gain” is `ValueRef time / &[T] time`; “Slice vs C++ off” is
+`C++ time / &[T] time`, so a value above one means the Rust slice is faster.
+
+Average:
+
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|
+| `u8` | 8.316 ms | 11.695 ms | 13.313 ms | 0.178 ms | ×74.79 | ×46.71 |
+| `f64` | 8.231 ms | 11.680 ms | 13.598 ms | 7.038 ms | ×1.93 | ×1.17 |
+| `u16` | 8.248 ms | 11.391 ms | 13.385 ms | 0.702 ms | ×19.06 | ×11.74 |
+| `u64` | 10.940 ms | 11.407 ms | 13.395 ms | 0.954 ms | ×14.05 | ×11.47 |
+| `f32` | 8.244 ms | 11.733 ms | 13.620 ms | 6.882 ms | ×1.98 | ×1.20 |
+| `i32` | 8.251 ms | 11.426 ms | 13.362 ms | 0.700 ms | ×19.08 | ×11.78 |
+
+Minimum:
+
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|
+| `u8` | 8.228 ms | 12.009 ms | 13.448 ms | 0.102 ms | ×132.37 | ×80.99 |
+| `f64` | 8.187 ms | 11.691 ms | 13.611 ms | 5.245 ms | ×2.59 | ×1.56 |
+| `u16` | 8.264 ms | 12.078 ms | 13.385 ms | 0.216 ms | ×61.96 | ×38.26 |
+| `u64` | 8.233 ms | 11.800 ms | 13.383 ms | 1.407 ms | ×9.51 | ×5.85 |
+| `f32` | 8.212 ms | 11.750 ms | 13.558 ms | 5.223 ms | ×2.60 | ×1.57 |
+| `i32` | 8.206 ms | 13.707 ms | 13.356 ms | 0.476 ms | ×28.08 | ×17.25 |
+
+Maximum:
+
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|
+| `u8` | 8.261 ms | 12.032 ms | 13.345 ms | 0.102 ms | ×130.81 | ×80.97 |
+| `f64` | 8.220 ms | 11.706 ms | 13.582 ms | 5.358 ms | ×2.53 | ×1.53 |
+| `u16` | 8.256 ms | 12.065 ms | 13.370 ms | 0.215 ms | ×62.19 | ×38.40 |
+| `u64` | 8.242 ms | 13.597 ms | 13.462 ms | 1.414 ms | ×9.52 | ×5.83 |
+| `f32` | 8.242 ms | 11.670 ms | 13.575 ms | 5.405 ms | ×2.51 | ×1.52 |
+| `i32` | 8.385 ms | 11.702 ms | 16.108 ms | 0.464 ms | ×34.69 | ×18.06 |
+
+Median:
+
+| Field | C++ off | C++ on | Rust `ValueRef` | Rust `&[T]` | Slice gain | Slice vs C++ off |
+|---|---:|---:|---:|---:|---:|---:|
+| `u8` | 40.224 ms | 44.783 ms | 22.859 ms | 9.570 ms | ×2.39 | ×4.20 |
+| `f64` | 13.981 ms | 21.321 ms | 26.141 ms | 13.719 ms | ×1.91 | ×1.02 |
+| `u16` | 43.220 ms | 46.828 ms | 23.147 ms | 10.318 ms | ×2.24 | ×4.19 |
+| `u64` | 14.073 ms | 21.014 ms | 25.192 ms | 12.862 ms | ×1.96 | ×1.09 |
+| `f32` | 13.957 ms | 17.891 ms | 25.073 ms | 12.103 ms | ×2.07 | ×1.15 |
+| `i32` | 12.478 ms | 16.442 ms | 22.947 ms | 9.804 ms | ×2.34 | ×1.27 |
+
+The C++ benchmark copies each cell into an aligned local value with fixed-size
+`memcpy`; this retains `cell_get` assertions in the assertions-on build while avoiding
+undefined behavior from dereferencing the `f64` field at offset 4. This is
+source-level defined behavior, not sanitizer instrumentation.
+
+Rust `ValueRef` performs runtime storage dispatch and dynamic tag reconstruction for
+every cell. `Column::as_slice::<T>` performs the type/nullability check once and gives
+the loop a monomorphic contiguous slice. The integer average/minimum/maximum results
+are consistent with LLVM auto-vectorizing the slice reductions and with scanning only
+the selected column's bytes. Floating-point reductions improve less because strict
+floating addition is order-dependent and native finite min/max still require scalar
+comparison semantics. The float fixture contains no NaNs; both languages use ordinary
+finite comparisons in these bulk cases. Table ordering continues to use `total_cmp`.
+
+Median copies one typed scratch vector and partitions it with `std::nth_element` or
+`select_nth_unstable`. Typed access still removes source gathering overhead, but the
+branch-heavy selection phase limits the gain compared with simple integer reductions.
+
+Row-bearing capacity accounting is:
+
+| Implementation | Row model | Bytes per row | Table bytes | MiB | Relative to C++ |
+|---|---|---:|---:|---:|---:|
+| C++ | physical fixed-stride row | 32 | 320,000,000 | 305.18 | ×1.00 |
+| Rust | virtual sum across vectors | 35 | 350,000,000 | 333.79 | ×1.09 |
+
+These figures exclude allocator bookkeeping and the small fixed table/schema objects.
+The C++ figure comes from `size_reserved_total()`. GD aligns the start of every field
+to four bytes, not to that field's natural alignment. Its physical 32-byte row is:
+
+```text
+C++ table_column_buffer: one physical row, repeated 10,000,000 times
+
+byte offset   00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15
+              ├u8┤--padding--├────────── f64 ──────────┤├u16┤pad
+
+byte offset   16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+              ├────────── u64 ──────────┤├── f32 ──┤├── i32 ──┤
+
+payload: 1 + 8 + 2 + 8 + 4 + 4 = 27 bytes
+padding: 3 after u8 + 2 after u16 = 5 bytes
+physical row:                         32 bytes
+```
+
+The `f64` begins at offset 4, which satisfies GD's four-byte rule but not C++'s
+eight-byte `double` alignment requirement. This is why the benchmark reads cells with
+fixed-size `memcpy`. The following `u64` happens to land at naturally aligned offset
+16. Ten million physical rows reserve `10,000,000 × 32 = 320,000,000` bytes.
+
+Rust has no physical row object. Each required column is an independent `Vec<T>` whose
+allocation starts suitably aligned for `T`; adjacent elements have exactly
+`size_of::<T>()` stride. “35 bytes per row” is therefore a virtual or amortized row
+contribution obtained by adding one same-index element from each separate vector:
+
+```text
+Rust Table: separate allocations (not adjacent in RAM)
+
+Vec<u8>       [u8₀ ][u8₁ ][u8₂ ]...     1 byte  × 10M =  10 MB
+Vec<f64>      [ f64₀ ][ f64₁ ]...        8 bytes × 10M =  80 MB
+Vec<u16>      [u16₀][u16₁][u16₂]...      2 bytes × 10M =  20 MB
+Vec<u64>      [ u64₀ ][ u64₁ ]...        8 bytes × 10M =  80 MB
+Vec<f32>      [f32₀][f32₁][f32₂]...      4 bytes × 10M =  40 MB
+Vec<i32>      [i32₀][i32₁][i32₂]...      4 bytes × 10M =  40 MB
+Vec<Extra?>   [ ptr₀ ][ ptr₁ ]...         8 bytes × 10M =  80 MB
+                                                  total = 350 MB
+
+virtual row r = u8[r] + f64[r] + u16[r] + u64[r] + f32[r] + i32[r]
+                1   +   8    +   2    +   8    +   4    +   4     = 27 bytes
+              + one optional extras pointer slot                         8 bytes
+              ---------------------------------------------------------------
+                amortized contribution                                  35 bytes
+```
+
+There is no inter-column or per-row padding in those 35 bytes. Each vector base is
+aligned independently, outside the per-element accounting. `Option<Box<RowExtras>>`
+uses the null-pointer niche and is eight bytes on this target. Rows with no extras have
+a null pointer but still retain that slot. The accounting excludes the small `Vec`
+headers, schema objects, allocator metadata, allocator size-class rounding, and unused
+capacity beyond the requested ten million elements; it is not an RSS measurement.
+
+Median uses one temporary vector at a time, adding at most 80,000,000 bytes (76.29 MiB)
+of live scratch space in either implementation; that scratch is not part of the table
+figures. A strict schema does not need the 80,000,000-byte sidecar vector, so allocating
+it lazily remains an opportunity that would reduce this table to 270,000,000 bytes
+(257.49 MiB). A validity bitmap would be a more compact future representation for
+nullable primitive columns.
+
+`Column::as_slice::<T>` now exposes dense required columns without exposing the storage
+enum itself. Borrowing ties the slice lifetime to the table and prevents mutation while
+it is in use. Nullable columns deliberately reject this API until they have an explicit
+typed nullable view; callers can continue using `ValueRef` iteration for them.
 
 ### Row ordering
 
