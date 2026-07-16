@@ -15,9 +15,9 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 10 | 4,440 | 114 | 262 | 2.30 |
-| Rust product + tests (`src`, `tests`) | 18 | 5,800 | 180 | 366 | 2.03 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 28 | 7,542 | 244 | 574 | 2.35 |
+| Rust product (`src`) | 18 | 4,440 | 158 | 378 | 2.39 |
+| Rust product + tests (`src`, `tests`) | 26 | 5,800 | 224 | 482 | 2.15 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 36 | 7,542 | 288 | 690 | 2.40 |
 | C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
 | C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
 | C++ product + tests + matched benchmarks | 166 | 64,804 | 8,453 | 19,659 | 2.33 |
@@ -61,7 +61,9 @@ benches/cpp-reference`, select the C/C++ suffixes listed above, and use
 Lizard assigns CCN 1 to a straight-line function and adds paths for recognized
 branches and loops. Its parsers are language-aware but not compiler front ends.
 Macros can hide control flow—especially GoogleTest/Google Benchmark bodies—and
-generated or macro-expanded complexity is not represented. Consequently, the
-average is a repeatable static-analysis indicator, not an exact count of runtime
-paths. Function count and total CCN are included so rounding and shifts in the
-average remain visible.
+generated or macro-expanded complexity is not represented. Parser recovery can also
+change after a purely mechanical file split; the current smaller Rust modules let
+Lizard recognize more functions than the previous large files even though this edit
+does not add behavior. Consequently, the average is a repeatable static-analysis
+indicator, not an exact count of runtime paths. Function count and total CCN are
+included so rounding and shifts in the average remain visible.

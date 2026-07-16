@@ -1,9 +1,15 @@
 //! Mutable row views and safely splittable row ranges.
 
-use super::{
-    ColumnData, ColumnStorage, CompactString, ExtrasStorage, RowExtras, Schema, SmallVec, Table,
-    TableError, UnknownFields, Uuid, Value, ValueRef, fmt, validate_cell,
-};
+use std::fmt;
+
+use compact_str::CompactString;
+use smallvec::SmallVec;
+use uuid::Uuid;
+
+use crate::{Value, ValueRef};
+
+use super::storage::{ColumnData, ColumnStorage, ExtrasStorage, RowExtras};
+use super::{Schema, Table, TableError, UnknownFields, validate_cell};
 
 enum ColumnSliceMut<'a, T> {
     Required(&'a mut [T]),
