@@ -1,9 +1,10 @@
 # AI-assisted repository work
 
-These rules supplement the mandatory pre-commit checklist in the repository-root
-[`AGENTS.md`](../../AGENTS.md). Read both that checklist and every applicable document
-below before changing the repository.
+The repository-root [`AGENTS.md`](../../AGENTS.md) routes AI-assisted work to this
+index. Read every applicable document below before changing the repository, and always
+complete the pre-commit checklist before creating a commit.
 
+- [`pre-commit.md`](pre-commit.md): mandatory checklist before every commit.
 - [`repository-boundaries.md`](repository-boundaries.md): permitted work in this
   repository and the sibling C++ reference.
 - [`validation.md`](validation.md): Rust 1.86 compatibility and required static checks.
@@ -12,5 +13,4 @@ below before changing the repository.
 - [`benchmarks.md`](benchmarks.md): reproducible performance methodology and reporting.
 - [`documentation.md`](documentation.md): public API and high-level documentation.
 
-When several documents apply, follow all of them. These files do not weaken or replace
-the root checklist.
+When several documents apply, follow all of them. The guidance is mandatory.
