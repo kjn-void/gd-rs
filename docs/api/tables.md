@@ -167,6 +167,40 @@ exposing the storage enum. It returns an immutable `Column` for `source` and a
 as `Column::as_slice::<T>`, then returns `&mut [T]`. The two disjoint slices can be
 zipped by ordinary sequential iterators or a parallel slice library.
 
+For example, an application can add `rayon = "1.12"` to its dependencies and run a
+parallel source-to-target transform directly over the borrowed columns:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+use rayon::prelude::*;
+
+let schema = Schema::new([
+    ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("result", DataType::U32),
+])
+.unwrap();
+
+let mut table = Table::with_capacity(schema, 1_000_000);
+for arg in 0_u32..1_000_000 {
+    table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+}
+
+let (args, results) = table.column_pair_mut(0, 1).unwrap();
+let args = args.as_slice::<u32>().unwrap();
+let results = results.as_mut_slice::<u32>().unwrap();
+
+args.par_iter()
+    .zip(results.par_iter_mut())
+    .for_each(|(&arg, result)| *result = arg.saturating_mul(arg));
+
+assert_eq!(results[12], 144);
+```
+
+`column_pair_mut` rejects equal or invalid column positions before returning the
+views. Rayon then partitions the ordinary `&[u32]` and `&mut [u32]` slices; its safe
+slice iterators ensure that workers receive non-overlapping mutable elements. Rayon
+owns the scheduling policy—`gd-rs` only provides the checked, disjoint column borrows.
+
 When the column type is not known until runtime, `Column::for_each_value` retains a
 `ValueRef` callback but dispatches the column's storage type and nullability only once:
 
