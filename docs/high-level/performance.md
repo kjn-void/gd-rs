@@ -12,15 +12,16 @@ separately so every table compares C++ with Rust under one hardware and ISA poli
 | Core Ultra portable | Intel Core Ultra 5 225H, Ubuntu 24.04, Linux 6.17 | GCC 13.3.0 | rustc 1.97.0 | normal portable `x86-64` release defaults |
 | Core Ultra native | same Core Ultra host | GCC 13.3.0 | rustc 1.97.0 | C++ `-march=native`; Rust `-C target-cpu=native` |
 
-The mixed-numeric maximum section additionally reports an M3-only explicit-SIMD
-configuration built with rustc 1.99.0-nightly (2026-07-14). It uses the same normal
-release ISA policy as the stable M3 result; only the nightly `std::simd` implementation
-and compiler differ.
+The mixed-numeric maximum section additionally reports explicit-SIMD configurations
+built with rustc 1.99.0-nightly (2026-07-14). The M3 uses the same normal release ISA
+policy as its stable result. The Core Ultra uses `-C target-cpu=native` and is measured
+separately on CPU 0 (Lion Cove) and CPU 4 (Skymont).
 
-The Core Ultra processes were pinned to performance core 0 with `taskset -c 0`. Its
-`intel_pstate` governor reported `powersave`, which still permits demand-based turbo.
-The M3 processes were not pinned. These are benchmark snapshots, not thresholds that
-can be compared across machines.
+The stable Core Ultra processes were pinned to performance core 0 with `taskset -c 0`;
+the nightly maximum additionally uses efficiency core 4 as labeled in that section.
+Its `intel_pstate` governor reported `powersave`, which still permits demand-based
+turbo. The M3 processes were not pinned. These are benchmark snapshots, not thresholds
+that can be compared across machines.
 
 Commands:
 
@@ -425,13 +426,34 @@ table API in the ordinary optimized release profile, with `-C target-cpu=native`
 for the named Core Ultra native configuration. No unchecked Rust comparison is
 included.
 
-The M3 nightly maximum is reproduced separately; `std::simd` remains an unstable
+The nightly maximum is reproduced separately; `std::simd` remains an unstable
 standard-library API and is not part of the crate's Rust 1.86 compatibility surface:
 
 ```sh
+# M3 Max
 CARGO_TARGET_DIR=target/nightly-simd-release \
   RUSTFLAGS='--cfg nightly_simd' \
   cargo +nightly bench --bench table_nightly_simd
+
+# Core Ultra 5 225H, Lion Cove CPU 0
+taskset -c 0 env \
+  CARGO_TARGET_DIR=target/nightly-simd-native \
+  RUSTFLAGS='--cfg nightly_simd -C target-cpu=native' \
+  cargo +nightly bench --bench table_nightly_simd
+
+# Core Ultra 5 225H, Skymont CPU 4
+taskset -c 4 env \
+  CARGO_TARGET_DIR=target/nightly-simd-native \
+  RUSTFLAGS='--cfg nightly_simd -C target-cpu=native' \
+  cargo +nightly bench --bench table_nightly_simd
+
+# Core Ultra 5 225H, Skymont CPU 4, optimized C++ baseline
+taskset -c 4 \
+  target/cpp-reference/release-native/gd_cpp_reference_benchmarks \
+  --benchmark_filter='MixedNumeric/Maximum/' \
+  --benchmark_min_time=1s \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true
 ```
 
 Central estimates:
@@ -553,6 +575,38 @@ than assuming scalar and `simd_max` edge semantics are interchangeable.
 | `u64` | 13.502 ms | 13.383 ms | 13.188 ms | 2.893 ms | 2.917 ms | ×4.56 | ×0.99 | ×4.67 | ×4.63 |
 | `f32` | 33.449 ms | 34.531 ms | 22.826 ms | 8.539 ms | 8.554 ms | ×2.67 | ×1.00 | ×3.92 | ×3.91 |
 | `i32` | 13.486 ms | 13.425 ms | 8.906 ms | 7.422 ms | 7.392 ms | ×1.20 | ×1.00 | ×1.82 | ×1.82 |
+
+**Core Ultra native nightly `std::simd` — CPU 0, Lion Cove**
+
+| Field | C++ off | Rust stable `&[T]` | Rust nightly `std::simd` | `stable / std::simd` | `C++ off / std::simd` |
+|---|---:|---:|---:|---:|---:|
+| `u8` | 13.585 ms | 0.207 ms | 0.212 ms | ×0.98 | ×64.17 |
+| `f64` | 34.449 ms | 8.751 ms | 4.794 ms | ×1.83 | ×7.19 |
+| `u16` | 13.484 ms | 1.708 ms | 0.594 ms | ×2.88 | ×22.71 |
+| `u64` | 13.502 ms | 2.917 ms | 3.195 ms | ×0.91 | ×4.23 |
+| `f32` | 33.449 ms | 8.554 ms | 2.314 ms | ×3.70 | ×14.45 |
+| `i32` | 13.486 ms | 7.392 ms | 1.414 ms | ×5.23 | ×9.54 |
+
+**Core Ultra native nightly `std::simd` — CPU 4, Skymont**
+
+| Field | C++ off, CPU 4 | Rust nightly `std::simd`, CPU 4 | `C++ off / std::simd` | Rust `CPU 0 / CPU 4` |
+|---|---:|---:|---:|---:|
+| `u8` | 11.763 ms | 0.144 ms | ×81.62 | ×1.47 |
+| `f64` | 23.554 ms | 3.603 ms | ×6.54 | ×1.33 |
+| `u16` | 11.626 ms | 0.752 ms | ×15.46 | ×0.79 |
+| `u64` | 11.618 ms | 3.101 ms | ×3.75 | ×1.03 |
+| `f32` | 23.546 ms | 2.364 ms | ×9.96 | ×0.98 |
+| `i32` | 11.616 ms | 2.076 ms | ×5.59 | ×0.68 |
+
+Both Rust runs use the same native binary and rustc nightly. CPU 0 and CPU 4 were
+pinned with `taskset`; `lscpu` reports maximum frequencies of 4.9 and 4.4 GHz for
+their respective core groups. The last column is CPU 0 time divided by CPU 4 time, so
+values above ×1.00 favor Skymont. Skymont leads for `u8`, `f64`, and narrowly `u64`,
+while Lion Cove leads for `u16`, `i32`, and narrowly `f32`. This is not a uniform
+“P-core faster than E-core” result: element width and the generated reduction sequence
+interact differently with the two microarchitectures. The Skymont C++ values are a
+new assertions-off `-march=native` baseline pinned to CPU 4; the Lion Cove C++ values
+are the CPU 0 native baseline already shown above.
 
 #### Harvest cost and maximum over one reused vector
 
@@ -692,6 +746,13 @@ alongside parity or small regressions for integers, show that the stable floatin
 maximum shape was leaving reduction parallelism unavailable while the integer cases
 were not. This evidence is specific to finite maximum reduction and does not generalize
 to average or median.
+
+The Core Ultra native run confirms the floating-point result on a second ISA: explicit
+SIMD reduces the Lion Cove `f64` maximum from 8.751 to 4.794 ms and `f32` from 8.554
+to 2.314 ms. Its integer outcome is again operation- and code-generation-specific.
+The separate Skymont sample also prevents treating core class as a scalar multiplier:
+it beats Lion Cove for some element widths and loses for others under the identical
+binary.
 
 Memory traffic still cannot be removed from the explanation. A Rust `u8` column is
 10 MB and its `f64` column is 80 MB. A 128-bit vector also holds eight times as many
