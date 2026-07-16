@@ -1,5 +1,10 @@
 # Repository instructions
 
+Before changing this repository, read and follow the broader guidance indexed in
+[`docs/ai/index.md`](docs/ai/index.md). It defines repository boundaries, validation,
+commit scope, unsafe-code requirements, benchmark methodology, and documentation
+policy.
+
 Complete this checklist before every commit.
 
 ## 1. Review documentation impact
