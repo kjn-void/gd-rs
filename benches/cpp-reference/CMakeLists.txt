@@ -50,3 +50,40 @@ target_link_libraries(gd_cpp_reference_benchmarks
         gd::core
         benchmark::benchmark_main
 )
+
+if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    find_program(BREW_EXECUTABLE brew)
+    if(BREW_EXECUTABLE)
+        execute_process(
+            COMMAND "${BREW_EXECUTABLE}" --prefix libomp
+            OUTPUT_VARIABLE LIBOMP_PREFIX
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE LIBOMP_PREFIX_RESULT
+        )
+    endif()
+    if(NOT LIBOMP_PREFIX_RESULT EQUAL 0)
+        set(LIBOMP_PREFIX "/opt/homebrew/opt/libomp")
+    endif()
+    find_path(LIBOMP_INCLUDE_DIR omp.h HINTS "${LIBOMP_PREFIX}/include")
+    find_library(LIBOMP_LIBRARY omp HINTS "${LIBOMP_PREFIX}/lib")
+    if(LIBOMP_INCLUDE_DIR AND LIBOMP_LIBRARY)
+        add_library(gd_openmp INTERFACE)
+        target_compile_options(gd_openmp INTERFACE -Xpreprocessor -fopenmp)
+        target_include_directories(gd_openmp INTERFACE "${LIBOMP_INCLUDE_DIR}")
+        target_link_libraries(gd_openmp INTERFACE "${LIBOMP_LIBRARY}")
+    endif()
+else()
+    find_package(OpenMP QUIET COMPONENTS CXX)
+    if(OpenMP_CXX_FOUND)
+        add_library(gd_openmp INTERFACE)
+        target_link_libraries(gd_openmp INTERFACE OpenMP::OpenMP_CXX)
+    endif()
+endif()
+
+if(TARGET gd_openmp)
+    add_executable(gd_cpp_reference_par_benchmark par_benchmark.cpp)
+    target_compile_features(gd_cpp_reference_par_benchmark PRIVATE cxx_std_20)
+    target_link_libraries(gd_cpp_reference_par_benchmark PRIVATE gd::core gd_openmp)
+else()
+    message(WARNING "OpenMP was not found; skipping gd_cpp_reference_par_benchmark")
+endif()

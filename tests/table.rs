@@ -454,6 +454,52 @@ fn required_fixed_width_columns_expose_typed_slices() {
 }
 
 #[test]
+fn distinct_required_columns_support_typed_bulk_transforms() {
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U32),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    table.push_row([Value::U32(7), Value::U32(0)]).unwrap();
+    table.push_row([Value::U32(11), Value::U32(0)]).unwrap();
+
+    let (source, target) = table.column_pair_mut(0, 1).unwrap();
+    let source = source.as_slice::<u32>().unwrap();
+    let target = target.as_mut_slice::<u32>().unwrap();
+    for (source, target) in source.iter().zip(target) {
+        *target = source * 2;
+    }
+
+    assert_eq!(
+        table.column_named("result").unwrap().as_slice::<u32>(),
+        Ok(&[14, 22][..])
+    );
+
+    let (source, target) = table.column_pair_mut(1, 0).unwrap();
+    let source = source.as_slice::<u32>().unwrap();
+    let target = target.as_mut_slice::<u32>().unwrap();
+    for (source, target) in source.iter().zip(target) {
+        *target = source + 1;
+    }
+    assert_eq!(
+        table.column_named("arg").unwrap().as_slice::<u32>(),
+        Ok(&[15, 23][..])
+    );
+
+    let (_, target) = table.column_pair_mut(0, 1).unwrap();
+    assert_eq!(
+        target.as_mut_slice::<i32>(),
+        Err(ColumnSliceError::TypeMismatch {
+            expected: DataType::I32,
+            actual: DataType::U32,
+        })
+    );
+    assert!(table.column_pair_mut(0, 0).is_none());
+    assert!(table.column_pair_mut(0, 2).is_none());
+}
+
+#[test]
 fn for_each_value_matches_column_iteration() {
     let mut table = Table::new(people_schema());
     table

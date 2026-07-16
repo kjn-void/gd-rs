@@ -51,6 +51,7 @@ The implemented core currently provides:
 - [Interchange formats](docs/high-level/format.md)
 - [SQLite adapter](docs/high-level/sqlite.md)
 - [Benchmark methodology and results](docs/high-level/performance.md)
+- [Large-table performance](docs/high-level/perf_large_table.md)
 
 ### Porting record
 

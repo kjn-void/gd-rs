@@ -104,6 +104,25 @@ let selected_rows: Vec<usize> = values
 let total = values.iter().copied().fold(0_u64, u64::saturating_add);
 ```
 
+For an element-wise transform between two required fixed-width columns,
+`Table::column_pair_mut` returns an immutable source and a distinct mutable target.
+Each view can then be converted to a typed slice with one type/nullability check:
+
+```rust
+let (source, target) = table.column_pair_mut(0, 1).unwrap();
+let source = source.as_slice::<u32>()?;
+let target = target.as_mut_slice::<u32>()?;
+
+for (source, target) in source.iter().zip(target) {
+    *target = source.saturating_mul(2);
+}
+```
+
+The method returns `None` for equal or out-of-range column positions, preventing
+overlapping immutable and mutable slices. Since the result is ordinary `&[T]` and
+`&mut [T]`, applications may use a library such as Rayon for a parallel transform;
+Rayon remains a benchmark-only dependency rather than part of the table API.
+
 This moves dynamic dispatch out of the hot loop. The compiler sees a monomorphic,
 contiguous slice, which is the form most suitable for bounds-check elimination and
 auto-vectorization. Filtering preserves table correspondence by collecting row

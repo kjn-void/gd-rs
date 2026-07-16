@@ -491,13 +491,17 @@ enum ColumnStorage {
 }
 
 mod column_element_private {
-    use super::{ColumnData, ColumnStorage, DataType};
+    use super::{ColumnData, ColumnMut, ColumnStorage, DataType};
     use uuid::Uuid;
 
     pub trait Sealed: Sized {
         const DATA_TYPE: DataType;
 
         fn required_values(column: super::Column<'_>) -> Result<&[Self], super::ColumnSliceError>;
+
+        fn required_values_mut(
+            column: ColumnMut<'_>,
+        ) -> Result<&mut [Self], super::ColumnSliceError>;
     }
 
     macro_rules! impl_column_element {
@@ -508,6 +512,23 @@ mod column_element_private {
                 fn required_values(
                     column: super::Column<'_>,
                 ) -> Result<&[Self], super::ColumnSliceError> {
+                    match column.storage {
+                        ColumnStorage::$storage(ColumnData::Required(values)) => Ok(values),
+                        ColumnStorage::$storage(ColumnData::Nullable(_)) => {
+                            Err(super::ColumnSliceError::Nullable {
+                                data_type: column.spec.data_type(),
+                            })
+                        }
+                        _ => Err(super::ColumnSliceError::TypeMismatch {
+                            expected: Self::DATA_TYPE,
+                            actual: column.spec.data_type(),
+                        }),
+                    }
+                }
+
+                fn required_values_mut(
+                    column: ColumnMut<'_>,
+                ) -> Result<&mut [Self], super::ColumnSliceError> {
                     match column.storage {
                         ColumnStorage::$storage(ColumnData::Required(values)) => Ok(values),
                         ColumnStorage::$storage(ColumnData::Nullable(_)) => {
@@ -1084,6 +1105,45 @@ impl Table {
         self.column(self.schema.column_index(name_or_alias)?)
     }
 
+    /// Borrows one column immutably and a distinct column mutably.
+    ///
+    /// This is the safe bulk-transform counterpart to [`Table::column`]. It is
+    /// useful when values from one column are mapped directly into another
+    /// column, including with parallel slice iterators. The returned views can
+    /// each perform their normal runtime type and nullability check once.
+    ///
+    /// Returns `None` when either position is out of bounds or both positions
+    /// identify the same column.
+    #[must_use]
+    pub fn column_pair_mut(
+        &mut self,
+        source: usize,
+        target: usize,
+    ) -> Option<(Column<'_>, ColumnMut<'_>)> {
+        if source == target {
+            return None;
+        }
+        let source_spec = self.schema.column(source)?;
+        let target_spec = self.schema.column(target)?;
+        let (source_storage, target_storage) = if source < target {
+            let (before_target, target_and_after) = self.columns.split_at_mut(target);
+            (before_target.get(source)?, target_and_after.first_mut()?)
+        } else {
+            let (before_source, source_and_after) = self.columns.split_at_mut(source);
+            (source_and_after.first()?, before_source.get_mut(target)?)
+        };
+        Some((
+            Column {
+                spec: source_spec,
+                storage: source_storage,
+            },
+            ColumnMut {
+                spec: target_spec,
+                storage: target_storage,
+            },
+        ))
+    }
+
     /// Returns one borrowing row view.
     #[must_use]
     pub fn row(&self, row: usize) -> Option<Row<'_>> {
@@ -1376,6 +1436,55 @@ impl<'a> Column<'a> {
             }
             ColumnStorage::Uuid(values) => copied!(values, Uuid),
         }
+    }
+}
+
+/// A mutable borrowing view over one typed column.
+pub struct ColumnMut<'a> {
+    spec: &'a ColumnSpec,
+    storage: &'a mut ColumnStorage,
+}
+
+impl fmt::Debug for ColumnMut<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ColumnMut")
+            .field("spec", self.spec)
+            .field("len", &self.storage.len())
+            .finish()
+    }
+}
+
+impl<'a> ColumnMut<'a> {
+    /// Returns this column's schema definition.
+    #[must_use]
+    pub const fn spec(&self) -> &'a ColumnSpec {
+        self.spec
+    }
+
+    /// Returns the number of cells.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.storage.len()
+    }
+
+    /// Returns whether the column has no cells.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Borrows a required fixed-width column as one contiguous mutable slice.
+    ///
+    /// Type and nullability are checked once before returning the slice. The
+    /// exclusive borrow prevents table access while callers mutate its values.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
+    /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
+    pub fn as_mut_slice<T: ColumnElement>(self) -> Result<&'a mut [T], ColumnSliceError> {
+        <T as column_element_private::Sealed>::required_values_mut(self)
     }
 }
 

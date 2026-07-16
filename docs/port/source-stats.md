@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and sibling `gd` baseline measured
-on 2026-07-15. It measures source shape, not
+on 2026-07-16. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include the current
@@ -15,19 +15,19 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 9 | 3,773 | 96 | 214 | 2.23 |
-| Rust product + tests (`src`, `tests`) | 17 | 4,986 | 158 | 304 | 1.92 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 26 | 6,554 | 213 | 473 | 2.22 |
+| Rust product (`src`) | 9 | 3,859 | 97 | 216 | 2.23 |
+| Rust product + tests (`src`, `tests`) | 17 | 5,113 | 160 | 309 | 1.93 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 27 | 6,798 | 220 | 503 | 2.29 |
 | C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
 | C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
-| C++ product + tests + matched benchmarks | 165 | 64,615 | 8,442 | 19,619 | 2.32 |
+| C++ product + tests + matched benchmarks | 166 | 64,757 | 8,449 | 19,645 | 2.33 |
 
-The requested Rust totals are therefore **3,773 SLOC without test/benchmark code**
-and **6,554 SLOC with both**. Tests account for 1,213 SLOC and benchmarks for 1,568
+The requested Rust totals are therefore **3,859 SLOC without test/benchmark code**
+and **6,798 SLOC with both**. Tests account for 1,254 SLOC and benchmarks for 1,685
 SLOC. In the C++ scopes, tests account for 712 SLOC and benchmarks for a further
-1,095 SLOC.
+1,237 SLOC.
 
-These totals should not be read as a claim that Rust needs 5.6% of the code for an
+These totals should not be read as a claim that Rust needs 6.1% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
 the C++ measurement includes unrelated and excluded subsystems. The figures are
 useful as repository baselines and for tracking growth, but a subsystem-by-subsystem

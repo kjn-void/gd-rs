@@ -160,6 +160,13 @@ also lets LLVM eliminate bounds checks and auto-vectorize suitable integer reduc
 and element-wise transformations. For a table filter, retain row identity by using
 `enumerate` and collecting positions as above.
 
+`Table::column_pair_mut(source, target)` supports direct bulk transforms without
+exposing the storage enum. It returns an immutable `Column` for `source` and a
+`ColumnMut` for a distinct `target`; equal or out-of-range positions return `None`.
+`ColumnMut::as_mut_slice::<T>` applies the same fixed-width type and nullability checks
+as `Column::as_slice::<T>`, then returns `&mut [T]`. The two disjoint slices can be
+zipped by ordinary sequential iterators or a parallel slice library.
+
 When the column type is not known until runtime, `Column::for_each_value` retains a
 `ValueRef` callback but dispatches the column's storage type and nullability only once:
 

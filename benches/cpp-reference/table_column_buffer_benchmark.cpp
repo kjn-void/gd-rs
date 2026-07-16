@@ -268,6 +268,17 @@ Type MaximumContiguous(const std::vector<Type>& values)
 }
 
 template<typename Type>
+long double MedianFromContiguousCopy(const std::vector<Type>& source)
+{
+   auto values = source;
+   const auto middle = values.begin() + static_cast<std::ptrdiff_t>(values.size() / 2);
+   std::nth_element(values.begin(), middle, values.end());
+   const auto upper_middle = *middle;
+   const auto lower_middle = *std::max_element(values.begin(), middle);
+   return (static_cast<long double>(lower_middle) + static_cast<long double>(upper_middle)) / 2;
+}
+
+template<typename Type>
 long double MedianColumn(const gd::table::table_column_buffer& table, unsigned column)
 {
    std::vector<Type> values;
@@ -546,6 +557,24 @@ void MixedNumericMaximumReusedHarvestU8_10M(benchmark::State& state)
 }
 BENCHMARK(MixedNumericMaximumReusedHarvestU8_10M)
    ->Name("MixedNumeric/MaximumReusedHarvest/u8")
+   ->Unit(benchmark::kMillisecond);
+
+void MixedNumericMedianReusedHarvestU8_10M(benchmark::State& state)
+{
+   const auto table = MakeMixedNumericTable(kMixedNumericRows);
+   const auto values = table.harvest<std::uint8_t>(0);
+   if(!Close(MedianFromContiguousCopy(values), kExpectedMixedNumeric[0].median)) std::abort();
+
+   for(auto _ : state)
+   {
+      benchmark::DoNotOptimize(values.data());
+      auto median = MedianFromContiguousCopy(values);
+      benchmark::DoNotOptimize(median);
+   }
+   state.SetItemsProcessed(state.iterations() * kMixedNumericRows);
+}
+BENCHMARK(MixedNumericMedianReusedHarvestU8_10M)
+   ->Name("MixedNumeric/MedianReusedHarvest/u8")
    ->Unit(benchmark::kMillisecond);
 
 void RowSortSelection(benchmark::State& state)
