@@ -1,5 +1,9 @@
 //! Schema-driven typed column storage.
 
+mod row_mut;
+
+pub use row_mut::{RowMut, RowsMut};
+
 use std::{cmp::Ordering, fmt};
 
 use ahash::AHashMap;

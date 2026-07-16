@@ -121,7 +121,8 @@ for (source, target) in source.iter().zip(target) {
 The method returns `None` for equal or out-of-range column positions, preventing
 overlapping immutable and mutable slices. Since the result is ordinary `&[T]` and
 `&mut [T]`, applications may use a library such as Rayon for a parallel transform;
-Rayon remains a benchmark-only dependency rather than part of the table API.
+the optional `rayon` feature additionally provides a safely partitioned row-wise
+adapter for heterogeneous transforms.
 
 This moves dynamic dispatch out of the hot loop. The compiler sees a monomorphic,
 contiguous slice, which is the form most suitable for bounds-check elimination and
@@ -139,6 +140,12 @@ loop.
 
 A dynamic column scan yields `ValueRef`; a required fixed-width scan can instead walk
 its typed slice directly. Row iteration assembles a borrowing view across columns.
+`RowMut` similarly assembles disjoint mutable cell references for one row. `RowsMut`
+can split all column slices and the open-schema sidecar at one common row boundary;
+its halves can therefore be sent to scoped threads without a table lock or unsafe
+aliasing. With the optional `rayon` feature, `par_for_each_row_mut` performs this
+partitioning recursively using a caller-selected minimum grain size. Typed column
+slices remain the lower-overhead interface for homogeneous bulk operations.
 `ColumnIndex` borrows the table, uses a typed `AHashMap`, preserves
 duplicate row positions, and tracks null rows separately. Boolean, integer, string,
 byte, and UUID columns are indexable. Floating-point indexes are rejected until NaN

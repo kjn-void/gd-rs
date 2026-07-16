@@ -236,6 +236,78 @@ assert!(table.pop_row());
 assert!(table.is_empty());
 ```
 
+`row_mut` provides the same checked mutation through one borrowing row view. This is
+useful when one operation reads or changes several differently typed fields:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, UnknownFields, Value, ValueRef};
+
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U64),
+    ColumnSpec::new("name", DataType::String),
+])
+.unwrap()
+.with_unknown_fields(UnknownFields::Store);
+
+let mut table = Table::new(schema);
+table
+    .push_row([Value::U64(7), Value::from("Ada")])
+    .unwrap();
+
+let mut row = table.row_mut(0).unwrap();
+assert_eq!(row.get_named("name"), Some(ValueRef::String("Ada")));
+row.set_named("name", "Grace").unwrap();
+row.set_named("language", "COBOL").unwrap();
+assert_eq!(row.get_named("language"), Some(ValueRef::String("COBOL")));
+```
+
+The mutable view cannot add or remove fixed columns or rows. Declared fields retain
+the schema's exact type/null checks; an unknown name is accepted only by an open
+schema and remains local to that row.
+
+### Parallel row mutation
+
+Enable the optional `rayon` feature to apply heterogeneous row logic in parallel:
+
+```toml
+[dependencies]
+gd-rs = { version = "0.1", features = ["rayon"] }
+```
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([
+    ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("result", DataType::U32),
+])
+.unwrap();
+let mut table = Table::with_capacity(schema, 10_000);
+for arg in 0_u32..10_000 {
+    table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+}
+
+table.par_for_each_row_mut(256, |mut row| {
+    let ValueRef::U32(arg) = row.get_named("arg").unwrap() else {
+        unreachable!()
+    };
+    row.set_named("result", arg.saturating_mul(arg)).unwrap();
+});
+
+assert_eq!(table.cell_named(12, "result"), Ok(ValueRef::U32(144)));
+```
+
+The grain size (`256` here) is the smallest independently scheduled range. Internally,
+`rows_mut` divides every typed column and the optional extras sidecar at identical row
+boundaries. The resulting `RowsMut` halves own disjoint mutable slices, so Rayon needs
+neither a table lock nor unsafe aliasing. Callers that manage their own scoped threads
+can use `table.rows_mut().split_at(mid)` directly.
+
+Each `RowMut` assembles dynamic cell references for one row (inline for schemas of up
+to eight columns), so it is intended for genuinely row-oriented, heterogeneous work.
+For a uniform source-to-target transform, `column_pair_mut` and typed slices avoid that
+per-row dynamic dispatch and remain the preferred bulk-performance API.
+
 The current API does not insert or remove columns after construction. Build a new
 schema and table when the data model changes.
 

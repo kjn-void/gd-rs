@@ -554,6 +554,122 @@ fn typed_slices_use_standard_map_filter_and_fold_operations() {
     assert_eq!(values.iter().copied().fold(0_i64, i64::saturating_add), 36);
 }
 
+#[test]
+fn mutable_row_reads_and_replaces_fixed_and_extra_values() {
+    let schema = people_schema().with_unknown_fields(UnknownFields::Store);
+    let mut table = Table::new(schema);
+    table
+        .push_row([Value::U64(7), Value::from("Ada"), Value::I32(42)])
+        .unwrap();
+
+    let mut row = table.row_mut(0).unwrap();
+    assert_eq!(row.position(), 0);
+    assert_eq!(row.len(), 3);
+    assert!(!row.is_empty());
+    assert_eq!(row.get(0), Some(ValueRef::U64(7)));
+    assert_eq!(row.get_named("display_name"), Some(ValueRef::String("Ada")));
+
+    row.set(0, Value::U64(8)).unwrap();
+    row.set_named("name", "Grace").unwrap();
+    row.set_named("language", "COBOL").unwrap();
+    assert_eq!(row.get_named("language"), Some(ValueRef::String("COBOL")));
+    assert_eq!(
+        row.set(0, Value::I64(8)),
+        Err(TableError::TypeMismatch {
+            column: 0,
+            expected: DataType::U64,
+            actual: DataType::I64,
+        })
+    );
+    drop(row);
+
+    assert_eq!(table.cell_named(0, "id"), Ok(ValueRef::U64(8)));
+    assert_eq!(table.cell_named(0, "name"), Ok(ValueRef::String("Grace")));
+    assert_eq!(
+        table.cell_named(0, "language"),
+        Ok(ValueRef::String("COBOL"))
+    );
+    assert!(table.row_mut(1).is_none());
+}
+
+#[test]
+fn split_mutable_rows_can_run_on_scoped_threads() {
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U32),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let mut table = Table::with_capacity(schema, 100);
+    for arg in 0_u32..100 {
+        table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+    }
+
+    let (left, right) = table.rows_mut().split_at(40);
+    assert_eq!((left.start(), left.len()), (0, 40));
+    assert_eq!((right.start(), right.len()), (40, 60));
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            left.for_each(|mut row| {
+                let ValueRef::U32(arg) = row.get(0).unwrap() else {
+                    unreachable!()
+                };
+                row.set(1, Value::U32(arg * 2)).unwrap();
+                row.set_named("partition", "left").unwrap();
+            });
+        });
+        scope.spawn(move || {
+            right.for_each(|mut row| {
+                let ValueRef::U32(arg) = row.get_named("arg").unwrap() else {
+                    unreachable!()
+                };
+                row.set_named("result", arg * 3).unwrap();
+                row.set_named("partition", "right").unwrap();
+            });
+        });
+    });
+
+    for row in 0..100 {
+        let multiplier = if row < 40 { 2 } else { 3 };
+        assert_eq!(
+            table.cell_named(row, "result"),
+            Ok(ValueRef::U32(u32::try_from(row).unwrap() * multiplier))
+        );
+        assert_eq!(
+            table.cell_named(row, "partition"),
+            Ok(ValueRef::String(if row < 40 { "left" } else { "right" }))
+        );
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[test]
+fn parallel_mutable_rows_transform_fixed_columns() {
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U32),
+    ])
+    .unwrap();
+    let mut table = Table::with_capacity(schema, 10_000);
+    for arg in 0_u32..10_000 {
+        table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+    }
+
+    table.par_for_each_row_mut(256, |mut row| {
+        let ValueRef::U32(arg) = row.get(0).unwrap() else {
+            unreachable!()
+        };
+        row.set(1, Value::U32(arg.saturating_mul(arg))).unwrap();
+    });
+
+    for arg in [0_u32, 1, 12, 9_999] {
+        assert_eq!(
+            table.cell(arg as usize, 1),
+            Ok(ValueRef::U32(arg.saturating_mul(arg)))
+        );
+    }
+}
+
 proptest! {
     #[test]
     fn typed_column_round_trips(values in prop::collection::vec(any::<i64>(), 0..512)) {
