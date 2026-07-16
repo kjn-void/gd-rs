@@ -580,11 +580,13 @@ sidecar. Neither timed transform allocates a 100M-element scratch vector.
 
 ### Results
 
-These are literal one-pass measurements over 100,000,000 rows. Both programs used
-their complete default thread pools and validated every `result` cell after the timed
-transform. The C++ binary is the optimized assertions-off portable release build;
-Rust uses the ordinary portable release profile. Neither uses native-ISA flags or
-sanitizer instrumentation.
+These are the initially recorded one-pass measurements over 100,000,000 rows. Both
+programs used their complete default thread pools and validated every `result` cell
+after the timed transform. The C++ binary is the optimized assertions-off portable
+release build; Rust uses the ordinary portable release profile. Neither uses
+native-ISA flags or sanitizer instrumentation. On the Core Ultra, C++ ran before
+Rust; the run-order investigation below shows why those two values must not be
+treated as a fair head-to-head result.
 
 | Host | Threads | C++ build | Rust build | C++ transform | Rust transform | C++ / Rust transform |
 |---|---:|---:|---:|---:|---:|---:|
@@ -599,11 +601,45 @@ The last column divides C++ transform time by Rust transform time, so values abo
 | M3 Max | 1.689 million rows/s | 1.595 million rows/s |
 | Core Ultra 5 225H | 1.834 million rows/s | 1.555 million rows/s |
 
-By throughput, C++ is about 5.9% faster on the M3 Max and 18.0% faster on the Core
-Ultra. The Core Ultra C++ transform previously took 87.363 s with equal-size static
-partitions; dynamic chunks reduce it to 54.530 s by allowing its faster cores to claim
-more work. That discarded static result is useful only as a scheduler warning, not as
-the C++ baseline on an asymmetric CPU.
+In that initial sequence, C++ appears about 5.9% faster on the M3 Max and 18.0% faster
+on the Core Ultra. The M3 result reproduced; the Core Ultra ranking did not.
+
+### Run-order and thermal sensitivity
+
+Reversing the order retained the M3 result but reversed the Core Ultra result:
+
+| Host | Execution order | C++ transform | Rust transform | C++ / Rust transform |
+|---|---|---:|---:|---:|
+| M3 Max | Rust, then C++ | 59.035 s | 62.581 s | ×0.94 |
+| Core Ultra 5 225H, initial | C++, then Rust | 54.530 s | 64.325 s | ×0.85 |
+| Core Ultra 5 225H, reversed | Rust, then C++ | 63.753 s | 61.214 s | ×1.04 |
+
+The unchanged Core Ultra C++ binary moved from 54.530 to 63.753 seconds—a 16.9%
+change—and went from first to second place. A shorter order-balanced diagnostic ran
+C++, Rust, Rust, C++ consecutively over 20,000,000 rows without an artificial
+cooldown. The temperatures are the Linux `x86_pkg_temp` readings immediately before
+and after each timed transform:
+
+| Position | Implementation | Transform | Package temperature before → after |
+|---:|---|---:|---:|
+| 1 | C++/OpenMP | 10.083 s | 59°C → 97°C |
+| 2 | Rust/Rayon | 12.010 s | 89°C → 84°C |
+| 3 | Rust/Rayon | 12.828 s | 84°C → 82°C |
+| 4 | C++/OpenMP | 13.092 s | 79°C → 82°C |
+
+The same C++ executable became 29.8% slower solely by moving from the first to the
+last position. The instantaneous temperature does not describe the complete clock,
+power-limit, and cooling state, but reaching 97°C on the first pass and the strong
+position dependence demonstrate that sustained-power and thermal history dominate
+the apparent Core Ultra difference. The original 18.0% C++ advantage is therefore
+not a valid implementation ranking.
+
+Future long-running Core Ultra comparisons must alternate or randomize execution
+order, cool the machine to a defined starting condition, collect multiple samples,
+and report frequency, power, and temperature telemetry. The earlier 87.363-second
+equal-partition OpenMP result is likewise useful as a scheduling warning, but the
+one-pass measurements cannot isolate or quantify the benefit of
+`schedule(dynamic, 4096)` from thermal state alone.
 
 This is not a table-bandwidth result. Each pass moves only about 1.6 GB of table
 payload—one four-byte input and one four-byte output per row—over roughly one minute.
@@ -672,3 +708,11 @@ Ultra. At only 0.1–0.9 ms per pass, parallel-region entry and exit, chunk sche
 heterogeneous-core placement, cache state, and ordinary timing noise are material
 parts of the result. This is consequently a useful parallel-overhead case, but not a
 stable ranking of the languages or a measurement of scalar multiplication throughput.
+
+The 100M investigation above also makes thermal and run-order state a plausible
+contributor to this reversal. A complete 1,000-pass batch lasts only about 0.1–0.2
+seconds, so it does not by itself demonstrate sustained thermal throttling. However,
+back-to-back samples can inherit temperature, boost clocks, package power budgets,
+and core-placement state from earlier benchmarks. Future repetitions of this short
+case should therefore alternate implementation order and record the starting machine
+state instead of assuming that five sequential process samples are independent.
