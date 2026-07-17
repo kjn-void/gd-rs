@@ -194,8 +194,26 @@ and element-wise transformations. For a table filter, retain row identity by usi
 the storage enum. Its const-generic position arrays can select any number of immutable
 `Column` inputs and mutable `ColumnMut` outputs. Input positions may repeat; outputs
 must be unique and cannot overlap an input. Invalid selections return a descriptive
-`ColumnSelectionError`. `column_pair_mut` remains the one-input, one-output convenience
-wrapper.
+`ColumnSelectionError`.
+
+For the common one-input, one-output case, `column_pair_mut` is a specialized
+zero-allocation path. It validates the two positions and uses `split_at_mut` directly,
+without constructing the generalized selection request:
+
+```rust
+use rayon::prelude::*;
+
+let (args, results) = table.column_pair_mut(0, 1).unwrap();
+let args = args.as_slice::<u32>().unwrap();
+let results = results.as_mut_slice::<u32>().unwrap();
+
+args.par_iter()
+    .zip(results.par_iter_mut())
+    .for_each(|(&arg, result)| *result = arg.saturating_mul(arg));
+```
+
+Use `column_pair_mut` for unary transforms and `columns_io` once a kernel has multiple
+inputs or outputs.
 
 `ColumnMut::as_mut_slice::<T>` applies the same fixed-width type and nullability checks
 as `Column::as_slice::<T>`, then returns `&mut [T]`. The disjoint slices can be zipped

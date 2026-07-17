@@ -189,11 +189,24 @@ for (((left, right), sum), product) in left.iter().zip(right).zip(sum).zip(produ
 
 Input positions may repeat because they are shared borrows. Output positions must be
 unique and cannot also occur as inputs; `columns_io` validates those rules and bounds
-before returning any view. `column_pair_mut` remains a convenient one-input,
-one-output wrapper. Since the results are ordinary `&[T]` and `&mut [T]`, applications
-may use a library such as Rayon for a parallel transform; the optional `rayon` feature
-additionally provides a safely partitioned row-wise adapter for heterogeneous
-transforms.
+before returning any view. The common one-input, one-output case has a specialized
+zero-allocation path:
+
+```rust
+let (args, results) = table.column_pair_mut(0, 1).unwrap();
+let args = args.as_slice::<u32>()?;
+let results = results.as_mut_slice::<u32>()?;
+
+for (&arg, result) in args.iter().zip(results) {
+    *result = arg.saturating_mul(arg);
+}
+```
+
+`column_pair_mut` validates the two positions and applies `split_at_mut` directly;
+`columns_io` pays its small generalized setup cost only when a kernel needs more
+columns. Since both return ordinary `&[T]` and `&mut [T]`, applications may use Rayon
+for parallel transforms. The optional `rayon` feature additionally provides a safely
+partitioned row-wise adapter for heterogeneous transforms.
 
 This moves dynamic dispatch out of the hot loop. The compiler sees a monomorphic,
 contiguous slice, which is the form most suitable for bounds-check elimination and

@@ -425,7 +425,8 @@ impl Table {
     /// This is the safe bulk-transform counterpart to [`Table::column`]. It is
     /// useful when values from one column are mapped directly into another
     /// column, including with parallel slice iterators. The returned views can
-    /// each perform their normal runtime type and nullability check once.
+    /// each perform their normal runtime type and nullability check once. This
+    /// specialized one-input, one-output path does not allocate.
     ///
     /// Returns `None` when either position is out of bounds or both positions
     /// identify the same column.
@@ -435,8 +436,28 @@ impl Table {
         source: usize,
         target: usize,
     ) -> Option<(Column<'_>, ColumnMut<'_>)> {
-        let ([source], [target]) = self.columns_io([source], [target]).ok()?;
-        Some((source, target))
+        if source == target {
+            return None;
+        }
+        let source_spec = self.schema.column(source)?;
+        let target_spec = self.schema.column(target)?;
+        let (source_storage, target_storage) = if source < target {
+            let (before_target, target_and_after) = self.columns.split_at_mut(target);
+            (before_target.get(source)?, target_and_after.first_mut()?)
+        } else {
+            let (before_source, source_and_after) = self.columns.split_at_mut(source);
+            (source_and_after.first()?, before_source.get_mut(target)?)
+        };
+        Some((
+            Column {
+                spec: source_spec,
+                storage: source_storage,
+            },
+            ColumnMut {
+                spec: target_spec,
+                storage: target_storage,
+            },
+        ))
     }
 
     /// Returns one borrowing row view.
