@@ -190,17 +190,43 @@ impl ConcurrentTableBuilder {
         Ok(begin..begin + count)
     }
 
+    /// Consumes the builder and appends all pending rows to an existing table.
+    ///
+    /// The destination is borrowed exclusively only for this final row-to-column
+    /// transpose. Existing rows retain their positions, and the returned range
+    /// contains the newly appended positions.
+    ///
+    /// Structurally equal schemas are accepted; they do not need to share the
+    /// same [`Arc`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::SchemaMismatch`] without changing `table` when the
+    /// builder and destination schemas differ.
+    pub fn append_to(self, table: &mut Table) -> Result<Range<usize>, TableError> {
+        if self.schema.as_ref() != table.schema() {
+            return Err(TableError::SchemaMismatch);
+        }
+        Ok(append_rows(self.rows, table))
+    }
+
     /// Consumes the builder and transposes all rows into dense typed columns.
     #[must_use]
     pub fn into_table(self) -> Table {
         let Self { schema, rows } = self;
         let mut table = Table::with_capacity(schema, rows.len());
-        for pending in rows {
-            let row = table.push_validated_row(pending.values);
-            if let Some(extras) = pending.extras {
-                table.extras.set_box(row, extras);
-            }
-        }
+        let _ = append_rows(rows, &mut table);
         table
     }
+}
+
+fn append_rows(rows: ConcurrentVec<PendingRow>, table: &mut Table) -> Range<usize> {
+    let begin = table.row_count();
+    for pending in rows {
+        let row = table.push_validated_row(pending.values);
+        if let Some(extras) = pending.extras {
+            table.extras.set_box(row, extras);
+        }
+    }
+    begin..table.row_count()
 }

@@ -80,7 +80,7 @@ impl ColumnSpec {
 
 /// An immutable table schema with O(1)-expected name/alias lookup and an
 /// explicit policy for row-local unknown fields.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Schema {
     columns: Vec<ColumnSpec>,
     by_name: AHashMap<CompactString, usize>,

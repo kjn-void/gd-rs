@@ -170,6 +170,65 @@ fn concurrent_builder_validates_batches_atomically_and_preserves_extras() {
 }
 
 #[test]
+fn concurrent_builder_appends_to_compatible_existing_table() {
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U64),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let mut table = Table::new(schema);
+    table.push_row([Value::U32(1), Value::U64(1)]).unwrap();
+
+    // Use a separately constructed but structurally equal schema.
+    let builder_schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U64),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let builder = ConcurrentTableBuilder::new(builder_schema);
+    builder.push_row([Value::U32(2), Value::U64(4)]).unwrap();
+    builder
+        .push_row_with_extras(
+            [Value::U32(3), Value::U64(9)],
+            [("label", Value::from("nine"))],
+        )
+        .unwrap();
+
+    assert_eq!(builder.append_to(&mut table), Ok(1..3));
+    assert_eq!(
+        table.column(0).unwrap().as_slice::<u32>().unwrap(),
+        &[1, 2, 3]
+    );
+    assert_eq!(
+        table.column(1).unwrap().as_slice::<u64>().unwrap(),
+        &[1, 4, 9]
+    );
+    assert_eq!(table.cell_named(2, "label"), Ok(ValueRef::String("nine")));
+}
+
+#[test]
+fn concurrent_builder_rejects_incompatible_destination_atomically() {
+    let builder_schema = Schema::new([ColumnSpec::new("value", DataType::U32)])
+        .unwrap()
+        .with_unknown_fields(UnknownFields::Store);
+    let builder = ConcurrentTableBuilder::new(builder_schema);
+    builder.push_row([Value::U32(7)]).unwrap();
+
+    let table_schema = Schema::new([ColumnSpec::new("value", DataType::U32)]).unwrap();
+    let mut table = Table::new(table_schema);
+    table.push_row([Value::U32(3)]).unwrap();
+
+    assert_eq!(
+        builder.append_to(&mut table),
+        Err(TableError::SchemaMismatch)
+    );
+    assert_eq!(table.row_count(), 1);
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::U32(3)));
+}
+
+#[test]
 fn rejects_invalid_rows_atomically() {
     let mut table = Table::new(people_schema());
 

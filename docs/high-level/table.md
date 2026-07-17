@@ -49,22 +49,28 @@ flowchart LR
     P1["producer 1<br/>validate complete row"] --> Rows
     PN["producer N<br/>validate complete row"] --> Rows
     Rows["temporary concurrent rows<br/>SmallVec&lt;Value&gt; + RowExtras"]
-    Rows -->|"consume into_table()"| T["Table"]
+    Rows -->|"consume into_table()"| T["new Table"]
+    Rows -->|"append_to(&mut table)"| Existing["existing Table<br/>preserve old rows"]
     T --> C0["Vec&lt;T0&gt;"]
     T --> C1["Vec&lt;T1&gt;"]
     T --> CN["Vec&lt;TN&gt;"]
+    Existing --> EC["extend existing<br/>typed Vec columns"]
 ```
 
 The temporary layout is deliberately row-oriented: one reservation publishes the
 whole logical row rather than independently extending several columns and risking
 different lengths. Most rows of up to eight values keep their staging values inline.
-`into_table` consumes the builder and performs one row-to-column transpose into the
-ordinary dense SoA representation. Pending rows are moved rather than cloned.
+`into_table` consumes the builder and performs one row-to-column transpose into a new
+dense SoA table. `append_to` performs the same move into an existing compatible table,
+preserving its row positions and returning the appended range. Pending rows and boxed
+extras are moved rather than cloned or reallocated.
 
 This is a construction boundary, not a concurrently mutable `Table`. Concurrent row
 order follows scheduling, live cell mutation is not exposed, and no producer may
-remain borrowed when `into_table` takes ownership. Once converted, typed column
-slices and `RowsMut::split_at` provide the existing safe parallel-processing paths.
+remain borrowed when the builder is consumed. `append_to` takes `&mut Table`, making
+the final merge exclusive and ensuring all typed columns remain the same length. Once
+converted or appended, typed column slices and `RowsMut::split_at` provide the existing
+safe parallel-processing paths.
 
 ```rust
 use std::thread;

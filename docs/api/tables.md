@@ -144,14 +144,48 @@ assert!(args
     .all(|(&arg, &result)| result == u64::from(arg) * 3));
 ```
 
+To add concurrently produced rows after rows already stored in a table, construct the
+builder from the table's shared schema and perform one exclusive final merge:
+
+```rust
+use gd::{ColumnSpec, ConcurrentTableBuilder, DataType, Schema, Table, Value};
+
+let schema = Schema::new([
+    ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("result", DataType::U64),
+])
+.unwrap();
+let mut table = Table::new(schema);
+table.push_row([Value::U32(1), Value::U64(1)]).unwrap();
+
+let builder = ConcurrentTableBuilder::new(table.schema_arc());
+builder
+    .extend_rows([
+        [Value::U32(2), Value::U64(4)],
+        [Value::U32(3), Value::U64(9)],
+    ])
+    .unwrap();
+
+let appended = builder.append_to(&mut table).unwrap();
+assert_eq!(appended, 1..3);
+assert_eq!(table.row_count(), 3);
+```
+
+`append_to` accepts structurally equal schemas, even when they are held by different
+`Arc`s. It returns `TableError::SchemaMismatch` without changing the destination when
+column definitions or the unknown-field policy differ. Existing rows keep their
+positions, and the returned range identifies the newly appended rows.
+
 `push_row_vec` accepts runtime-width rows, `push_row_with_extras` supports open
 schemas, and `extend_rows` validates an entire batch before publishing it as one
 consecutive range. A failed row or batch changes nothing.
 
 The builder intentionally does not expose a live `Table` or concurrent cell updates.
 Its temporary representation is row-oriented so all values and extras for one row
-become visible together. `into_table` requires exclusive ownership; after that point,
-use the ordinary mutable table API or partition typed columns and rows with Rayon.
+become visible together. `into_table` requires ownership of the builder, while
+`append_to` additionally borrows the destination table exclusively for the transpose.
+After either operation, use the ordinary mutable table API or partition typed columns
+and rows with Rayon.
 
 ## Reading rows, columns, and cells
 

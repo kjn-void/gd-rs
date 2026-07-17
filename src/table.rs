@@ -80,6 +80,9 @@ pub enum TableError {
     /// Hash indexes do not support this logical type.
     #[error("columns of type {0} cannot be indexed")]
     UnsupportedIndexType(DataType),
+    /// A concurrent builder and its destination table use different schemas.
+    #[error("concurrent builder schema does not match destination table schema")]
+    SchemaMismatch,
 }
 
 /// Error returned when selecting typed input and output columns together.
