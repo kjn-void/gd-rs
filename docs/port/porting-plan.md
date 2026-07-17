@@ -100,6 +100,7 @@ typed column vectors. Do not reproduce the packed C++ per-row argument buffer or
 turn every cell into a dynamic `Value`. Instead, model unknown named fields as an
 optional sidecar running parallel to the row axis:
 
+- tables with the same layout share immutable metadata through `Arc<Schema>`;
 - `UnknownFields::Reject` remains the default schema policy;
 - `UnknownFields::Store` opts a schema into row-local unknown fields;
 - `Table` keeps one `Option<Box<RowExtras>>` slot per row, initially `None`;

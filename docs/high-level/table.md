@@ -1,12 +1,13 @@
 # Tables
 
-`Table` combines an immutable `Schema` with one typed vector per column. `Row` and
-`Column` are borrowing views; ordinary cell access returns `ValueRef`, while required
-fixed-width columns can also expose a checked typed slice.
+`Table` combines a shared immutable `Arc<Schema>` with one typed vector per column.
+`Row` and `Column` are borrowing views; ordinary cell access returns `ValueRef`, while
+required fixed-width columns can also expose a checked typed slice. Independent
+tables with the same layout can share all schema metadata without sharing row data.
 
 ```mermaid
 flowchart TD
-    Schema["Schema\nColumnSpec + ahash name/alias map"] --> Table
+    Schema["Arc&lt;Schema&gt;\nColumnSpec + ahash name/alias map"] --> Table
     Table --> C0["required: Vec&lt;T0&gt;"]
     Table --> C1["nullable: Vec&lt;Option&lt;T1&gt;&gt;"]
     Table --> CN["required or nullable typed column"]
@@ -24,12 +25,77 @@ Primary names and aliases are unique across different columns. Schema lookup use
 `ahash` and is expected O(name length). A row must have exactly the schema width.
 Values must match the declared `DataType`; conversion is not implicit.
 
+`Table::new` and `Table::with_capacity` accept either an owned `Schema` or a shared
+`Arc<Schema>`. Cloning a table or its `schema_arc` handle increments standard atomic
+ownership; schema metadata is released only after the last handle is dropped.
+
 `push_row([Value; N])` consumes a fixed-width array without a staging allocation.
 `push_row_vec(Vec<Value>)` handles runtime-width rows and consumes the existing vector.
 Both validate the entire row before changing any column.
 
 Nullable columns accept `Value::Null`; non-nullable columns reject it. Unlike C++
 `row_add()`, an omitted value never becomes a non-null cell with uninitialized bytes.
+
+### Shared-schema and row memory
+
+Sharing the schema separates the one-time metadata cost from each table's row storage:
+
+```mermaid
+flowchart LR
+    Schema["Arc&lt;Schema&gt;<br/>columns + name/alias AHashMap"]
+    Schema --> A["Table A<br/>own typed columns"]
+    Schema --> B["Table B<br/>own typed columns"]
+    Schema --> C["Table C<br/>own typed columns"]
+```
+
+The following 64-bit M3 release-layout comparison uses five required columns in this
+order: `u8`, `u64`, `bool`, `u8`, and `i32`. It excludes allocator bookkeeping, null
+metadata, open-schema extras, and unused capacity. C++ GD rounds every cell slot to a
+four-byte boundary:
+
+```text
+C++ packed row (24 bytes)
+
+offset  0  u8    [value][3 bytes padding]
+offset  4  u64   [8-byte value]
+offset 12  bool  [value][3 bytes padding]
+offset 16  u8    [value][3 bytes padding]
+offset 20  i32   [4-byte value]
+```
+
+The Rust table stores five independent, correctly aligned vectors:
+
+```text
+Rust SoA storage (15 bytes per populated row)
+
+Vec<u8>    1 byte  x capacity
+Vec<u64>   8 bytes x capacity
+Vec<bool>  1 byte  x capacity
+Vec<u8>    1 byte  x capacity
+Vec<i32>   4 bytes x capacity
+```
+
+Rust's standard `Vec<bool>` stores ordinary one-byte `bool` elements; unlike C++
+`std::vector<bool>`, it is not bit-packed. It therefore exposes normal `&[bool]` and
+`&mut [bool]` slices that Rayon can partition directly.
+
+Measured fixed layouts are 104 bytes for a C++ internal table and 64 bytes for the
+Arc-backed Rust `Table`. Rust additionally keeps five 40-byte `ColumnStorage` values
+in the table's column-descriptor allocation. For capacity `C`, excluding the shared
+schema and allocator bookkeeping:
+
+| Implementation | Fixed per table | Row capacity | Total per table |
+|---|---:|---:|---:|
+| C++ internal table | 104 bytes | 24C bytes | `104 + 24C` |
+| Rust `Table` | 64 + 200 bytes | 15C bytes | `264 + 15C` |
+
+The C++ representation is smaller for very small equal-capacity tables; the Rust
+representation crosses below it at about 18 rows because it avoids per-cell padding.
+The shared schema was approximately 800 requested bytes for C++ and 1,016 requested
+bytes for Rust in this fixture. Rust's larger one-time schema includes the `AHashMap`
+used for expected constant-time name and alias lookup. Real tiny-table totals also
+depend on allocation rounding and growth policy: Rust has one descriptor allocation
+plus one allocation per typed column, while C++ has one packed row allocation.
 
 ## Open schemas
 
@@ -135,6 +201,102 @@ cell. This avoids the repeated storage dispatch and bounds check in `Column::ite
 without fragmenting the dynamic value API. It is a terminal operation; use `iter` for
 composable or short-circuiting traversal, and `as_slice::<T>` for an explicitly typed
 loop.
+
+## Parallel processing with Rayon
+
+Rayon operates on the same borrowing interfaces as sequential code. It does not need
+access to `Table` internals and does not make a table globally mutable from several
+threads.
+
+### Column-wise transform
+
+For homogeneous work, borrow two distinct required columns and parallelize their
+ordinary slices:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+use rayon::prelude::*;
+
+let schema = Schema::new([
+    ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("result", DataType::U32),
+])
+.unwrap();
+let mut table = Table::with_capacity(schema, 10_000);
+for arg in 0_u32..10_000 {
+    table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+}
+
+let (args, results) = table.column_pair_mut(0, 1).unwrap();
+let args = args.as_slice::<u32>().unwrap();
+let results = results.as_mut_slice::<u32>().unwrap();
+
+args.par_iter()
+    .zip(results.par_iter_mut())
+    .for_each(|(&arg, result)| *result = arg.saturating_mul(arg));
+```
+
+```mermaid
+flowchart TD
+    Pair["column_pair_mut(0, 1)<br/>checks distinct positions"]
+    Pair --> Src["arg: &amp;[u32]"]
+    Pair --> Dst["result: &amp;mut [u32]"]
+    Src --> S0["rows 0..mid"]
+    Src --> S1["rows mid..end"]
+    Dst --> D0["rows 0..mid"]
+    Dst --> D1["rows mid..end"]
+    S0 --> W0["Rayon worker 0"]
+    D0 --> W0
+    S1 --> W1["Rayon worker 1"]
+    D1 --> W1
+```
+
+`column_pair_mut` rejects equal or invalid positions before returning. Rayon can share
+the immutable source slice and divides the mutable target into non-overlapping ranges,
+so two workers cannot receive mutable access to the same cell. The outstanding borrows
+also prevent structural table operations until the parallel transform finishes.
+
+### Row-wise transform
+
+Enable the crate's `rayon` feature when one operation needs heterogeneous cells from
+the same row:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([
+    ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("result", DataType::U32),
+])
+.unwrap();
+let mut table = Table::with_capacity(schema, 10_000);
+for arg in 0_u32..10_000 {
+    table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+}
+
+table.par_for_each_row_mut(256, |mut row| {
+    let ValueRef::U32(arg) = row.get_named("arg").unwrap() else {
+        unreachable!()
+    };
+    row.set_named("result", arg.saturating_mul(arg)).unwrap();
+});
+```
+
+```mermaid
+flowchart TD
+    Rows["RowsMut over the whole table"]
+    Rows --> Split["split every column and extras<br/>at the same row boundary"]
+    Split --> Left["RowsMut: 0..mid<br/>disjoint mutable slices"]
+    Split --> Right["RowsMut: mid..end<br/>disjoint mutable slices"]
+    Left --> W0["Rayon worker 0<br/>RowMut values in left half"]
+    Right --> W1["Rayon worker 1<br/>RowMut values in right half"]
+```
+
+`RowsMut` applies `split_at_mut` to every column at the same logical row and splits the
+optional extras sidecar there too. Each recursive half therefore owns a disjoint set
+of rows across all storage allocations. The grain size (`256` above) controls the
+smallest independently scheduled range. Row-wise access performs dynamic cell work;
+typed column slices remain preferable when the operation is homogeneous.
 
 ## Views and indexes
 

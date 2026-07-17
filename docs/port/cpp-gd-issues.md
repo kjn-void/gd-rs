@@ -314,11 +314,32 @@ with a table generation.
 `detail::columns::m_iReference` is an ordinary `int` modified without atomics or a
 mutex in [`gd_table_column.h`](../../../gd/source/gd_table_column.h). Documentation
 describes shared columns as suitable for threaded use, but concurrent copy/drop can
-race exactly like the shared argument counter. Rust should use `Arc<Schema>` and make
-the schema immutable after construction.
+race exactly like the shared argument counter. Rust uses `Arc<Schema>` and makes the
+schema immutable after construction.
 
 Table contents are not safe for concurrent mutation. Public documentation must
 distinguish immutable shared schema from shared mutable table data.
+
+### Copying an internal table does not retain its shared columns
+
+The public `table(const table&)` copy constructor delegates to
+`common_construct(const table&)`. That function copies `o.m_pcolumns` into the new
+table but does not call `add_reference()`. Both table destructors subsequently call
+`release()` on the same manually reference-counted `detail::columns` object. The
+first destruction can therefore delete the shared column metadata while the other
+table still points to it; later access or destruction becomes a use-after-free or a
+second release through a dangling pointer.
+
+This appears to be an omission rather than an alternative ownership convention:
+`common_construct(const table&, tag_columns)` and
+`common_construct(detail::columns*)` both increment the reference count immediately
+after assigning `m_pcolumns`. The corresponding ordinary copy path in
+`arguments::table` has the same discrepancy. See
+[`gd_table_table.cpp`](../../../gd/source/gd_table_table.cpp) and
+[`gd_table_arguments.cpp`](../../../gd/source/gd_table_arguments.cpp).
+
+Rust represents shared immutable schemas with `Arc<Schema>`. Cloning retains the
+schema atomically, and safe code cannot release it while a table still owns a clone.
 
 ### Table JSON skips alternating columns and omits the outer array
 
@@ -588,6 +609,7 @@ may still panic, and incorrect validation or serialization can still compile.
 | Table index lookup accepts any non-end `lower_bound` result | Missing result validation; correctness | ☐ | A missing key is reported as the next greater key |
 | String indexes retain views without mutation invalidation or a generation check | Ownership/lifetime; stale reference; memory-unsafe access | ☑ | Table growth or destruction leaves dangling index keys |
 | Shared table-column metadata uses a non-atomic reference count | Data race; ownership/lifetime; undefined behavior | ☑ | Premature deletion, double deletion, or use-after-free |
+| Internal-table copies do not retain their shared column metadata | Ownership/lifetime; memory-unsafe access; undefined behavior | ☑ | The first copy destroyed can leave the other with a dangling schema pointer and cause use-after-free or double release |
 | Table JSON skips alternating columns and omits the outer array | Serialization correctness; missing output validation | ☐ | Silent data loss and output that is not one complete JSON value |
 | Table CSV inserts a comma between records | Serialization correctness | ☐ | Extra empty fields and inconsistent record widths |
 | Text handling duplicates UTF traversal, escaping, and parsing primitives | Duplication; architecture; validation risk | ☐ | Inconsistent boundary rules and a broad memory-safety audit surface |

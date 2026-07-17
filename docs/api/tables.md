@@ -3,7 +3,7 @@
 The C++ documentation describes member tables, DTO tables, and tables with per-row
 argument sidecars. `gd-rs` consolidates the fixed-schema behavior into one `Table`:
 
-- an immutable `Schema` describes names, aliases, types, and nullability;
+- an immutable, shareable `Schema` describes names, aliases, types, and nullability;
 - each column stores its primitive type directly in a contiguous vector;
 - an opt-in schema policy stores unknown names as lazy row-local extras;
 - `Row` and `Column` are borrowing views;
@@ -34,6 +34,36 @@ returns `TableError::DuplicateColumnName` rather than selecting one ambiguous co
 
 A `DataType::Null` column is always nullable. Other columns are non-nullable unless
 `nullable(true)` is specified.
+
+### Sharing one schema between tables
+
+`Table::new` and `Table::with_capacity` accept either an owned `Schema` or an
+`Arc<Schema>`. Use an `Arc` when many independent tables have the same layout; each
+table then stores one cloned handle instead of copying the column metadata and name
+map:
+
+```rust
+use std::sync::Arc;
+
+use gd::{ColumnSpec, DataType, Schema, Table};
+
+let schema = Arc::new(
+    Schema::new([
+        ColumnSpec::new("id", DataType::U64),
+        ColumnSpec::new("enabled", DataType::Bool),
+    ])
+    .unwrap(),
+);
+
+let first = Table::new(Arc::clone(&schema));
+let second = Table::with_capacity(Arc::clone(&schema), 100);
+
+assert!(std::ptr::eq(first.schema(), second.schema()));
+assert!(Arc::ptr_eq(&schema, &first.schema_arc()));
+```
+
+The schema remains immutable. Row and column storage is still owned independently by
+each table.
 
 ## Constructing and appending
 
@@ -324,10 +354,11 @@ Nullable null state currently uses `Option<T>` rather than a separate bitmap. Th
 typed-slice API rejects nullable columns, so a measured future validity-bitmap
 optimization can replace that internal representation without changing callers.
 
-Cloning a `Table` clones its schema and column data. To construct several empty tables
-with the same layout, clone the `Schema` explicitly. The crate does not reproduce the
-C++ manual schema reference count or promise concurrent mutation. Share immutable
-tables with `Arc<Table>` only when an application needs shared ownership.
+Cloning a `Table` shares its immutable schema and clones its column data. Constructing
+several empty tables from clones of the same `Arc<Schema>` shares metadata while
+leaving every table's rows independent. `schema_arc` obtains another shared handle
+from an existing table. This uses standard atomic `Arc` ownership rather than the C++
+manual schema reference count; it does not make mutable table contents shared.
 
 ## Dynamic per-row fields
 

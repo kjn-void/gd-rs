@@ -14,6 +14,7 @@ pub use schema::{ColumnSpec, Schema, UnknownFields};
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;
+use std::sync::Arc;
 #[cfg(test)]
 use storage::ColumnData;
 use storage::{ColumnStorage, ExtrasStorage, RowExtras};
@@ -83,25 +84,28 @@ pub enum TableError {
 ///
 /// Required columns store contiguous `T` values directly. Nullable columns use
 /// `Option<T>` to represent null cells. Schemas that reject unknown fields do not
-/// allocate per-row extras storage.
+/// allocate per-row extras storage. The immutable schema is shared through
+/// [`Arc`], so tables with the same layout do not duplicate schema metadata.
 #[derive(Clone, Debug)]
 pub struct Table {
-    schema: Schema,
+    schema: Arc<Schema>,
     columns: Vec<ColumnStorage>,
     extras: ExtrasStorage,
     row_count: usize,
 }
 
 impl Table {
-    /// Creates an empty table.
+    /// Creates an empty table from an owned or shared schema.
     #[must_use]
-    pub fn new(schema: Schema) -> Self {
+    pub fn new(schema: impl Into<Arc<Schema>>) -> Self {
         Self::with_capacity(schema, 0)
     }
 
-    /// Creates an empty table with per-column capacity for `capacity` rows.
+    /// Creates an empty table with per-column capacity for `capacity` rows from
+    /// an owned or shared schema.
     #[must_use]
-    pub fn with_capacity(schema: Schema, capacity: usize) -> Self {
+    pub fn with_capacity(schema: impl Into<Arc<Schema>>, capacity: usize) -> Self {
+        let schema = schema.into();
         let columns = schema
             .iter()
             .map(|column| ColumnStorage::new(column.data_type(), column.is_nullable(), capacity))
@@ -117,8 +121,16 @@ impl Table {
 
     /// Returns the immutable schema.
     #[must_use]
-    pub const fn schema(&self) -> &Schema {
-        &self.schema
+    pub fn schema(&self) -> &Schema {
+        self.schema.as_ref()
+    }
+
+    /// Clones the shared schema handle.
+    ///
+    /// The schema metadata is not copied.
+    #[must_use]
+    pub fn schema_arc(&self) -> Arc<Schema> {
+        Arc::clone(&self.schema)
     }
 
     /// Returns the number of rows.
@@ -513,6 +525,8 @@ fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), 
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::{
         ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table,
         UnknownFields, Value,
@@ -565,5 +579,25 @@ mod tests {
             &open.extras,
             ExtrasStorage::Enabled(rows) if rows[0].is_some()
         ));
+    }
+
+    #[test]
+    fn tables_share_arc_schema_ownership() {
+        let schema = Arc::new(
+            Schema::new([
+                ColumnSpec::new("id", DataType::U64),
+                ColumnSpec::new("enabled", DataType::Bool),
+            ])
+            .unwrap(),
+        );
+
+        let first = Table::new(Arc::clone(&schema));
+        let second = Table::with_capacity(Arc::clone(&schema), 8);
+        let from_table = first.schema_arc();
+
+        assert!(std::ptr::eq(first.schema(), schema.as_ref()));
+        assert!(std::ptr::eq(second.schema(), schema.as_ref()));
+        assert!(Arc::ptr_eq(&schema, &from_table));
+        assert_eq!(Arc::strong_count(&schema), 4);
     }
 }

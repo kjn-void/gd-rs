@@ -30,14 +30,15 @@ concentration of responsibility.
 | argument entry | `Argument` | optional name plus owned value |
 | companion lookup structure | `ArgumentIndex<'a>` | optional borrowed name index |
 | `Table` | `Table` | owned typed column storage |
-| table schema metadata | `Schema`, `ColumnSpec` | immutable column contracts |
+| table schema metadata | `Arc<Schema>`, `ColumnSpec` | shared immutable column contracts |
 | table accessors | `Row<'a>`, `Column<'a>` | lightweight borrowed views |
 | indexes and sorting | `ColumnIndex<'a>`, `RowOrder<'a>` | optional borrowed results |
 
 The supporting types are not alternative ownership models. `ValueRef`, `Row`, and
 `Column` are views returned by the owned roots. The index and ordering types are
-optional accelerators or results that borrow their source. `Schema` separates
-immutable metadata from mutable row storage so the two cannot silently diverge.
+optional accelerators or results that borrow their source. `Arc<Schema>` separates
+shared immutable metadata from mutable row storage so the two cannot silently
+diverge, while many small tables can reuse one layout.
 
 There are deliberately no parallel `OwnedValue`, `TypedValue`, `ArgumentsBuilder`,
 `TableMut`, `RowMut`, `Cell`, or `CellMut` families. Mutation remains directly on
