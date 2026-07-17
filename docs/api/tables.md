@@ -383,6 +383,45 @@ dispatch and remain the preferred bulk-performance API.
 The current API does not insert or remove columns after construction. Build a new
 schema and table when the data model changes.
 
+## Debug printing
+
+`table_debug` provides the same four diagnostic views as GD's C++ table debug
+helpers. Rust has no function overloading, so the C++ `print(table, count)` overload
+is named `print_rows`:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, table_debug};
+
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U64),
+    ColumnSpec::new("name", DataType::String).with_alias("display_name"),
+])
+.unwrap();
+let mut table = Table::new(schema);
+table.push_row([Value::U64(7), Value::from("Ada")]).unwrap();
+table.push_row([Value::U64(8), Value::from("Grace")]).unwrap();
+
+assert_eq!(table_debug::print(&table), "7, Ada\n8, Grace\n");
+assert_eq!(table_debug::print_rows(&table, 1), "7, Ada\n");
+assert_eq!(table_debug::print_row(&table, 1), "8, Grace\n");
+assert_eq!(
+    table_debug::print_column(&table),
+    "[(0) id,u64,8] [(1) name (display_name),string,0]"
+);
+```
+
+Rows are rendered in schema order with `", "` separators, `null` text, and a final
+newline. A requested row count is clamped to the available rows; an invalid row uses
+GD's `Max row is:N` diagnostic. Column output contains position, primary name,
+optional alias, Rust logical type, and fixed payload width (`0` for variable-width
+types).
+
+These functions intentionally use the public `Table`, `Row`, `Schema`, and `ValueRef`
+views. They do not expose column storage internals, and they omit open-schema extras
+because those values are row-local fields rather than fixed columns. The ordinary
+`Debug` implementation remains a structural developer view and is not a substitute
+for this stable, selected output.
+
 ## Storage model
 
 Each logical column has a matching storage variant. Required columns use dense storage

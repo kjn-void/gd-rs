@@ -32,6 +32,7 @@ pub use format::{
 pub use sqlite::{
     SqliteConnection, SqliteDatabase, SqliteEngineError, SqliteError, SqliteStorageClass,
 };
+pub use table::debug as table_debug;
 pub use table::{
     Column, ColumnElement, ColumnIndex, ColumnMut, ColumnSelectionError, ColumnSliceError,
     ColumnSpec, IndexKeyRef, NullOrder, Row, RowMut, RowOrder, RowsMut, Schema, SortDirection,

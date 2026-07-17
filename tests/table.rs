@@ -2,7 +2,7 @@
 
 use gd::{
     ColumnSelectionError, ColumnSliceError, ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema,
-    SortDirection, Table, TableError, UnknownFields, Value, ValueRef,
+    SortDirection, Table, TableError, UnknownFields, Value, ValueRef, table_debug,
 };
 use proptest::prelude::*;
 
@@ -36,6 +36,53 @@ fn preserves_schema_rows_names_aliases_and_nulls() {
         table.row(0).unwrap().iter().collect::<Vec<_>>(),
         vec![ValueRef::U64(7), ValueRef::String("Ada"), ValueRef::I32(42)]
     );
+}
+
+#[test]
+fn table_debug_helpers_match_gd_row_and_column_diagnostics() {
+    let mut table = Table::new(people_schema().with_unknown_fields(UnknownFields::Store));
+    table
+        .push_row_with_extras(
+            [Value::U64(7), Value::from("Ada"), Value::I32(42)],
+            [("language", Value::from("COBOL"))],
+        )
+        .unwrap();
+    table
+        .push_row([Value::U64(8), Value::from("Grace"), Value::Null])
+        .unwrap();
+
+    assert_eq!(table_debug::print(&table), "7, Ada, 42\n8, Grace, null\n");
+    assert_eq!(table_debug::print_rows(&table, 1), "7, Ada, 42\n");
+    assert_eq!(
+        table_debug::print_rows(&table, usize::MAX),
+        table_debug::print(&table)
+    );
+    assert_eq!(table_debug::print_row(&table, 1), "8, Grace, null\n");
+    assert_eq!(table_debug::print_row(&table, 2), "Max row is:2\n");
+    assert_eq!(
+        table_debug::print_column(&table),
+        "[(0) id,u64,8] [(1) name (display_name),string,0] [(2) score,i32,4]"
+    );
+}
+
+#[test]
+fn table_debug_formats_dynamic_scalar_variants() {
+    let schema = Schema::new([
+        ColumnSpec::new("flag", DataType::Bool),
+        ColumnSpec::new("ratio", DataType::F64),
+        ColumnSpec::new("payload", DataType::Bytes),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    table
+        .push_row([
+            Value::Bool(true),
+            Value::F64(1.25),
+            Value::from(&b"\x00\xff"[..]),
+        ])
+        .unwrap();
+
+    assert_eq!(table_debug::print(&table), "1, 1.25, 00ff\n");
 }
 
 #[test]

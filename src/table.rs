@@ -1,5 +1,6 @@
 //! Schema-driven typed column storage.
 
+pub mod debug;
 mod index;
 mod ordering;
 mod row_mut;
