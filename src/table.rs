@@ -1,5 +1,6 @@
 //! Schema-driven typed column storage.
 
+mod concurrent;
 pub mod debug;
 mod index;
 mod ordering;
@@ -8,6 +9,7 @@ mod schema;
 mod storage;
 mod views;
 
+pub use concurrent::ConcurrentTableBuilder;
 pub use index::{ColumnIndex, IndexKeyRef};
 pub use ordering::{NullOrder, RowOrder, SortDirection};
 pub use row_mut::{RowMut, RowsMut};
@@ -187,7 +189,7 @@ impl Table {
     /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
     /// [`TableError::NullNotAllowed`] when the row does not match the schema.
     pub fn push_row<const N: usize>(&mut self, values: [Value; N]) -> Result<usize, TableError> {
-        self.validate_row(&values)?;
+        validate_row(self.schema(), &values)?;
         Ok(self.push_validated_row(values))
     }
 
@@ -212,8 +214,8 @@ impl Table {
         K: Into<CompactString>,
         V: Into<Value>,
     {
-        self.validate_row(&values)?;
-        let extras = self.collect_extras(extras)?;
+        validate_row(self.schema(), &values)?;
+        let extras = collect_extras(self.schema(), extras)?;
         let row = self.push_validated_row(values);
         if !extras.is_empty() {
             self.extras.set(row, extras);
@@ -232,42 +234,8 @@ impl Table {
     /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
     /// [`TableError::NullNotAllowed`] when the row does not match the schema.
     pub fn push_row_vec(&mut self, values: Vec<Value>) -> Result<usize, TableError> {
-        self.validate_row(&values)?;
+        validate_row(self.schema(), &values)?;
         Ok(self.push_validated_row(values))
-    }
-
-    fn validate_row(&self, values: &[Value]) -> Result<(), TableError> {
-        if values.len() != self.column_count() {
-            return Err(TableError::RowWidth {
-                expected: self.column_count(),
-                actual: values.len(),
-            });
-        }
-        for (column, (spec, value)) in self.schema.iter().zip(values.iter()).enumerate() {
-            validate_cell(spec, value, column)?;
-        }
-        Ok(())
-    }
-
-    fn collect_extras<I, K, V>(&self, extras: I) -> Result<RowExtras, TableError>
-    where
-        I: IntoIterator<Item = (K, V)>,
-        K: Into<CompactString>,
-        V: Into<Value>,
-    {
-        let extras = extras.into_iter();
-        let mut collected = RowExtras::with_capacity(extras.size_hint().0);
-        for (name, value) in extras {
-            let name = name.into();
-            if self.schema.column_index(&name).is_some() {
-                return Err(TableError::ExtraFieldConflictsWithColumn(name));
-            }
-            if self.schema.unknown_fields() == UnknownFields::Reject {
-                return Err(TableError::ColumnNotFound(name));
-            }
-            collected.set(name, value.into());
-        }
-        Ok(collected)
     }
 
     fn push_validated_row(&mut self, values: impl IntoIterator<Item = Value>) -> usize {
@@ -694,6 +662,40 @@ fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), 
         });
     }
     Ok(())
+}
+
+fn validate_row(schema: &Schema, values: &[Value]) -> Result<(), TableError> {
+    if values.len() != schema.len() {
+        return Err(TableError::RowWidth {
+            expected: schema.len(),
+            actual: values.len(),
+        });
+    }
+    for (column, (spec, value)) in schema.iter().zip(values.iter()).enumerate() {
+        validate_cell(spec, value, column)?;
+    }
+    Ok(())
+}
+
+fn collect_extras<I, K, V>(schema: &Schema, extras: I) -> Result<RowExtras, TableError>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: Into<CompactString>,
+    V: Into<Value>,
+{
+    let extras = extras.into_iter();
+    let mut collected = RowExtras::with_capacity(extras.size_hint().0);
+    for (name, value) in extras {
+        let name = name.into();
+        if schema.column_index(&name).is_some() {
+            return Err(TableError::ExtraFieldConflictsWithColumn(name));
+        }
+        if schema.unknown_fields() == UnknownFields::Reject {
+            return Err(TableError::ColumnNotFound(name));
+        }
+        collected.set(name, value.into());
+    }
+    Ok(collected)
 }
 
 #[cfg(test)]

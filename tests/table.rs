@@ -1,8 +1,9 @@
 //! Integration and property tests for schemas, typed columns, and column indexes.
 
 use gd::{
-    ColumnSelectionError, ColumnSliceError, ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema,
-    SortDirection, Table, TableError, UnknownFields, Value, ValueRef, table_debug,
+    ColumnSelectionError, ColumnSliceError, ColumnSpec, ConcurrentTableBuilder, DataType,
+    IndexKeyRef, NullOrder, Schema, SortDirection, Table, TableError, UnknownFields, Value,
+    ValueRef, table_debug,
 };
 use proptest::prelude::*;
 
@@ -83,6 +84,89 @@ fn table_debug_formats_dynamic_scalar_variants() {
         .unwrap();
 
     assert_eq!(table_debug::print(&table), "1, 1.25, 00ff\n");
+}
+
+#[test]
+fn concurrent_builder_publishes_complete_rows_and_freezes_to_typed_columns() {
+    const THREADS: usize = 8;
+    const ROWS_PER_THREAD: usize = 500;
+
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U64),
+    ])
+    .unwrap();
+    let builder = ConcurrentTableBuilder::new(schema);
+
+    std::thread::scope(|scope| {
+        for thread in 0..THREADS {
+            let builder = &builder;
+            scope.spawn(move || {
+                for offset in 0..ROWS_PER_THREAD {
+                    let arg = u32::try_from(thread * ROWS_PER_THREAD + offset).unwrap();
+                    builder
+                        .push_row([Value::U32(arg), Value::U64(u64::from(arg) * 3)])
+                        .unwrap();
+                }
+            });
+        }
+    });
+
+    assert_eq!(builder.row_count(), THREADS * ROWS_PER_THREAD);
+    let table = builder.into_table();
+    let args = table.column(0).unwrap().as_slice::<u32>().unwrap();
+    let results = table.column(1).unwrap().as_slice::<u64>().unwrap();
+    let mut seen = vec![false; THREADS * ROWS_PER_THREAD];
+    for (&arg, &result) in args.iter().zip(results) {
+        assert_eq!(result, u64::from(arg) * 3);
+        seen[arg as usize] = true;
+    }
+    assert!(seen.into_iter().all(|value| value));
+}
+
+#[test]
+fn concurrent_builder_validates_batches_atomically_and_preserves_extras() {
+    let schema = people_schema().with_unknown_fields(UnknownFields::Store);
+    let builder = ConcurrentTableBuilder::new(schema);
+
+    let range = builder
+        .extend_rows([
+            [Value::U64(1), Value::from("Ada"), Value::I32(10)],
+            [Value::U64(2), Value::from("Grace"), Value::Null],
+        ])
+        .unwrap();
+    assert_eq!(range, 0..2);
+
+    let error = builder
+        .extend_rows([
+            [Value::U64(3), Value::from("Linus"), Value::I32(30)],
+            [Value::I64(4), Value::from("Edsger"), Value::I32(40)],
+        ])
+        .unwrap_err();
+    assert_eq!(
+        error,
+        TableError::TypeMismatch {
+            column: 0,
+            expected: DataType::U64,
+            actual: DataType::I64,
+        }
+    );
+    assert_eq!(builder.row_count(), 2);
+
+    let extra_row = builder
+        .push_row_with_extras(
+            [Value::U64(3), Value::from("Margaret"), Value::I32(30)],
+            [("language", Value::from("COBOL"))],
+        )
+        .unwrap();
+    assert_eq!(extra_row, 2);
+
+    let table = builder.into_table();
+    assert_eq!(table.row_count(), 3);
+    assert_eq!(
+        table.cell_named(extra_row, "language"),
+        Ok(ValueRef::String("COBOL"))
+    );
 }
 
 #[test]

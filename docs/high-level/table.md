@@ -36,6 +36,65 @@ Both validate the entire row before changing any column.
 Nullable columns accept `Value::Null`; non-nullable columns reject it. Unlike C++
 `row_add()`, an omitted value never becomes a non-null cell with uninitialized bytes.
 
+### Concurrent construction
+
+`ConcurrentTableBuilder` separates parallel row production from the final `Table`.
+Producers share `&ConcurrentTableBuilder`; every row is validated and assembled before
+it is published as one concurrent-vector element. This avoids a partially appended
+row if validation fails or another producer observes the collection concurrently.
+
+```mermaid
+flowchart LR
+    P0["producer 0<br/>validate complete row"] --> Rows
+    P1["producer 1<br/>validate complete row"] --> Rows
+    PN["producer N<br/>validate complete row"] --> Rows
+    Rows["temporary concurrent rows<br/>SmallVec&lt;Value&gt; + RowExtras"]
+    Rows -->|"consume into_table()"| T["Table"]
+    T --> C0["Vec&lt;T0&gt;"]
+    T --> C1["Vec&lt;T1&gt;"]
+    T --> CN["Vec&lt;TN&gt;"]
+```
+
+The temporary layout is deliberately row-oriented: one reservation publishes the
+whole logical row rather than independently extending several columns and risking
+different lengths. Most rows of up to eight values keep their staging values inline.
+`into_table` consumes the builder and performs one row-to-column transpose into the
+ordinary dense SoA representation. Pending rows are moved rather than cloned.
+
+This is a construction boundary, not a concurrently mutable `Table`. Concurrent row
+order follows scheduling, live cell mutation is not exposed, and no producer may
+remain borrowed when `into_table` takes ownership. Once converted, typed column
+slices and `RowsMut::split_at` provide the existing safe parallel-processing paths.
+
+```rust
+use std::thread;
+
+use gd::{ColumnSpec, ConcurrentTableBuilder, DataType, Schema, Value};
+
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U64),
+    ColumnSpec::new("square", DataType::U64),
+])
+.unwrap();
+let builder = ConcurrentTableBuilder::new(schema);
+
+thread::scope(|scope| {
+    for shard in 0_u64..4 {
+        let builder = &builder;
+        scope.spawn(move || {
+            let rows = (0_u64..100).map(|offset| {
+                let id = shard * 100 + offset;
+                [Value::U64(id), Value::U64(id * id)]
+            });
+            builder.extend_rows(rows).unwrap();
+        });
+    }
+});
+
+let table = builder.into_table();
+assert_eq!(table.row_count(), 400);
+```
+
 ### Shared-schema and row memory
 
 Sharing the schema separates the one-time metadata cost from each table's row storage:

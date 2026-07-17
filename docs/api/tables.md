@@ -98,6 +98,61 @@ The entire row is checked before any column changes. Width, exact logical type, 
 nullability errors therefore leave the table unchanged. Numeric widths are not
 implicitly widened during insertion.
 
+### Constructing rows concurrently
+
+`ConcurrentTableBuilder` lets multiple threads validate and publish complete rows
+without putting one application mutex around a `Table`. Each successful call returns
+the row position assigned by the concurrent collector. Scheduling determines that
+order, so retain the returned position when insertion order matters.
+
+```rust
+use std::thread;
+
+use gd::{ColumnSpec, ConcurrentTableBuilder, DataType, Schema, Value};
+
+let schema = Schema::new([
+    ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("result", DataType::U64),
+])
+.unwrap();
+let builder = ConcurrentTableBuilder::new(schema);
+
+thread::scope(|scope| {
+    for shard in 0_u32..4 {
+        let builder = &builder;
+        scope.spawn(move || {
+            for offset in 0_u32..250 {
+                let arg = shard * 250 + offset;
+                builder
+                    .push_row([Value::U32(arg), Value::U64(u64::from(arg) * 3)])
+                    .unwrap();
+            }
+        });
+    }
+});
+
+assert_eq!(builder.row_count(), 1_000);
+
+// Freezing consumes the collector and transposes its temporary rows into the
+// same dense typed columns used by an ordinarily constructed Table.
+let table = builder.into_table();
+let args = table.column(0).unwrap().as_slice::<u32>().unwrap();
+let results = table.column(1).unwrap().as_slice::<u64>().unwrap();
+assert!(args
+    .iter()
+    .zip(results)
+    .all(|(&arg, &result)| result == u64::from(arg) * 3));
+```
+
+`push_row_vec` accepts runtime-width rows, `push_row_with_extras` supports open
+schemas, and `extend_rows` validates an entire batch before publishing it as one
+consecutive range. A failed row or batch changes nothing.
+
+The builder intentionally does not expose a live `Table` or concurrent cell updates.
+Its temporary representation is row-oriented so all values and extras for one row
+become visible together. `into_table` requires exclusive ownership; after that point,
+use the ordinary mutable table API or partition typed columns and rows with Rayon.
+
 ## Reading rows, columns, and cells
 
 ```rust

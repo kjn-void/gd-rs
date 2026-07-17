@@ -96,8 +96,12 @@ impl ExtrasStorage {
     }
 
     pub(super) fn set(&mut self, row: usize, extras: RowExtras) {
+        self.set_box(row, Box::new(extras));
+    }
+
+    pub(super) fn set_box(&mut self, row: usize, extras: Box<RowExtras>) {
         match self {
-            Self::Enabled(rows) => rows[row] = Some(Box::new(extras)),
+            Self::Enabled(rows) => rows[row] = Some(extras),
             Self::Disabled => unreachable!("closed schemas cannot store extra fields"),
         }
     }
