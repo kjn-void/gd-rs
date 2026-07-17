@@ -1,21 +1,26 @@
 # Benchmark methodology and results
 
 The C++ reference uses Google Benchmark and the pinned CMake release presets. Rust uses
-Criterion and Cargo's release profile. The stable comparison results were refreshed on
-2026-07-15 from `gd-rs` commit `11a876c7ab84a25c6aa01da7620c6f9aae4d82fb` and C++
-GD commit `3d1e112b0806845854e863f9fd8288a2f79ba378`. Three configurations are shown
+Criterion and Cargo's release profile. The M3 Max and Core Ultra performance-core
+results were refreshed on 2026-07-15 from `gd-rs` commit
+`11a876c7ab84a25c6aa01da7620c6f9aae4d82fb`. The Core Ultra E-core results were
+refreshed on 2026-07-17 from `gd-rs` commit
+`ed5926325d0b85b3d16e972bcea5af1add35878f`. All C++ results use GD commit
+`3d1e112b0806845854e863f9fd8288a2f79ba378`. Three configurations are shown
 separately so every table compares C++ with Rust under one hardware and ISA policy:
 
 | Configuration | Host and operating system | C++ toolchain | Rust toolchain | ISA policy |
 |---|---|---|---|---|
 | M3 Max release | Apple M3 Max, 16 cores, macOS 26.5 (`arm64`) | Apple Clang 21.0.0 | rustc 1.97.0 | normal release defaults |
-| Core Ultra portable | Intel Core Ultra 5 225H, Ubuntu 24.04, Linux 6.17 | GCC 13.3.0 | rustc 1.97.0 | normal portable `x86-64` release defaults |
-| Core Ultra native | same Core Ultra host | GCC 13.3.0 | rustc 1.97.0 | C++ `-march=native`; Rust `-C target-cpu=native` |
+| Core Ultra P-core | Intel Core Ultra 5 225H, Ubuntu 24.04, Linux 6.17, CPU 0 (Lion Cove) | GCC 13.3.0 | rustc 1.97.0 | normal portable `x86-64` release defaults |
+| Core Ultra E-core | same Core Ultra host, CPU 4 (Skymont) | GCC 13.3.0 | rustc 1.97.0 | normal portable `x86-64` release defaults |
 
-The stable Core Ultra single-threaded processes were pinned to performance core 0 with
-`taskset -c 0`. Its `intel_pstate` governor reported `powersave`, which still permits
-demand-based turbo. The M3 processes were not pinned. These are benchmark snapshots,
-not thresholds that can be compared across machines.
+The Core Ultra single-threaded processes were pinned with `taskset`: CPU 0 for the
+P-core results and CPU 4 for the E-core results. `lscpu -e` reports maximum frequencies
+of 4.9 GHz and 4.4 GHz respectively. The `intel_pstate` governor reported `powersave`
+with `balance_performance`, which still permits demand-based turbo. The M3 processes
+were not pinned. These are benchmark snapshots, not thresholds that can be compared
+across machines.
 
 Commands:
 
@@ -32,21 +37,30 @@ cd ../..
 cargo bench
 ```
 
-The checked-in native presets reproduce the flags used for the Core Ultra native
-binaries. Rust uses a separate target directory so native Criterion output cannot
-replace the portable samples:
+The two Core Ultra configurations use the same portable binaries. Reproduce either
+core-specific run by changing the CPU number passed to `taskset`:
 
 ```sh
 cd benches/cpp-reference
-cmake --preset release-native
-cmake --build --preset release-native
-../../target/cpp-reference/release-native/gd_cpp_reference_benchmarks \
+cmake --preset release
+cmake --build --preset release
+taskset -c 4 ../../target/cpp-reference/release/gd_cpp_reference_benchmarks \
   --benchmark_min_time=1s \
   --benchmark_repetitions=3 \
   --benchmark_report_aggregates_only=true
 
 cd ../..
-CARGO_TARGET_DIR=target/native RUSTFLAGS="-C target-cpu=native" cargo bench
+taskset -c 4 cargo bench --bench value -- '(ConstructInteger|ValueString/)'
+taskset -c 4 cargo bench --bench arguments -- 'Arguments/(ReadUri|BuildUri)'
+taskset -c 4 cargo bench --bench table -- \
+  'Table/(AppendRows|ColumnScan|NamedCellScan|OpenSchema|RowOrder)'
+taskset -c 4 cargo bench --bench binary -- 'Binary/'
+taskset -c 4 cargo bench --bench text -- \
+  'Text/(JsonEncode/(4096|65536)|UriEncode/(4096|65536)|UriDecode/(4096|65536)|XmlEscape/(4096|65536))'
+taskset -c 4 cargo bench --bench format -- \
+  'Format/(Table/(Json|Csv)/10000|Arguments/UriJson)'
+taskset -c 4 cargo bench --bench expression -- 'Expression/'
+taskset -c 4 cargo bench --bench sqlite -- 'SQLite/QueryTable'
 ```
 
 The open-schema subset can be reproduced directly with:
@@ -75,8 +89,14 @@ Rust is 0.80 times as fast as C++ for that fixture.
 
 Rust timings use Criterion's reported mean point estimates. C++ timings are the median
 CPU time from three optimized repetitions. Each matched pair was run sequentially to
-avoid contention. The full benchmark suites were run for all three configurations;
-the tables select the checked-in workloads described by each section.
+avoid contention. The tables select the checked-in workloads described by each
+section. The E-core Rust run was filtered to those documented workloads; the
+large-table and nightly SIMD benchmarks were not rerun for this document.
+
+A preliminary E-core pass was discarded because Google Benchmark reported wall time
+at almost twice CPU time, revealing contention on the pinned core. In the accepted
+pass, C++ wall and CPU times converged; representative Rust value, table, and binary
+repeats agreed with their first uncontended measurements within about 1%.
 
 ## Dynamic values
 
@@ -97,7 +117,7 @@ Central point estimates in nanoseconds:
 | construct 32 KiB string | 454 ns | 422 ns | ×1.08 |
 | borrow string view, all tested sizes | about 0.322 ns | about 0.913 ns | about ×0.35 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -109,17 +129,17 @@ Central point estimates in nanoseconds:
 | construct 32 KiB string | 420 ns | 598 ns | ×0.70 |
 | borrow string view, all tested sizes | about 0.307 ns | about 6.49 ns | about ×0.05 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| construct integer | 0.206 ns | 5.99 ns | ×0.03 |
-| construct 8-byte string | 6.57 ns | 6.39 ns | ×1.03 |
-| construct 64-byte string | 7.18 ns | 5.34 ns | ×1.34 |
-| construct 512-byte string | 7.43 ns | 7.54 ns | ×0.99 |
-| construct 4 KiB string | 46.4 ns | 60.5 ns | ×0.77 |
-| construct 32 KiB string | 420 ns | 516 ns | ×0.81 |
-| borrow string view, all tested sizes | about 0.307 ns | about 6.49 ns | about ×0.05 |
+| construct integer | 0.236 ns | 7.30 ns | ×0.03 |
+| construct 8-byte string | 7.94 ns | 8.81 ns | ×0.90 |
+| construct 64-byte string | 8.64 ns | 9.19 ns | ×0.94 |
+| construct 512-byte string | 12.3 ns | 13.4 ns | ×0.92 |
+| construct 4 KiB string | 97.3 ns | 109 ns | ×0.89 |
+| construct 32 KiB string | 560 ns | 592 ns | ×0.95 |
+| borrow string view, all tested sizes | about 0.350 ns | about 5.99 ns | about ×0.06 |
 
 The 8-byte result reflects inline `CompactString` storage. At 64 bytes and above both
 implementations allocate. The 32 KiB measurement has allocator variance and must be
@@ -142,7 +162,7 @@ The fixture contains eleven named string, integer, and Boolean fields.
 | read by name using Rust's `AHashMap` index | n/a | 88.0 ns | n/a |
 | build C++ positional companion / Rust name index | 47.5 ns | 139 ns | ×0.34 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -151,14 +171,14 @@ The fixture contains eleven named string, integer, and Boolean fields.
 | read by name using Rust's `AHashMap` index | n/a | 90.4 ns | n/a |
 | build C++ positional companion / Rust name index | 28.8 ns | 131 ns | ×0.22 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| read by name using a linear scan | 184 ns | 85.5 ns | ×2.15 |
-| read positionally: C++ companion / Rust direct iteration | 53.7 ns | 15.8 ns | ×3.41 |
-| read by name using Rust's `AHashMap` index | n/a | 74.9 ns | n/a |
-| build C++ positional companion / Rust name index | 29.2 ns | 122 ns | ×0.24 |
+| read by name using a linear scan | 204 ns | 96.4 ns | ×2.12 |
+| read positionally: C++ companion / Rust direct iteration | 76.4 ns | 18.0 ns | ×4.24 |
+| read by name using Rust's `AHashMap` index | n/a | 121 ns | n/a |
+| build C++ positional companion / Rust name index | 38.3 ns | 165 ns | ×0.23 |
 
 The C++ companion structure accelerates positional access but still scans its slots for
 name lookup. Rust already has direct positional vector access; its optional structure is
@@ -184,7 +204,7 @@ group-name formatting in both fixtures.
 | 10,000 | 334 µs | 476 µs | ×0.70 |
 | 10,000, group strings prepared | 177 µs | 114 µs | ×1.55 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Rows and fixture | C++ construct | Rust construct | Rust/C++ |
 |---|---:|---:|---:|
@@ -194,15 +214,15 @@ group-name formatting in both fixtures.
 | 10,000 | 161 µs | 395 µs | ×0.41 |
 | 10,000, group strings prepared | 112 µs | 239 µs | ×0.47 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Rows and fixture | C++ construct | Rust construct | Rust/C++ |
 |---|---:|---:|---:|
-| 10 | 0.223 µs | 0.533 µs | ×0.42 |
-| 100 | 1.73 µs | 4.11 µs | ×0.42 |
-| 1,000 | 16.5 µs | 40.3 µs | ×0.41 |
-| 10,000 | 164 µs | 412 µs | ×0.40 |
-| 10,000, group strings prepared | 112 µs | 242 µs | ×0.46 |
+| 10 | 0.252 µs | 0.537 µs | ×0.47 |
+| 100 | 1.88 µs | 4.01 µs | ×0.47 |
+| 1,000 | 17.8 µs | 38.4 µs | ×0.46 |
+| 10,000 | 178 µs | 386 µs | ×0.46 |
+| 10,000, group strings prepared | 119 µs | 196 µs | ×0.61 |
 
 Preparing the 16 group strings removes integer-to-string formatting from the timed
 insertion loop. That changes the M3 result enough for Rust to lead, but not the Core
@@ -217,19 +237,19 @@ For a 100,000-row `i64` scan:
 | C++ cell view by column index / Rust pre-resolved `Column::iter` | 216 µs | 134 µs | ×1.62 |
 | resolve the column name for every cell | 1.026 ms | 775 µs | ×1.32 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
 | C++ cell view by column index / Rust pre-resolved `Column::iter` | 144 µs | 72.6 µs | ×1.99 |
 | resolve the column name for every cell | 730 µs | 950 µs | ×0.77 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| C++ cell view by column index / Rust pre-resolved `Column::iter` | 143 µs | 72.6 µs | ×1.97 |
-| resolve the column name for every cell | 745 µs | 864 µs | ×0.86 |
+| C++ cell view by column index / Rust pre-resolved `Column::iter` | 234 µs | 117 µs | ×2.00 |
+| resolve the column name for every cell | 834 µs | 1.051 ms | ×0.79 |
 
 The Rust column-view scan resolves the column once and traverses its contiguous
 column-major storage, but still yields `ValueRef`; it is not the typed-slice API used
@@ -259,7 +279,7 @@ Construction point estimates:
 | 1,000 | 60.7 µs | 57.8 µs | ×1.05 | 46.9 µs |
 | 10,000 | 607 µs | 585 µs | ×1.04 | 485 µs |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Rows | C++ late fields | Rust late fields | Rust/C++ | Rust atomic |
 |---:|---:|---:|---:|---:|
@@ -267,13 +287,13 @@ Construction point estimates:
 | 1,000 | 43.6 µs | 82.5 µs | ×0.53 | 93.1 µs |
 | 10,000 | 441 µs | 821 µs | ×0.54 | 929 µs |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Rows | C++ late fields | Rust late fields | Rust/C++ | Rust atomic |
 |---:|---:|---:|---:|---:|
-| 100 | 4.45 µs | 7.64 µs | ×0.58 | 8.49 µs |
-| 1,000 | 43.3 µs | 81.6 µs | ×0.53 | 91.4 µs |
-| 10,000 | 439 µs | 835 µs | ×0.53 | 949 µs |
+| 100 | 5.93 µs | 7.22 µs | ×0.82 | 8.52 µs |
+| 1,000 | 57.6 µs | 79.2 µs | ×0.73 | 93.0 µs |
+| 10,000 | 581 µs | 793 µs | ×0.73 | 934 µs |
 
 Lookup reads both extras by name on every row:
 
@@ -286,7 +306,7 @@ Lookup reads both extras by name on every row:
 | 10,000 | 178 µs | 182 µs | ×0.98 |
 | 100,000 | 1.79 ms | 1.81 ms | ×0.98 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Rows | C++ lookup | Rust lookup | Rust/C++ |
 |---:|---:|---:|---:|
@@ -295,14 +315,14 @@ Lookup reads both extras by name on every row:
 | 10,000 | 169 µs | 142 µs | ×1.19 |
 | 100,000 | 1.78 ms | 1.51 ms | ×1.17 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Rows | C++ lookup | Rust lookup | Rust/C++ |
 |---:|---:|---:|---:|
-| 100 | 1.71 µs | 1.21 µs | ×1.41 |
-| 1,000 | 16.9 µs | 12.1 µs | ×1.40 |
-| 10,000 | 170 µs | 123 µs | ×1.38 |
-| 100,000 | 1.76 ms | 1.31 ms | ×1.34 |
+| 100 | 2.33 µs | 1.96 µs | ×1.19 |
+| 1,000 | 22.7 µs | 19.4 µs | ×1.17 |
+| 10,000 | 231 µs | 199 µs | ×1.17 |
+| 100,000 | 2.56 ms | 2.27 ms | ×1.13 |
 
 The Rust sidecar keeps up to four fields in a compact linear representation, with the
 first two entries inline, and promotes to an `AHashMap` on the fifth unique name. The
@@ -323,7 +343,7 @@ prepare the 1,000 field names before timing.
 | C++ append-only / Rust validated atomic (different contracts) | 8.80 ms | 21.3 ms | ×0.41 |
 | look up all one million fields by name | 1.142 s | 22.3 ms | ×51.29 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Wide open-schema workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -332,14 +352,14 @@ prepare the 1,000 field names before timing.
 | C++ append-only / Rust validated atomic (different contracts) | 17.4 ms | 75.3 ms | ×0.23 |
 | look up all one million fields by name | 2.019 s | 24.6 ms | ×81.95 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Wide open-schema workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| build through replacement-capable named setters | 2.030 s | 74.6 ms | ×27.20 |
-| validated atomic row build (Rust only) | no exact API | 72.2 ms | n/a |
-| C++ append-only / Rust validated atomic (different contracts) | 17.2 ms | 72.2 ms | ×0.24 |
-| look up all one million fields by name | 2.020 s | 21.0 ms | ×96.21 |
+| build through replacement-capable named setters | 2.425 s | 99.1 ms | ×24.46 |
+| validated atomic row build (Rust only) | no exact API | 78.2 ms | n/a |
+| C++ append-only / Rust validated atomic (different contracts) | 19.7 ms | 78.2 ms | ×0.25 |
+| look up all one million fields by name | 2.415 s | 37.7 ms | ×64.14 |
 
 The replacement-capable C++ setter searches the row's packed argument buffer before
 every insertion, making this construction shape quadratic in fields per row. Named
@@ -384,7 +404,7 @@ in place. Fixture construction is outside both timed regions.
 | 1,000 | 990 µs | 23.5 µs | ×42.11 |
 | 5,000 | 24.03 ms | 148 µs | ×162.14 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Rows | C++ selection sort | Rust row order | Rust/C++ |
 |---:|---:|---:|---:|
@@ -392,13 +412,13 @@ in place. Fixture construction is outside both timed regions.
 | 1,000 | 1.002 ms | 21.8 µs | ×45.91 |
 | 5,000 | 23.65 ms | 141 µs | ×167.81 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Rows | C++ selection sort | Rust row order | Rust/C++ |
 |---:|---:|---:|---:|
-| 100 | 12.8 µs | 1.67 µs | ×7.67 |
-| 1,000 | 996 µs | 21.4 µs | ×46.61 |
-| 5,000 | 23.65 ms | 142 µs | ×166.27 |
+| 100 | 18.0 µs | 1.78 µs | ×10.14 |
+| 1,000 | 1.590 ms | 28.2 µs | ×56.30 |
+| 5,000 | 38.54 ms | 182 µs | ×212.17 |
 
 Google Benchmark's complexity fit remains quadratic for the C++ workload. The Rust
 path uses the standard stable **O(n log n)** slice sort and stores an **O(n)**
@@ -424,7 +444,7 @@ six-byte string `needle`, appended after a 64 KiB buffer.
 | read 4,096 big-endian `u64` values | 3.77 µs | 1.30 µs | ×2.89 |
 | find the tail sequence | 141 µs | 1.44 µs | ×97.90 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -434,15 +454,15 @@ six-byte string `needle`, appended after a 64 KiB buffer.
 | read 4,096 big-endian `u64` values | 1.80 µs | 2.36 µs | ×0.77 |
 | find the tail sequence | 62.4 µs | 1.08 µs | ×57.53 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| encode 64 KiB as hex | 41.8 µs | 1.84 µs | ×22.70 |
-| decode 128 KiB of hex | 21.0 µs | 3.07 µs | ×6.85 |
-| write 4,096 big-endian `u64` values | 1.69 µs | 2.31 µs | ×0.73 |
-| read 4,096 big-endian `u64` values | 1.80 µs | 2.48 µs | ×0.72 |
-| find the tail sequence | 62.1 µs | 1.33 µs | ×46.84 |
+| encode 64 KiB as hex | 293 µs | 3.18 µs | ×92.37 |
+| decode 128 KiB of hex | 23.8 µs | 8.11 µs | ×2.93 |
+| write 4,096 big-endian `u64` values | 2.88 µs | 2.88 µs | ×1.00 |
+| read 4,096 big-endian `u64` values | 2.88 µs | 2.52 µs | ×1.14 |
+| find the tail sequence | 122 µs | 1.27 µs | ×96.45 |
 
 Rust uses the safe APIs of `hex-simd` and `memchr`; its cursor arithmetic remains
 bounds checked. The C++ byte finder is a naive scan, so its time is **O(h n)** in the
@@ -475,7 +495,7 @@ The percent-encoded decoder input is larger than the named source size.
 | XML entity escape, 4 KiB | 10.8 µs | 5.78 µs | ×1.87 |
 | XML entity escape, 64 KiB | 170 µs | 90.4 µs | ×1.88 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -488,18 +508,18 @@ The percent-encoded decoder input is larger than the named source size.
 | XML entity escape, 4 KiB | 5.45 µs | 3.58 µs | ×1.52 |
 | XML entity escape, 64 KiB | 85.9 µs | 57.0 µs | ×1.51 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| JSON string encode, 4 KiB | 5.96 µs | 1.57 µs | ×3.79 |
-| JSON string encode, 64 KiB | 104 µs | 23.4 µs | ×4.42 |
-| URI component encode, 4 KiB | 6.97 µs | 4.92 µs | ×1.42 |
-| URI component encode, 64 KiB | 114 µs | 75.6 µs | ×1.50 |
-| URI component decode, 4 KiB | 3.53 µs | 6.80 µs | ×0.52 |
-| URI component decode, 64 KiB | 49.8 µs | 109 µs | ×0.46 |
-| XML entity escape, 4 KiB | 5.25 µs | 3.65 µs | ×1.44 |
-| XML entity escape, 64 KiB | 83.9 µs | 58.0 µs | ×1.45 |
+| JSON string encode, 4 KiB | 7.72 µs | 2.33 µs | ×3.32 |
+| JSON string encode, 64 KiB | 120 µs | 35.3 µs | ×3.41 |
+| URI component encode, 4 KiB | 8.22 µs | 6.16 µs | ×1.33 |
+| URI component encode, 64 KiB | 132 µs | 98.6 µs | ×1.34 |
+| URI component decode, 4 KiB | 4.56 µs | 8.72 µs | ×0.52 |
+| URI component decode, 64 KiB | 70.5 µs | 138 µs | ×0.51 |
+| XML entity escape, 4 KiB | 7.05 µs | 4.45 µs | ×1.59 |
+| XML entity escape, 64 KiB | 108 µs | 70.8 µs | ×1.52 |
 
 URI decoding is the one measured text path where the Rust implementation
 takes longer; its timing includes syntax validation and UTF-8 validation that the C++
@@ -524,7 +544,7 @@ result into `Value`.
 | `abs(x - y) + max(x, y)` | 423 ns | 1.40 µs | ×0.30 | 299 ns | 318 ns | ×0.94 |
 | `x > y && x < 100` | 302 ns | 994 ns | ×0.30 | 180 ns | 80.9 ns | ×2.23 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Formula | C++ compile | Rust compile | Rust/C++ compile | C++ evaluate | Rust evaluate | Rust/C++ evaluate |
 |---|---:|---:|---:|---:|---:|---:|
@@ -532,13 +552,13 @@ result into `Value`.
 | `abs(x - y) + max(x, y)` | 152 ns | 1.19 µs | ×0.13 | 188 ns | 332 ns | ×0.57 |
 | `x > y && x < 100` | 121 ns | 848 ns | ×0.14 | 114 ns | 124 ns | ×0.92 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Formula | C++ compile | Rust compile | Rust/C++ compile | C++ evaluate | Rust evaluate | Rust/C++ evaluate |
 |---|---:|---:|---:|---:|---:|---:|
-| `x + y * 2` | 111 ns | 666 ns | ×0.17 | 84.4 ns | 151 ns | ×0.56 |
-| `abs(x - y) + max(x, y)` | 158 ns | 1.32 µs | ×0.12 | 188 ns | 344 ns | ×0.55 |
-| `x > y && x < 100` | 122 ns | 854 ns | ×0.14 | 113 ns | 124 ns | ×0.91 |
+| `x + y * 2` | 137 ns | 743 ns | ×0.18 | 99.5 ns | 143 ns | ×0.69 |
+| `abs(x - y) + max(x, y)` | 189 ns | 1.41 µs | ×0.13 | 211 ns | 348 ns | ×0.61 |
+| `x > y && x < 100` | 156 ns | 975 ns | ×0.16 | 130 ns | 115 ns | ×1.13 |
 
 The C++ compiled form is a postfix token vector; Rust uses a Rhai AST. Parsing and
 compilation are **O(source bytes)** for these straight-line formulas. Evaluation is
@@ -564,7 +584,7 @@ timed regions begin with an already constructed table.
 | table CSV, 10,000 rows | 655 µs | 390 µs | ×1.68 |
 | URI and JSON for 11 arguments | 1.64 µs | 0.886 µs | ×1.85 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
@@ -572,13 +592,13 @@ timed regions begin with an already constructed table.
 | table CSV, 10,000 rows | 525 µs | 286 µs | ×1.83 |
 | URI and JSON for 11 arguments | 0.969 µs | 0.521 µs | ×1.86 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Workload | C++ | Rust | Rust/C++ |
 |---|---:|---:|---:|
-| table JSON, 10,000 rows | 506 µs | 803 µs | ×0.63 |
-| table CSV, 10,000 rows | 570 µs | 283 µs | ×2.01 |
-| URI and JSON for 11 arguments | 0.952 µs | 0.517 µs | ×1.84 |
+| table JSON, 10,000 rows | 550 µs | 629 µs | ×0.88 |
+| table CSV, 10,000 rows | 495 µs | 369 µs | ×1.34 |
+| URI and JSON for 11 arguments | 1.032 µs | 0.649 µs | ×1.59 |
 
 The Rust table writers stream into one output buffer. JSON uses `serde_json` for
 scalar escaping; CSV uses the `csv` state machine and stack-backed `itoa`/`ryu`
@@ -616,7 +636,7 @@ Central estimates:
 | 1,000 | 117 µs | 109 µs | ×1.07 |
 | 10,000 | 1.174 ms | 1.074 ms | ×1.09 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
 | Rows | C++ | Rust | Rust/C++ |
 |---:|---:|---:|---:|
@@ -624,13 +644,13 @@ Central estimates:
 | 1,000 | 67.8 µs | 86.8 µs | ×0.78 |
 | 10,000 | 667 µs | 857 µs | ×0.78 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
 | Rows | C++ | Rust | Rust/C++ |
 |---:|---:|---:|---:|
-| 100 | 7.63 µs | 10.7 µs | ×0.71 |
-| 1,000 | 68.3 µs | 93.2 µs | ×0.73 |
-| 10,000 | 674 µs | 912 µs | ×0.74 |
+| 100 | 9.56 µs | 12.4 µs | ×0.77 |
+| 1,000 | 84.5 µs | 102 µs | ×0.83 |
+| 10,000 | 838 µs | 986 µs | ×0.85 |
 
 Both implementations are **O(rows + copied text bytes)** time and retain
 **O(rows + copied text bytes)** result space. The C++ figures are medians from three
