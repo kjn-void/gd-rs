@@ -1,8 +1,8 @@
 //! Integration and property tests for schemas, typed columns, and column indexes.
 
 use gd::{
-    ColumnSliceError, ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema, SortDirection, Table,
-    TableError, UnknownFields, Value, ValueRef,
+    ColumnSelectionError, ColumnSliceError, ColumnSpec, DataType, IndexKeyRef, NullOrder, Schema,
+    SortDirection, Table, TableError, UnknownFields, Value, ValueRef,
 };
 use proptest::prelude::*;
 
@@ -500,6 +500,59 @@ fn distinct_required_columns_support_typed_bulk_transforms() {
 }
 
 #[test]
+fn column_io_selection_validates_aliasing_and_preserves_order() {
+    let schema = Schema::new([
+        ColumnSpec::new("left", DataType::U32),
+        ColumnSpec::new("right", DataType::U32),
+        ColumnSpec::new("sum", DataType::U32),
+        ColumnSpec::new("product", DataType::U32),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    table
+        .push_row([Value::U32(2), Value::U32(3), Value::U32(0), Value::U32(0)])
+        .unwrap();
+    table
+        .push_row([Value::U32(5), Value::U32(7), Value::U32(0), Value::U32(0)])
+        .unwrap();
+
+    let ([left, right], [sum, product]) = table.columns_io([0, 1], [2, 3]).unwrap();
+    let left = left.as_slice::<u32>().unwrap();
+    let right = right.as_slice::<u32>().unwrap();
+    let sum = sum.as_mut_slice::<u32>().unwrap();
+    let product = product.as_mut_slice::<u32>().unwrap();
+    for (((left, right), sum), product) in left.iter().zip(right).zip(&mut *sum).zip(&mut *product)
+    {
+        *sum = left + right;
+        *product = left * right;
+    }
+    assert_eq!(sum, &[5, 12]);
+    assert_eq!(product, &[6, 35]);
+
+    let ([first, repeated], []) = table.columns_io([1, 1], []).unwrap();
+    assert!(std::ptr::eq(
+        first.as_slice::<u32>().unwrap(),
+        repeated.as_slice::<u32>().unwrap()
+    ));
+
+    assert_eq!(
+        table.columns_io([0], [0]).unwrap_err(),
+        ColumnSelectionError::InputOutputOverlap { column: 0 }
+    );
+    assert_eq!(
+        table.columns_io([], [2, 2]).unwrap_err(),
+        ColumnSelectionError::DuplicateOutput { column: 2 }
+    );
+    assert_eq!(
+        table.columns_io([4], []).unwrap_err(),
+        ColumnSelectionError::ColumnOutOfBounds {
+            column: 4,
+            column_count: 4,
+        }
+    );
+}
+
+#[test]
 fn for_each_value_matches_column_iteration() {
     let mut table = Table::new(people_schema());
     table
@@ -638,6 +691,56 @@ fn split_mutable_rows_can_run_on_scoped_threads() {
         assert_eq!(
             table.cell_named(row, "partition"),
             Ok(ValueRef::String(if row < 40 { "left" } else { "right" }))
+        );
+    }
+}
+
+#[cfg(feature = "rayon")]
+#[test]
+fn parallel_column_projection_supports_multiple_inputs_and_outputs() {
+    use rayon::prelude::*;
+
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("scale", DataType::U32),
+        ColumnSpec::new("bias", DataType::U32),
+        ColumnSpec::new("result", DataType::U32),
+        ColumnSpec::new("even", DataType::Bool),
+    ])
+    .unwrap();
+    let mut table = Table::with_capacity(schema, 10_000);
+    for arg in 0_u32..10_000 {
+        table
+            .push_row([
+                Value::U32(arg),
+                Value::U32(3),
+                Value::U32(1),
+                Value::U32(0),
+                Value::Bool(false),
+            ])
+            .unwrap();
+    }
+
+    let ([args, scales, biases], [results, even]) = table.columns_io([0, 1, 2], [3, 4]).unwrap();
+    let args = args.as_slice::<u32>().unwrap();
+    let scales = scales.as_slice::<u32>().unwrap();
+    let biases = biases.as_slice::<u32>().unwrap();
+    let results = results.as_mut_slice::<u32>().unwrap();
+    let even = even.as_mut_slice::<bool>().unwrap();
+
+    (args, scales, biases, results, even)
+        .into_par_iter()
+        .for_each(|(&arg, &scale, &bias, result, even)| {
+            *result = arg.saturating_mul(scale).saturating_add(bias);
+            *even = *result % 2 == 0;
+        });
+
+    for arg in [0_u32, 1, 12, 9_999] {
+        let expected = arg * 3 + 1;
+        assert_eq!(table.cell(arg as usize, 3), Ok(ValueRef::U32(expected)));
+        assert_eq!(
+            table.cell(arg as usize, 4),
+            Ok(ValueRef::Bool(expected % 2 == 0))
         );
     }
 }

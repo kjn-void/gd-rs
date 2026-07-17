@@ -170,25 +170,30 @@ let selected_rows: Vec<usize> = values
 let total = values.iter().copied().fold(0_u64, u64::saturating_add);
 ```
 
-For an element-wise transform between two required fixed-width columns,
-`Table::column_pair_mut` returns an immutable source and a distinct mutable target.
-Each view can then be converted to a typed slice with one type/nullability check:
+For an element-wise transform, `Table::columns_io` borrows any number of immutable
+inputs and mutable outputs together. Each view can then be converted to a typed slice
+with one type/nullability check:
 
 ```rust
-let (source, target) = table.column_pair_mut(0, 1).unwrap();
-let source = source.as_slice::<u32>()?;
-let target = target.as_mut_slice::<u32>()?;
+let ([left, right], [sum, product]) = table.columns_io([0, 1], [2, 3])?;
+let left = left.as_slice::<u32>()?;
+let right = right.as_slice::<u32>()?;
+let sum = sum.as_mut_slice::<u32>()?;
+let product = product.as_mut_slice::<u32>()?;
 
-for (source, target) in source.iter().zip(target) {
-    *target = source.saturating_mul(2);
+for (((left, right), sum), product) in left.iter().zip(right).zip(sum).zip(product) {
+    *sum = left.saturating_add(*right);
+    *product = left.saturating_mul(*right);
 }
 ```
 
-The method returns `None` for equal or out-of-range column positions, preventing
-overlapping immutable and mutable slices. Since the result is ordinary `&[T]` and
-`&mut [T]`, applications may use a library such as Rayon for a parallel transform;
-the optional `rayon` feature additionally provides a safely partitioned row-wise
-adapter for heterogeneous transforms.
+Input positions may repeat because they are shared borrows. Output positions must be
+unique and cannot also occur as inputs; `columns_io` validates those rules and bounds
+before returning any view. `column_pair_mut` remains a convenient one-input,
+one-output wrapper. Since the results are ordinary `&[T]` and `&mut [T]`, applications
+may use a library such as Rayon for a parallel transform; the optional `rayon` feature
+additionally provides a safely partitioned row-wise adapter for heterogeneous
+transforms.
 
 This moves dynamic dispatch out of the hot loop. The compiler sees a monomorphic,
 contiguous slice, which is the form most suitable for bounds-check elimination and
@@ -210,8 +215,8 @@ threads.
 
 ### Column-wise transform
 
-For homogeneous work, borrow two distinct required columns and parallelize their
-ordinary slices:
+For homogeneous work, borrow all participating required columns once and pass their
+ordinary slices to Rayon's tuple `MultiZip` implementation:
 
 ```rust
 use gd::{ColumnSpec, DataType, Schema, Table, Value};
@@ -219,42 +224,61 @@ use rayon::prelude::*;
 
 let schema = Schema::new([
     ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("scale", DataType::U32),
+    ColumnSpec::new("bias", DataType::U32),
     ColumnSpec::new("result", DataType::U32),
+    ColumnSpec::new("even", DataType::Bool),
 ])
 .unwrap();
 let mut table = Table::with_capacity(schema, 10_000);
 for arg in 0_u32..10_000 {
-    table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+    table
+        .push_row([
+            Value::U32(arg),
+            Value::U32(3),
+            Value::U32(1),
+            Value::U32(0),
+            Value::Bool(false),
+        ])
+        .unwrap();
 }
 
-let (args, results) = table.column_pair_mut(0, 1).unwrap();
+let ([args, scales, biases], [results, even]) =
+    table.columns_io([0, 1, 2], [3, 4]).unwrap();
 let args = args.as_slice::<u32>().unwrap();
+let scales = scales.as_slice::<u32>().unwrap();
+let biases = biases.as_slice::<u32>().unwrap();
 let results = results.as_mut_slice::<u32>().unwrap();
+let even = even.as_mut_slice::<bool>().unwrap();
 
-args.par_iter()
-    .zip(results.par_iter_mut())
-    .for_each(|(&arg, result)| *result = arg.saturating_mul(arg));
+(args, scales, biases, results, even)
+    .into_par_iter()
+    .for_each(|(&arg, &scale, &bias, result, even)| {
+        *result = arg.saturating_mul(scale).saturating_add(bias);
+        *even = *result % 2 == 0;
+    });
 ```
 
 ```mermaid
 flowchart TD
-    Pair["column_pair_mut(0, 1)<br/>checks distinct positions"]
-    Pair --> Src["arg: &amp;[u32]"]
-    Pair --> Dst["result: &amp;mut [u32]"]
-    Src --> S0["rows 0..mid"]
-    Src --> S1["rows mid..end"]
-    Dst --> D0["rows 0..mid"]
-    Dst --> D1["rows mid..end"]
-    S0 --> W0["Rayon worker 0"]
-    D0 --> W0
-    S1 --> W1["Rayon worker 1"]
-    D1 --> W1
+    Select["columns_io([arg, scale, bias], [result, even])<br/>validates bounds and aliasing"]
+    Select --> Inputs["shared inputs<br/>&amp;[u32] x 3"]
+    Select --> Outputs["exclusive outputs<br/>&amp;mut [u32] + &amp;mut [bool]"]
+    Inputs --> MultiZip["Rayon MultiZip<br/>one row tuple per iteration"]
+    Outputs --> MultiZip
+    MultiZip --> W0["worker 0<br/>rows 0..mid"]
+    MultiZip --> W1["worker 1<br/>rows mid..end"]
 ```
 
-`column_pair_mut` rejects equal or invalid positions before returning. Rayon can share
-the immutable source slice and divides the mutable target into non-overlapping ranges,
-so two workers cannot receive mutable access to the same cell. The outstanding borrows
-also prevent structural table operations until the parallel transform finishes.
+Rayon supports tuple zips through twelve participants. More inputs can be indexed by
+row while parallel iteration is driven by the output slices, or several zips can be
+nested. This is an iterator-level arity convenience, not a table restriction:
+`columns_io` uses const-generic arrays and does not impose a fixed input/output count.
+
+Rayon shares every immutable input and divides every mutable output into matching,
+non-overlapping ranges, so two workers cannot receive mutable access to the same cell.
+The outstanding borrows also prevent structural table operations until the parallel
+transform finishes.
 
 ### Row-wise transform
 

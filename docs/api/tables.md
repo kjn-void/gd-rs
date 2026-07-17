@@ -190,12 +190,16 @@ also lets LLVM eliminate bounds checks and auto-vectorize suitable integer reduc
 and element-wise transformations. For a table filter, retain row identity by using
 `enumerate` and collecting positions as above.
 
-`Table::column_pair_mut(source, target)` supports direct bulk transforms without
-exposing the storage enum. It returns an immutable `Column` for `source` and a
-`ColumnMut` for a distinct `target`; equal or out-of-range positions return `None`.
+`Table::columns_io(inputs, outputs)` supports direct bulk transforms without exposing
+the storage enum. Its const-generic position arrays can select any number of immutable
+`Column` inputs and mutable `ColumnMut` outputs. Input positions may repeat; outputs
+must be unique and cannot overlap an input. Invalid selections return a descriptive
+`ColumnSelectionError`. `column_pair_mut` remains the one-input, one-output convenience
+wrapper.
+
 `ColumnMut::as_mut_slice::<T>` applies the same fixed-width type and nullability checks
-as `Column::as_slice::<T>`, then returns `&mut [T]`. The two disjoint slices can be
-zipped by ordinary sequential iterators or a parallel slice library.
+as `Column::as_slice::<T>`, then returns `&mut [T]`. The disjoint slices can be zipped
+by ordinary sequential iterators or a parallel slice library.
 
 For example, an application can add `rayon = "1.12"` to its dependencies and run a
 parallel source-to-target transform directly over the borrowed columns:
@@ -206,30 +210,50 @@ use rayon::prelude::*;
 
 let schema = Schema::new([
     ColumnSpec::new("arg", DataType::U32),
+    ColumnSpec::new("scale", DataType::U32),
+    ColumnSpec::new("bias", DataType::U32),
     ColumnSpec::new("result", DataType::U32),
+    ColumnSpec::new("even", DataType::Bool),
 ])
 .unwrap();
 
 let mut table = Table::with_capacity(schema, 1_000_000);
 for arg in 0_u32..1_000_000 {
-    table.push_row([Value::U32(arg), Value::U32(0)]).unwrap();
+    table
+        .push_row([
+            Value::U32(arg),
+            Value::U32(3),
+            Value::U32(1),
+            Value::U32(0),
+            Value::Bool(false),
+        ])
+        .unwrap();
 }
 
-let (args, results) = table.column_pair_mut(0, 1).unwrap();
+let ([args, scales, biases], [results, even]) =
+    table.columns_io([0, 1, 2], [3, 4]).unwrap();
 let args = args.as_slice::<u32>().unwrap();
+let scales = scales.as_slice::<u32>().unwrap();
+let biases = biases.as_slice::<u32>().unwrap();
 let results = results.as_mut_slice::<u32>().unwrap();
+let even = even.as_mut_slice::<bool>().unwrap();
 
-args.par_iter()
-    .zip(results.par_iter_mut())
-    .for_each(|(&arg, result)| *result = arg.saturating_mul(arg));
+(args, scales, biases, &mut *results, &mut *even)
+    .into_par_iter()
+    .for_each(|(&arg, &scale, &bias, result, even)| {
+        *result = arg.saturating_mul(scale).saturating_add(bias);
+        *even = *result % 2 == 0;
+    });
 
-assert_eq!(results[12], 144);
+assert_eq!(results[12], 37);
+assert!(!even[12]);
 ```
 
-`column_pair_mut` rejects equal or invalid column positions before returning the
-views. Rayon then partitions the ordinary `&[u32]` and `&mut [u32]` slices; its safe
-slice iterators ensure that workers receive non-overlapping mutable elements. Rayon
-owns the scheduling policy—`gd-rs` only provides the checked, disjoint column borrows.
+Rayon's `MultiZip` implementation handles tuple zips through twelve participants.
+Larger kernels can drive parallel iteration from their outputs and index additional
+immutable inputs by row, or nest zips. `columns_io` itself has no fixed arity. Rayon
+partitions the ordinary slices so workers receive non-overlapping mutable elements;
+`gd-rs` provides the checked column borrows and leaves scheduling to Rayon.
 
 When the column type is not known until runtime, `Column::for_each_value` retains a
 `ValueRef` callback but dispatches the column's storage type and nullability only once:
@@ -335,8 +359,8 @@ can use `table.rows_mut().split_at(mid)` directly.
 
 Each `RowMut` assembles dynamic cell references for one row (inline for schemas of up
 to eight columns), so it is intended for genuinely row-oriented, heterogeneous work.
-For a uniform source-to-target transform, `column_pair_mut` and typed slices avoid that
-per-row dynamic dispatch and remain the preferred bulk-performance API.
+For a uniform transform, `columns_io` and typed slices avoid that per-row dynamic
+dispatch and remain the preferred bulk-performance API.
 
 The current API does not insert or remove columns after construction. Build a new
 schema and table when the data model changes.

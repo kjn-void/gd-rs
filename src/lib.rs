@@ -33,9 +33,9 @@ pub use sqlite::{
     SqliteConnection, SqliteDatabase, SqliteEngineError, SqliteError, SqliteStorageClass,
 };
 pub use table::{
-    Column, ColumnElement, ColumnIndex, ColumnMut, ColumnSliceError, ColumnSpec, IndexKeyRef,
-    NullOrder, Row, RowMut, RowOrder, RowsMut, Schema, SortDirection, Table, TableError,
-    UnknownFields,
+    Column, ColumnElement, ColumnIndex, ColumnMut, ColumnSelectionError, ColumnSliceError,
+    ColumnSpec, IndexKeyRef, NullOrder, Row, RowMut, RowOrder, RowsMut, Schema, SortDirection,
+    Table, TableError, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

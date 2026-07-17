@@ -79,6 +79,31 @@ pub enum TableError {
     UnsupportedIndexType(DataType),
 }
 
+/// Error returned when selecting typed input and output columns together.
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+pub enum ColumnSelectionError {
+    /// A selected column position is outside the schema.
+    #[error("column {column} is out of bounds for {column_count} columns")]
+    ColumnOutOfBounds {
+        /// Requested column position.
+        column: usize,
+        /// Current schema width.
+        column_count: usize,
+    },
+    /// One column was selected as both an immutable input and mutable output.
+    #[error("column {column} cannot be both an input and an output")]
+    InputOutputOverlap {
+        /// Conflicting column position.
+        column: usize,
+    },
+    /// One mutable output was selected more than once.
+    #[error("output column {column} was selected more than once")]
+    DuplicateOutput {
+        /// Repeated output column position.
+        column: usize,
+    },
+}
+
 /// A schema-driven table whose fixed columns store their primitive types
 /// directly and whose optional unknown fields are owned by individual rows.
 ///
@@ -374,6 +399,27 @@ impl Table {
         self.column(self.schema.column_index(name_or_alias)?)
     }
 
+    /// Borrows any number of immutable input columns and mutable output columns.
+    ///
+    /// Input positions may repeat because shared borrows can alias. Output
+    /// positions must be unique and cannot also occur in `inputs`. The returned
+    /// views preserve the order of both position arrays and can each perform one
+    /// runtime type and nullability check before entering a bulk loop.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSelectionError::ColumnOutOfBounds`] for an invalid
+    /// position, [`ColumnSelectionError::InputOutputOverlap`] when an output is
+    /// also an input, or [`ColumnSelectionError::DuplicateOutput`] when an
+    /// output position occurs more than once.
+    pub fn columns_io<const I: usize, const O: usize>(
+        &mut self,
+        inputs: [usize; I],
+        outputs: [usize; O],
+    ) -> Result<([Column<'_>; I], [ColumnMut<'_>; O]), ColumnSelectionError> {
+        select_column_views(self.schema.as_ref(), &mut self.columns, inputs, outputs)
+    }
+
     /// Borrows one column immutably and a distinct column mutably.
     ///
     /// This is the safe bulk-transform counterpart to [`Table::column`]. It is
@@ -389,28 +435,8 @@ impl Table {
         source: usize,
         target: usize,
     ) -> Option<(Column<'_>, ColumnMut<'_>)> {
-        if source == target {
-            return None;
-        }
-        let source_spec = self.schema.column(source)?;
-        let target_spec = self.schema.column(target)?;
-        let (source_storage, target_storage) = if source < target {
-            let (before_target, target_and_after) = self.columns.split_at_mut(target);
-            (before_target.get(source)?, target_and_after.first_mut()?)
-        } else {
-            let (before_source, source_and_after) = self.columns.split_at_mut(source);
-            (source_and_after.first()?, before_source.get_mut(target)?)
-        };
-        Some((
-            Column {
-                spec: source_spec,
-                storage: source_storage,
-            },
-            ColumnMut {
-                spec: target_spec,
-                storage: target_storage,
-            },
-        ))
+        let ([source], [target]) = self.columns_io([source], [target]).ok()?;
+        Some((source, target))
     }
 
     /// Returns one borrowing row view.
@@ -503,6 +529,131 @@ impl Table {
         }
         Ok(())
     }
+}
+
+fn select_column_views<'a, const I: usize, const O: usize>(
+    schema: &'a Schema,
+    columns: &'a mut [ColumnStorage],
+    inputs: [usize; I],
+    outputs: [usize; O],
+) -> Result<([Column<'a>; I], [ColumnMut<'a>; O]), ColumnSelectionError> {
+    let (input_storage, output_storage) = select_column_storage(columns, inputs, outputs)?;
+    let mut input_storage = input_storage.into_iter();
+    let input_views = std::array::from_fn(|index| Column {
+        spec: schema
+            .column(inputs[index])
+            .expect("column positions were validated before borrowing storage"),
+        storage: input_storage
+            .next()
+            .expect("input storage count matches the const-generic input count"),
+    });
+    let mut output_storage = output_storage.into_iter();
+    let output_views = std::array::from_fn(|index| ColumnMut {
+        spec: schema
+            .column(outputs[index])
+            .expect("column positions were validated before borrowing storage"),
+        storage: output_storage
+            .next()
+            .expect("output storage count matches the const-generic output count"),
+    });
+    Ok((input_views, output_views))
+}
+
+fn select_column_storage<const I: usize, const O: usize>(
+    columns: &mut [ColumnStorage],
+    inputs: [usize; I],
+    outputs: [usize; O],
+) -> Result<([&ColumnStorage; I], [&mut ColumnStorage; O]), ColumnSelectionError> {
+    #[derive(Clone, Copy)]
+    enum Access {
+        Input(usize),
+        Output(usize),
+    }
+
+    #[derive(Clone, Copy)]
+    struct Request {
+        position: usize,
+        access: Access,
+    }
+
+    let column_count = columns.len();
+    let mut requests = Vec::<Request>::with_capacity(I + O);
+    for (ordinal, position) in inputs.into_iter().enumerate() {
+        if position >= column_count {
+            return Err(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count,
+            });
+        }
+        requests.push(Request {
+            position,
+            access: Access::Input(ordinal),
+        });
+    }
+    for (ordinal, position) in outputs.into_iter().enumerate() {
+        if position >= column_count {
+            return Err(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count,
+            });
+        }
+        if let Some(request) = requests.iter().find(|request| request.position == position) {
+            return Err(match request.access {
+                Access::Input(_) => ColumnSelectionError::InputOutputOverlap { column: position },
+                Access::Output(_) => ColumnSelectionError::DuplicateOutput { column: position },
+            });
+        }
+        requests.push(Request {
+            position,
+            access: Access::Output(ordinal),
+        });
+    }
+    requests.sort_unstable_by_key(|request| request.position);
+
+    let mut input_storage = [None; I];
+    let mut output_storage: [Option<&mut ColumnStorage>; O] = std::array::from_fn(|_| None);
+    let mut remaining = columns;
+    let mut remaining_start = 0;
+    let mut request_index = 0;
+    while let Some(request) = requests.get(request_index).copied() {
+        let relative_position = request.position - remaining_start;
+        let (_, selected_and_after) = remaining.split_at_mut(relative_position);
+        let (selected, after) = selected_and_after
+            .split_first_mut()
+            .expect("validated column position must exist in the remaining slice");
+        remaining = after;
+        remaining_start = request.position + 1;
+
+        match request.access {
+            Access::Input(_) => {
+                let selected: &ColumnStorage = selected;
+                while let Some(Request {
+                    position,
+                    access: Access::Input(ordinal),
+                }) = requests.get(request_index).copied()
+                {
+                    if position != request.position {
+                        break;
+                    }
+                    input_storage[ordinal] = Some(selected);
+                    request_index += 1;
+                }
+            }
+            Access::Output(ordinal) => {
+                output_storage[ordinal] = Some(selected);
+                request_index += 1;
+            }
+        }
+    }
+
+    Ok((
+        input_storage.map(|storage| {
+            storage.expect("every validated input position received one storage borrow")
+        }),
+        output_storage.map(|storage| {
+            storage.expect("every validated output position received one storage borrow")
+        }),
+    ))
 }
 
 fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), TableError> {
