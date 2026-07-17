@@ -32,35 +32,39 @@ timed loop:
 | `f32` | -0.5 | -5000000 | 4999999 | -0.5 |
 | `i32` | -0.5 | -5000000 | 4999999 | -0.5 |
 
-The C++ benchmark was compiled in assertions-off and assertions-on variants using the
-[portable and native release presets](../../benches/cpp-reference/CMakePresets.json#L19-L61).
-All four binaries and the GD core use `-O3` and no sanitizers; assertions-off builds
-additionally use `-DNDEBUG`, and native builds add `-march=native`. Google Benchmark
-labels an assertions-on binary as a debug library solely because `NDEBUG` is absent,
-but the compile database confirms that optimization remains `-O3`. Rust uses the safe
-table API in the ordinary optimized release profile, with `-C target-cpu=native` only
-for the named Core Ultra native configuration. No unchecked Rust comparison is
-included.
+These results were refreshed on 2026-07-17 from `gd-rs` commit
+`e312813db841a4debc63b19b05d0d1031be566fe` and GD commit
+`3d1e112b0806845854e863f9fd8288a2f79ba378`. The configurations match
+[performance.md](performance.md): an unpinned M3 Max release run and two Core Ultra
+runs using the same portable binaries pinned to CPU 0 (Lion Cove P-core) or CPU 4
+(Skymont E-core). No `-march=native`, `target-cpu=native`, sanitizers, or unchecked
+Rust paths are included.
 
-The optimized assertions-on C++ runs are reproduced with:
+The M3 Max used Apple Clang 21.0.0 and rustc 1.97.0. The Core Ultra used GCC
+13.3.0 and rustc 1.97.0; the explicit-SIMD runs used rustc 1.99.0-nightly
+(`da80ed070`, 2026-07-14).
+
+The C++ benchmark and GD core use the optimized portable release preset with `-O3`
+and `-DNDEBUG`, matching GD's release configuration. Rust uses the safe table API in
+Cargo's ordinary optimized release profile.
+
+The optimized C++ and Rust runs are reproduced with:
 
 ```sh
 cd benches/cpp-reference
-cmake --preset release-asserts
-cmake --build --preset release-asserts
-../../target/cpp-reference/release-asserts/gd_cpp_reference_benchmarks \
+cmake --preset release
+cmake --build --preset release
+../../target/cpp-reference/release/gd_cpp_reference_benchmarks \
   --benchmark_filter=MixedNumeric \
   --benchmark_min_time=1s \
   --benchmark_repetitions=3 \
   --benchmark_report_aggregates_only=true
 
-cmake --preset release-native-asserts
-cmake --build --preset release-native-asserts
-../../target/cpp-reference/release-native-asserts/gd_cpp_reference_benchmarks \
-  --benchmark_filter=MixedNumeric \
-  --benchmark_min_time=1s \
-  --benchmark_repetitions=3 \
-  --benchmark_report_aggregates_only=true
+cd ../..
+cargo bench --bench table -- MixedNumeric
+
+# Core Ultra: rerun the two benchmark invocations above with `taskset -c 0`
+# for the P-core or `taskset -c 4` for the E-core.
 ```
 
 The nightly maximum is reproduced separately; `std::simd` remains an unstable
@@ -72,46 +76,32 @@ CARGO_TARGET_DIR=target/nightly-simd-release \
   RUSTFLAGS='--cfg nightly_simd' \
   cargo +nightly bench --bench table_nightly_simd
 
-# Core Ultra 5 225H, Lion Cove CPU 0
-taskset -c 0 env \
-  CARGO_TARGET_DIR=target/nightly-simd-native \
-  RUSTFLAGS='--cfg nightly_simd -C target-cpu=native' \
-  cargo +nightly bench --bench table_nightly_simd
-
-# Core Ultra 5 225H, Skymont CPU 4
+# Core Ultra 5 225H, Skymont CPU 4, portable ISA policy
 taskset -c 4 env \
-  CARGO_TARGET_DIR=target/nightly-simd-native \
-  RUSTFLAGS='--cfg nightly_simd -C target-cpu=native' \
+  CARGO_TARGET_DIR=target/nightly-simd-release \
+  RUSTFLAGS='--cfg nightly_simd' \
   cargo +nightly bench --bench table_nightly_simd
-
-# Core Ultra 5 225H, Skymont CPU 4, optimized C++ baseline
-taskset -c 4 \
-  target/cpp-reference/release-native/gd_cpp_reference_benchmarks \
-  --benchmark_filter='MixedNumeric/Maximum/' \
-  --benchmark_min_time=1s \
-  --benchmark_repetitions=3 \
-  --benchmark_report_aggregates_only=true
 ```
 
 Central estimates:
 
 **M3 Max release**
 
-| Build 10,000,000 rows | C++ assertions off | C++ assertions on | Rust |
-|---|---:|---:|---:|
-| complete table | 341 ms | 336 ms | 212 ms |
+| Build 10,000,000 rows | C++ | Rust |
+| --- | ---: | ---: |
+| complete table | 315 ms | 212 ms |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
-| Build 10,000,000 rows | C++ assertions off | C++ assertions on | Rust |
-|---|---:|---:|---:|
-| complete table | 303 ms | 308 ms | 346 ms |
+| Build 10,000,000 rows | C++ | Rust |
+| --- | ---: | ---: |
+| complete table | 303 ms | 322 ms |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
-| Build 10,000,000 rows | C++ assertions off | C++ assertions on | Rust |
-|---|---:|---:|---:|
-| complete table | 309 ms | 307 ms | 350 ms |
+| Build 10,000,000 rows | C++ | Rust |
+| --- | ---: | ---: |
+| complete table | 347 ms | 396 ms |
 
 Every bulk operation below scans exactly one column over all 10,000,000 rows; no timing
 combines multiple columns or aggregates several operations. C++ values are medians of
@@ -127,123 +117,107 @@ denominator.
 
 **M3 Max release**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 8.190 ms | 11.693 ms | 13.347 ms | 0.178 ms | 0.179 ms | ×75.03 | ×0.99 | ×46.04 | ×45.80 |
-| `f64` | 8.194 ms | 11.345 ms | 13.377 ms | 6.492 ms | 6.876 ms | ×2.06 | ×0.94 | ×1.26 | ×1.19 |
-| `u16` | 8.189 ms | 11.347 ms | 13.347 ms | 0.704 ms | 0.705 ms | ×18.95 | ×1.00 | ×11.63 | ×11.61 |
-| `u64` | 8.225 ms | 11.133 ms | 13.403 ms | 0.948 ms | 0.944 ms | ×14.13 | ×1.00 | ×8.67 | ×8.71 |
-| `f32` | 10.890 ms | 11.414 ms | 13.381 ms | 6.715 ms | 6.729 ms | ×1.99 | ×1.00 | ×1.62 | ×1.62 |
-| `i32` | 8.229 ms | 11.088 ms | 13.329 ms | 0.703 ms | 0.698 ms | ×18.97 | ×1.01 | ×11.71 | ×11.78 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 8.100 ms | 13.354 ms | 0.179 ms | 0.178 ms | ×74.65 | ×1.00 | ×45.28 | ×45.41 |
+| `f64` | 8.130 ms | 13.372 ms | 6.943 ms | 6.996 ms | ×1.93 | ×0.99 | ×1.17 | ×1.16 |
+| `u16` | 8.050 ms | 13.367 ms | 0.703 ms | 0.705 ms | ×19.00 | ×1.00 | ×11.44 | ×11.42 |
+| `u64` | 8.110 ms | 13.387 ms | 0.969 ms | 0.991 ms | ×13.82 | ×0.98 | ×8.37 | ×8.18 |
+| `f32` | 10.800 ms | 13.360 ms | 7.079 ms | 7.008 ms | ×1.89 | ×1.01 | ×1.53 | ×1.54 |
+| `i32` | 8.120 ms | 16.065 ms | 0.703 ms | 0.714 ms | ×22.86 | ×0.99 | ×11.55 | ×11.38 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 13.572 ms | 13.331 ms | 7.258 ms | 1.042 ms | 1.043 ms | ×6.96 | ×1.00 | ×13.02 | ×13.02 |
-| `f64` | 50.180 ms | 64.730 ms | 25.842 ms | 4.859 ms | 4.955 ms | ×5.32 | ×0.98 | ×10.33 | ×10.13 |
-| `u16` | 13.493 ms | 13.406 ms | 8.616 ms | 1.744 ms | 1.579 ms | ×4.94 | ×1.10 | ×7.74 | ×8.54 |
-| `u64` | 13.633 ms | 13.262 ms | 11.420 ms | 2.835 ms | 2.836 ms | ×4.03 | ×1.00 | ×4.81 | ×4.81 |
-| `f32` | 48.263 ms | 61.482 ms | 20.900 ms | 5.478 ms | 5.468 ms | ×3.82 | ×1.00 | ×8.81 | ×8.83 |
-| `i32` | 13.477 ms | 13.316 ms | 10.077 ms | 1.603 ms | 1.616 ms | ×6.29 | ×0.99 | ×8.41 | ×8.34 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 13.500 ms | 7.320 ms | 1.067 ms | 1.068 ms | ×6.86 | ×1.00 | ×12.66 | ×12.64 |
+| `f64` | 47.300 ms | 25.199 ms | 4.921 ms | 4.978 ms | ×5.12 | ×0.99 | ×9.61 | ×9.50 |
+| `u16` | 13.400 ms | 8.580 ms | 1.663 ms | 1.691 ms | ×5.16 | ×0.98 | ×8.06 | ×7.92 |
+| `u64` | 13.500 ms | 12.493 ms | 2.839 ms | 2.836 ms | ×4.40 | ×1.00 | ×4.76 | ×4.76 |
+| `f32` | 51.200 ms | 20.902 ms | 5.440 ms | 5.398 ms | ×3.84 | ×1.01 | ×9.41 | ×9.48 |
+| `i32` | 13.400 ms | 10.107 ms | 1.615 ms | 1.620 ms | ×6.26 | ×1.00 | ×8.30 | ×8.27 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 13.546 ms | 13.230 ms | 7.216 ms | 0.341 ms | 0.340 ms | ×21.18 | ×1.00 | ×39.75 | ×39.80 |
-| `f64` | 50.791 ms | 63.941 ms | 24.632 ms | 4.826 ms | 5.104 ms | ×5.10 | ×0.95 | ×10.52 | ×9.95 |
-| `u16` | 13.501 ms | 13.312 ms | 8.564 ms | 1.083 ms | 1.097 ms | ×7.91 | ×0.99 | ×12.47 | ×12.30 |
-| `u64` | 13.639 ms | 13.228 ms | 12.324 ms | 5.477 ms | 5.382 ms | ×2.25 | ×1.02 | ×2.49 | ×2.53 |
-| `f32` | 48.014 ms | 65.038 ms | 21.197 ms | 5.064 ms | 5.103 ms | ×4.19 | ×0.99 | ×9.48 | ×9.41 |
-| `i32` | 13.506 ms | 13.398 ms | 9.969 ms | 1.364 ms | 1.365 ms | ×7.31 | ×1.00 | ×9.90 | ×9.89 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 11.700 ms | 14.016 ms | 1.173 ms | 1.174 ms | ×11.95 | ×1.00 | ×9.97 | ×9.97 |
+| `f64` | 28.300 ms | 23.646 ms | 4.719 ms | 4.719 ms | ×5.01 | ×1.00 | ×6.00 | ×6.00 |
+| `u16` | 11.700 ms | 11.821 ms | 1.827 ms | 1.851 ms | ×6.47 | ×0.99 | ×6.40 | ×6.32 |
+| `u64` | 11.600 ms | 11.824 ms | 2.541 ms | 2.544 ms | ×4.65 | ×1.00 | ×4.57 | ×4.56 |
+| `f32` | 28.300 ms | 23.360 ms | 4.883 ms | 4.938 ms | ×4.78 | ×0.99 | ×5.80 | ×5.73 |
+| `i32` | 11.600 ms | 11.857 ms | 3.299 ms | 3.330 ms | ×3.59 | ×0.99 | ×3.52 | ×3.48 |
 
 #### Maximum
 
 **M3 Max release**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 8.190 ms | 11.999 ms | 13.360 ms | 0.096 ms | 0.096 ms | ×139.38 | ×1.00 | ×85.45 | ×85.40 |
-| `f64` | 8.190 ms | 11.653 ms | 13.361 ms | 5.402 ms | 5.335 ms | ×2.47 | ×1.01 | ×1.52 | ×1.54 |
-| `u16` | 8.203 ms | 11.989 ms | 13.378 ms | 0.197 ms | 0.197 ms | ×68.05 | ×1.00 | ×41.72 | ×41.65 |
-| `u64` | 8.203 ms | 11.463 ms | 13.353 ms | 1.411 ms | 1.404 ms | ×9.46 | ×1.00 | ×5.81 | ×5.84 |
-| `f32` | 8.200 ms | 11.456 ms | 13.397 ms | 5.334 ms | 5.332 ms | ×2.51 | ×1.00 | ×1.54 | ×1.54 |
-| `i32` | 8.185 ms | 11.464 ms | 13.374 ms | 0.423 ms | 0.429 ms | ×31.64 | ×0.99 | ×19.36 | ×19.08 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 8.110 ms | 13.359 ms | 0.096 ms | 0.096 ms | ×139.05 | ×1.00 | ×84.42 | ×84.30 |
+| `f64` | 8.040 ms | 13.379 ms | 5.377 ms | 5.347 ms | ×2.49 | ×1.01 | ×1.50 | ×1.50 |
+| `u16` | 8.090 ms | 13.354 ms | 0.203 ms | 0.209 ms | ×65.64 | ×0.97 | ×39.76 | ×38.75 |
+| `u64` | 8.080 ms | 13.367 ms | 1.417 ms | 1.410 ms | ×9.43 | ×1.01 | ×5.70 | ×5.73 |
+| `f32` | 8.050 ms | 13.398 ms | 5.357 ms | 5.334 ms | ×2.50 | ×1.00 | ×1.50 | ×1.51 |
+| `i32` | 8.090 ms | 13.424 ms | 0.448 ms | 0.442 ms | ×29.96 | ×1.01 | ×18.06 | ×18.30 |
 
 **M3 Max nightly `std::simd`**
 
-| Field | C++ off | Rust stable `&[T]` | Rust nightly `std::simd` | `stable / std::simd` | `C++ off / std::simd` |
+| Field | C++ | Rust stable `&[T]` | Rust nightly `std::simd` | `stable / std::simd` | `C++ / std::simd` |
 |---|---:|---:|---:|---:|---:|
-| `u8` | 8.190 ms | 0.096 ms | 0.097 ms | ×0.99 | ×84.18 |
-| `f64` | 8.190 ms | 5.335 ms | 1.465 ms | ×3.64 | ×5.59 |
-| `u16` | 8.203 ms | 0.197 ms | 0.205 ms | ×0.96 | ×40.05 |
-| `u64` | 8.203 ms | 1.404 ms | 1.449 ms | ×0.97 | ×5.66 |
-| `f32` | 8.200 ms | 5.332 ms | 0.735 ms | ×7.25 | ×11.15 |
-| `i32` | 8.185 ms | 0.429 ms | 0.465 ms | ×0.92 | ×17.59 |
+| `u8` | 8.110 ms | 0.096 ms | 0.096 ms | ×1.00 | ×84.21 |
+| `f64` | 8.040 ms | 5.347 ms | 1.445 ms | ×3.70 | ×5.56 |
+| `u16` | 8.090 ms | 0.209 ms | 0.202 ms | ×1.03 | ×40.07 |
+| `u64` | 8.080 ms | 1.410 ms | 1.439 ms | ×0.98 | ×5.61 |
+| `f32` | 8.050 ms | 5.334 ms | 0.724 ms | ×7.36 | ×11.11 |
+| `i32` | 8.090 ms | 0.442 ms | 0.451 ms | ×0.98 | ×17.95 |
 
 The nightly path explicitly loads 128-bit `Simd` values and uses four independent
 vector accumulators, allowing the M3 to overlap reductions instead of serializing every
 vector maximum through one dependency chain. This makes the finite `f64` maximum
-×3.64 faster than the stable typed-slice loop and the finite `f32` maximum ×7.25
+×3.70 faster than the stable typed-slice loop and the finite `f32` maximum ×7.36
 faster. The integer stable loops are already as fast or slightly faster, so explicit
 SIMD is not a blanket improvement. The fixture contains no NaNs; adopting this as a
 table API would require an explicit floating-point NaN and signed-zero policy rather
 than assuming scalar and `simd_max` edge semantics are interchangeable.
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 13.556 ms | 13.360 ms | 8.333 ms | 0.215 ms | 0.214 ms | ×38.71 | ×1.01 | ×62.98 | ×63.34 |
-| `f64` | 33.999 ms | 34.121 ms | 26.366 ms | 8.894 ms | 8.942 ms | ×2.96 | ×0.99 | ×3.82 | ×3.80 |
-| `u16` | 13.499 ms | 13.369 ms | 8.599 ms | 0.899 ms | 0.901 ms | ×9.57 | ×1.00 | ×15.02 | ×14.98 |
-| `u64` | 13.496 ms | 13.444 ms | 13.601 ms | 3.099 ms | 3.107 ms | ×4.39 | ×1.00 | ×4.35 | ×4.34 |
-| `f32` | 32.951 ms | 34.421 ms | 22.754 ms | 8.626 ms | 8.601 ms | ×2.64 | ×1.00 | ×3.82 | ×3.83 |
-| `i32` | 13.547 ms | 13.395 ms | 8.776 ms | 1.475 ms | 1.488 ms | ×5.95 | ×0.99 | ×9.19 | ×9.10 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 13.500 ms | 8.368 ms | 0.211 ms | 0.210 ms | ×39.72 | ×1.00 | ×64.08 | ×64.25 |
+| `f64` | 34.700 ms | 26.587 ms | 8.749 ms | 8.935 ms | ×3.04 | ×0.98 | ×3.97 | ×3.88 |
+| `u16` | 13.300 ms | 8.607 ms | 0.948 ms | 0.990 ms | ×9.08 | ×0.96 | ×14.04 | ×13.44 |
+| `u64` | 13.300 ms | 13.911 ms | 3.108 ms | 3.105 ms | ×4.48 | ×1.00 | ×4.28 | ×4.28 |
+| `f32` | 34.800 ms | 22.774 ms | 8.621 ms | 8.712 ms | ×2.64 | ×0.99 | ×4.04 | ×3.99 |
+| `i32` | 13.500 ms | 9.118 ms | 1.494 ms | 1.478 ms | ×6.10 | ×1.01 | ×9.03 | ×9.14 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 13.585 ms | 13.961 ms | 8.337 ms | 0.207 ms | 0.207 ms | ×40.23 | ×1.00 | ×65.55 | ×65.57 |
-| `f64` | 34.449 ms | 34.415 ms | 25.724 ms | 8.866 ms | 8.751 ms | ×2.90 | ×1.01 | ×3.89 | ×3.94 |
-| `u16` | 13.484 ms | 13.370 ms | 8.566 ms | 1.715 ms | 1.708 ms | ×4.99 | ×1.00 | ×7.86 | ×7.89 |
-| `u64` | 13.502 ms | 13.383 ms | 13.188 ms | 2.893 ms | 2.917 ms | ×4.56 | ×0.99 | ×4.67 | ×4.63 |
-| `f32` | 33.449 ms | 34.531 ms | 22.826 ms | 8.539 ms | 8.554 ms | ×2.67 | ×1.00 | ×3.92 | ×3.91 |
-| `i32` | 13.486 ms | 13.425 ms | 8.906 ms | 7.422 ms | 7.392 ms | ×1.20 | ×1.00 | ×1.82 | ×1.82 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 11.800 ms | 12.839 ms | 0.175 ms | 0.175 ms | ×73.50 | ×1.00 | ×67.55 | ×67.51 |
+| `f64` | 23.600 ms | 23.628 ms | 4.719 ms | 4.718 ms | ×5.01 | ×1.00 | ×5.00 | ×5.00 |
+| `u16` | 11.600 ms | 12.886 ms | 1.109 ms | 1.083 ms | ×11.62 | ×1.02 | ×10.46 | ×10.71 |
+| `u64` | 11.600 ms | 13.068 ms | 3.129 ms | 2.619 ms | ×4.18 | ×1.19 | ×3.71 | ×4.43 |
+| `f32` | 23.600 ms | 23.377 ms | 4.757 ms | 4.870 ms | ×4.91 | ×0.98 | ×4.96 | ×4.85 |
+| `i32` | 11.600 ms | 12.984 ms | 3.138 ms | 3.138 ms | ×4.14 | ×1.00 | ×3.70 | ×3.70 |
 
-**Core Ultra native nightly `std::simd` — CPU 0, Lion Cove**
+**Core Ultra E-core (CPU 4) nightly `std::simd`**
 
-| Field | C++ off | Rust stable `&[T]` | Rust nightly `std::simd` | `stable / std::simd` | `C++ off / std::simd` |
+| Field | C++ | Rust stable `&[T]` | Rust nightly `std::simd` | `stable / std::simd` | `C++ / std::simd` |
 |---|---:|---:|---:|---:|---:|
-| `u8` | 13.585 ms | 0.207 ms | 0.212 ms | ×0.98 | ×64.17 |
-| `f64` | 34.449 ms | 8.751 ms | 4.794 ms | ×1.83 | ×7.19 |
-| `u16` | 13.484 ms | 1.708 ms | 0.594 ms | ×2.88 | ×22.71 |
-| `u64` | 13.502 ms | 2.917 ms | 3.195 ms | ×0.91 | ×4.23 |
-| `f32` | 33.449 ms | 8.554 ms | 2.314 ms | ×3.70 | ×14.45 |
-| `i32` | 13.486 ms | 7.392 ms | 1.414 ms | ×5.23 | ×9.54 |
+| `u8` | 11.800 ms | 0.175 ms | 0.148 ms | ×1.18 | ×79.75 |
+| `f64` | 23.600 ms | 4.718 ms | 3.533 ms | ×1.34 | ×6.68 |
+| `u16` | 11.600 ms | 1.083 ms | 1.097 ms | ×0.99 | ×10.58 |
+| `u64` | 11.600 ms | 2.619 ms | 4.444 ms | ×0.59 | ×2.61 |
+| `f32` | 23.600 ms | 4.870 ms | 2.791 ms | ×1.74 | ×8.46 |
+| `i32` | 11.600 ms | 3.138 ms | 2.777 ms | ×1.13 | ×4.18 |
 
-**Core Ultra native nightly `std::simd` — CPU 4, Skymont**
-
-| Field | C++ off, CPU 4 | Rust nightly `std::simd`, CPU 4 | `C++ off / std::simd` | Rust `CPU 0 / CPU 4` |
-|---|---:|---:|---:|---:|
-| `u8` | 11.763 ms | 0.144 ms | ×81.62 | ×1.47 |
-| `f64` | 23.554 ms | 3.603 ms | ×6.54 | ×1.33 |
-| `u16` | 11.626 ms | 0.752 ms | ×15.46 | ×0.79 |
-| `u64` | 11.618 ms | 3.101 ms | ×3.75 | ×1.03 |
-| `f32` | 23.546 ms | 2.364 ms | ×9.96 | ×0.98 |
-| `i32` | 11.616 ms | 2.076 ms | ×5.59 | ×0.68 |
-
-Both Rust runs use the same native binary and rustc nightly. CPU 0 and CPU 4 were
-pinned with `taskset`; `lscpu` reports maximum frequencies of 4.9 and 4.4 GHz for
-their respective core groups. The last column is CPU 0 time divided by CPU 4 time, so
-values above ×1.00 favor Skymont. Skymont leads for `u8`, `f64`, and narrowly `u64`,
-while Lion Cove leads for `u16`, `i32`, and narrowly `f32`. This is not a uniform
-“P-core faster than E-core” result: element width and the generated reduction sequence
-interact differently with the two microarchitectures. The Skymont C++ values are a
-new assertions-off `-march=native` baseline pinned to CPU 4; the Lion Cove C++ values
-are the CPU 0 native baseline already shown above.
+The nightly E-core run uses the same portable ISA policy as the stable E-core run.
+Explicit SIMD improves `u8`, `f64`, `f32`, and `i32`, is effectively neutral for
+`u16`, and regresses `u64`. As on the M3, explicit vector syntax is not a universal
+speed switch: element width, reduction dependencies, and code generation all matter.
 
 #### Harvest cost and operations over one reused vector
 
@@ -264,40 +238,48 @@ must copy the reusable source into a fresh scratch vector on every iteration bec
 already owns the column as a typed vector; its `&[u8]` median performs the corresponding
 scratch copy before `select_nth_unstable`.
 
-The ratio column is C++ assertions-off time divided by Rust time, so values above
+The ratio column is C++ time divided by Rust time, so values above
 ×1.00 favor Rust. Table construction, C++ harvest construction, and correctness checks
 are outside the timed operation rows.
 
 **M3 Max release**
 
-| Phase | C++ assertions off | C++ assertions on | Rust | C++ off / Rust |
-|---|---:|---:|---:|---:|
-| harvest materialization | 18.494 ms | 21.502 ms | n/a: already column-major | n/a |
-| maximum over reused contiguous values | 0.095 ms | 0.095 ms | 0.097 ms | ×0.98 |
-| median from reused contiguous values | 30.1 ms | 30.0 ms | 9.558 ms | ×3.15 |
+| Phase | C++ | Rust | C++ / Rust |
+| --- | ---: | ---: | ---: |
+| harvest materialization | 18.8 ms | n/a: already column-major | n/a |
+| maximum over reused contiguous values | 0.098 ms | 0.096 ms | ×1.02 |
+| median from reused contiguous values | 32.2 ms | 9.589 ms | ×3.36 |
 
-**Core Ultra portable baseline**
+**Core Ultra P-core (CPU 0)**
 
-| Phase | C++ assertions off | C++ assertions on | Rust | C++ off / Rust |
-|---|---:|---:|---:|---:|
-| harvest materialization | 16.193 ms | 32.222 ms | n/a: already column-major | n/a |
-| maximum over reused contiguous values | 0.218 ms | 0.218 ms | 0.217 ms | ×1.00 |
-| median from reused contiguous values | 26.4 ms | 26.4 ms | 25.361 ms | ×1.04 |
+| Phase | C++ | Rust | C++ / Rust |
+| --- | ---: | ---: | ---: |
+| harvest materialization | 16.3 ms | n/a: already column-major | n/a |
+| maximum over reused contiguous values | 0.206 ms | 0.210 ms | ×0.98 |
+| median from reused contiguous values | 26.4 ms | 25.278 ms | ×1.04 |
+
+**Core Ultra E-core (CPU 4)**
+
+| Phase | C++ | Rust | C++ / Rust |
+| --- | ---: | ---: | ---: |
+| harvest materialization | 18.0 ms | n/a: already column-major | n/a |
+| maximum over reused contiguous values | 0.180 ms | 0.175 ms | ×1.03 |
+| median from reused contiguous values | 29.7 ms | 13.057 ms | ×2.27 |
 
 For a single maximum, harvest plus the contiguous scan remains slower than the direct
 C++ maximum. Once materialized, however, C++ and Rust perform the contiguous `u8`
-maximum at effectively the same speed on both CPUs. This supports harvest as an
-amortization strategy only when several later operations reuse the vector.
+maximum at effectively the same speed in all three configurations. This supports
+harvest as an amortization strategy only when several later operations reuse the
+vector.
 
-Reusing the harvest reduces the M3 C++ median from 42.100 to 30.1 ms, but Rust remains
-×3.15 faster. On the Core Ultra it reduces C++ from 41.237 to 26.4 ms and leaves C++
-and Rust within 4%. The table-layout gather was therefore only part of the original M3
-median gap. The remaining M3-specific difference is consistent with libc++
+Reusing the harvest reduces the M3 C++ median from 39.0 to 32.2 ms, but Rust remains
+×3.36 faster. The P-core leaves C++ and Rust within 4%, while Rust is ×2.27 faster on
+the E-core. The table-layout gather is therefore only part of the median gap. The
+remaining implementation- and host-specific difference is consistent with
 `std::nth_element` and Rust's `select_nth_unstable` generating materially different
 partition code for this pseudo-random, 251-value fixture; it is not a general
-language-level median advantage. The new 225H measurement deliberately uses only the
-portable baseline because `-march=native` did not improve this benchmark suite
-consistently.
+language-level median advantage. The E-core access-path results were repeated
+separately and reproduced within normal run variation.
 
 There is also a correctness blocker in this exact fixture: `harvest` calls
 `cell_get_variant_view`, whose fixed 8-byte path does `*(uint64_t*)puRowValue`. The
@@ -310,41 +292,40 @@ source-level defined.
 
 **M3 Max release**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 42.100 ms | 43.688 ms | 22.863 ms | 14.755 ms | 9.590 ms | ×1.55 | ×1.54 | ×2.85 | ×4.39 |
-| `f64` | 14.123 ms | 20.770 ms | 25.641 ms | 18.363 ms | 13.661 ms | ×1.40 | ×1.34 | ×0.77 | ×1.03 |
-| `u16` | 42.931 ms | 46.654 ms | 23.492 ms | 15.294 ms | 10.192 ms | ×1.54 | ×1.50 | ×2.81 | ×4.21 |
-| `u64` | 14.004 ms | 20.737 ms | 25.435 ms | 17.364 ms | 13.084 ms | ×1.46 | ×1.33 | ×0.81 | ×1.07 |
-| `f32` | 13.934 ms | 17.307 ms | 25.058 ms | 17.434 ms | 12.043 ms | ×1.44 | ×1.45 | ×0.80 | ×1.16 |
-| `i32` | 12.583 ms | 16.048 ms | 23.222 ms | 14.797 ms | 9.988 ms | ×1.57 | ×1.48 | ×0.85 | ×1.26 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 39.000 ms | 22.877 ms | 14.784 ms | 9.588 ms | ×1.55 | ×1.54 | ×2.64 | ×4.07 |
+| `f64` | 13.700 ms | 25.706 ms | 18.062 ms | 13.472 ms | ×1.42 | ×1.34 | ×0.76 | ×1.02 |
+| `u16` | 42.300 ms | 23.233 ms | 15.135 ms | 10.089 ms | ×1.54 | ×1.50 | ×2.79 | ×4.19 |
+| `u64` | 13.900 ms | 25.044 ms | 17.034 ms | 12.748 ms | ×1.47 | ×1.34 | ×0.82 | ×1.09 |
+| `f32` | 13.600 ms | 24.815 ms | 17.121 ms | 11.799 ms | ×1.45 | ×1.45 | ×0.79 | ×1.15 |
+| `i32` | 12.400 ms | 22.912 ms | 14.660 ms | 9.932 ms | ×1.56 | ×1.48 | ×0.85 | ×1.25 |
 
-**Core Ultra portable**
+**Core Ultra P-core (CPU 0)**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 41.237 ms | 39.967 ms | 32.061 ms | 29.611 ms | 25.336 ms | ×1.08 | ×1.17 | ×1.39 | ×1.63 |
-| `f64` | 58.054 ms | 60.141 ms | 47.876 ms | 49.115 ms | 44.599 ms | ×0.97 | ×1.10 | ×1.18 | ×1.30 |
-| `u16` | 46.829 ms | 47.176 ms | 22.773 ms | 19.440 ms | 14.277 ms | ×1.17 | ×1.36 | ×2.41 | ×3.28 |
-| `u64` | 57.170 ms | 57.862 ms | 44.764 ms | 42.803 ms | 43.126 ms | ×1.05 | ×0.99 | ×1.34 | ×1.33 |
-| `f32` | 45.881 ms | 47.096 ms | 34.070 ms | 31.937 ms | 27.955 ms | ×1.07 | ×1.14 | ×1.44 | ×1.64 |
-| `i32` | 42.315 ms | 42.972 ms | 31.382 ms | 29.124 ms | 25.792 ms | ×1.08 | ×1.13 | ×1.45 | ×1.64 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 40.700 ms | 31.991 ms | 29.591 ms | 25.278 ms | ×1.08 | ×1.17 | ×1.38 | ×1.61 |
+| `f64` | 58.500 ms | 48.429 ms | 50.014 ms | 44.477 ms | ×0.97 | ×1.12 | ×1.17 | ×1.32 |
+| `u16` | 46.800 ms | 22.673 ms | 19.387 ms | 14.252 ms | ×1.17 | ×1.36 | ×2.41 | ×3.28 |
+| `u64` | 57.500 ms | 45.639 ms | 42.129 ms | 42.838 ms | ×1.08 | ×0.98 | ×1.36 | ×1.34 |
+| `f32` | 45.900 ms | 33.993 ms | 32.562 ms | 28.107 ms | ×1.04 | ×1.16 | ×1.41 | ×1.63 |
+| `i32` | 42.300 ms | 31.767 ms | 28.522 ms | 26.055 ms | ×1.11 | ×1.09 | ×1.48 | ×1.62 |
 
-**Core Ultra native**
+**Core Ultra E-core (CPU 4)**
 
-| Field | C++ off | C++ on | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ off / for_each_value` | `C++ off / &[T]` |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `u8` | 42.171 ms | 45.593 ms | 31.831 ms | 29.459 ms | 25.172 ms | ×1.08 | ×1.17 | ×1.43 | ×1.68 |
-| `f64` | 58.628 ms | 59.738 ms | 48.518 ms | 49.968 ms | 45.014 ms | ×0.97 | ×1.11 | ×1.17 | ×1.30 |
-| `u16` | 47.734 ms | 47.353 ms | 22.726 ms | 19.599 ms | 14.325 ms | ×1.16 | ×1.37 | ×2.44 | ×3.33 |
-| `u64` | 56.668 ms | 57.129 ms | 45.608 ms | 41.962 ms | 42.513 ms | ×1.09 | ×0.99 | ×1.35 | ×1.33 |
-| `f32` | 45.935 ms | 47.271 ms | 34.650 ms | 34.437 ms | 27.803 ms | ×1.01 | ×1.24 | ×1.33 | ×1.65 |
-| `i32` | 42.482 ms | 43.349 ms | 31.462 ms | 28.953 ms | 25.577 ms | ×1.09 | ×1.13 | ×1.47 | ×1.66 |
+| Field | C++ | Rust `iter` | Rust `for_each_value` | Rust `&[T]` | `iter / for_each_value` | `for_each_value / &[T]` | `C++ / for_each_value` | `C++ / &[T]` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `u8` | 42.200 ms | 24.198 ms | 29.623 ms | 13.057 ms | ×0.82 | ×2.27 | ×1.42 | ×3.23 |
+| `f64` | 51.100 ms | 50.280 ms | 52.948 ms | 41.668 ms | ×0.95 | ×1.27 | ×0.97 | ×1.23 |
+| `u16` | 54.000 ms | 26.259 ms | 25.290 ms | 11.742 ms | ×1.04 | ×2.15 | ×2.14 | ×4.60 |
+| `u64` | 51.600 ms | 49.366 ms | 50.644 ms | 40.012 ms | ×0.97 | ×1.27 | ×1.02 | ×1.29 |
+| `f32` | 36.000 ms | 38.313 ms | 39.291 ms | 25.414 ms | ×0.98 | ×1.55 | ×0.92 | ×1.42 |
+| `i32` | 34.400 ms | 37.038 ms | 37.155 ms | 23.116 ms | ×1.00 | ×1.61 | ×0.93 | ×1.49 |
 
 The C++ benchmark copies each cell into an aligned local value with fixed-size
-`memcpy`; this retains `cell_get` assertions in the assertions-on build while avoiding
-undefined behavior from dereferencing the `f64` field at offset 4. This is
-source-level defined behavior, not sanitizer instrumentation.
+`memcpy`, avoiding undefined behavior from dereferencing the `f64` field at offset 4.
+This is source-level defined behavior, not sanitizer instrumentation.
 
 C++ `harvest<T>` was not substituted for these individual scans. It first allocates a
 `std::vector<T>` and gathers the strided cells through `cell_get_variant_view`, so one
@@ -376,42 +357,28 @@ selection phase then dominates both paths. The M3 shows the clearest typed-slice
 advantage. On the Core Ultra, selection cost narrows the access-path differences and
 the `u64` callback and slice results are effectively tied.
 
-#### What the two hosts say about SIMD and bandwidth
+#### What the configurations say about SIMD and bandwidth
 
-The additional host does not support a single-cause explanation. The Core Ultra native
-configuration enables AVX2 but not AVX-512. Adding that ISA target leaves the C++
-maximum loops effectively unchanged: portable/native times are 13.556/13.585 ms for
-`u8` and 33.999/34.449 ms for `f64`. The row-strided `memcpy` reduction shape therefore
-does not benefit from the wider enabled ISA in this benchmark.
+The M3 nightly experiment isolates explicit four-accumulator SIMD while retaining the
+ordinary release ISA policy. Its large `f32` and `f64` gains, alongside parity or small
+regressions for integers, show that the stable floating-point maximum shape leaves
+reduction parallelism unavailable while the integer cases generally do not. This
+evidence is specific to finite maximum reduction and does not generalize to average or
+median.
 
-Rust demonstrates that native code generation is operation-specific. For average,
-the `u8` typed slice improves from 1.043 to 0.340 ms, while `f64` remains about 5 ms.
-For maximum, however, `u8` remains about 0.21 ms and `f64` remains about 8.8 ms. Native
-`u16` and `i32` maximum are slower than the portable build; a second isolated run of
-the entire native mixed-numeric group reproduced those results. `target-cpu=native`
-therefore is not a universal speed switch even for contiguous slices; LLVM selects
-different reduction strategies for different operations and element types.
-
-The M3 nightly experiment isolates a different variable: an explicit four-accumulator
-SIMD reduction with ordinary release ISA defaults. Its large `f32` and `f64` gains,
-alongside parity or small regressions for integers, show that the stable floating-point
-maximum shape was leaving reduction parallelism unavailable while the integer cases
-were not. This evidence is specific to finite maximum reduction and does not generalize
-to average or median.
-
-The Core Ultra native run confirms the floating-point result on a second ISA: explicit
-SIMD reduces the Lion Cove `f64` maximum from 8.751 to 4.794 ms and `f32` from 8.554
-to 2.314 ms. Its integer outcome is again operation- and code-generation-specific.
-The separate Skymont sample also prevents treating core class as a scalar multiplier:
-it beats Lion Cove for some element widths and loses for others under the identical
-binary.
+The portable Core Ultra E-core result points in the same direction, but with different
+magnitudes: explicit SIMD makes `f64` ×1.34 and `f32` ×1.74 faster, while `u64`
+regresses to ×0.59 of stable typed-slice performance. The P-core and E-core stable
+tables also prevent treating core class as a scalar multiplier. The E-core wins some
+wide floating-point scans but loses other operations, despite both core classes using
+the identical portable binary.
 
 Memory traffic still cannot be removed from the explanation. A Rust `u8` column is
 10 MB and its `f64` column is 80 MB. A 128-bit vector also holds eight times as many
 `u8` values as `f64` values, and a 256-bit vector preserves that same 8:1 lane ratio.
 Thus element width changes both values processed per vector operation and bytes read by
 a factor of eight. On the M3, the typed-slice maximum takes 0.096 ms for `u8` and
-5.335 ms for `f64`, a ×55.6 time ratio that is consistent with both effects combining;
+5.347 ms for `f64`, a ×55.7 time ratio that is consistent with both effects combining;
 it does not identify either one in isolation. The C++ column scan, by contrast, walks
 the same 320 MB row-address span for every type because each next value is 32 bytes
 away. The measured evidence supports “layout plus reduction code generation plus the
@@ -580,66 +547,47 @@ sidecar. Neither timed transform allocates a 100M-element scratch vector.
 
 ### Results
 
-These are the initially recorded one-pass measurements over 100,000,000 rows. Both
-programs used their complete default thread pools and validated every `result` cell
-after the timed transform. The C++ binary is the optimized assertions-off portable
-release build; Rust uses the ordinary portable release profile. Neither uses
-native-ISA flags or sanitizer instrumentation. On the Core Ultra, C++ ran before
-Rust; the run-order investigation below shows why those two values must not be
-treated as a fair head-to-head result.
+Both programs used their complete default thread pools and validated every `result`
+cell after each process-level sample. The C++ binary is the optimized portable release
+build; Rust uses the ordinary portable release profile. Neither uses
+native-ISA flags or sanitizer instrumentation.
+
+Each host ran the order-balanced sequence `C++, Rust, Rust, C++` back-to-back. The
+table reports the median of the two process-level samples per implementation, with the
+individual transform range in parentheses. With two samples, that median is their
+midpoint; the ranges remain visible because sustained thermal state is material.
 
 | Host | Threads | C++ build | Rust build | C++ transform | Rust transform | C++ / Rust transform |
 |---|---:|---:|---:|---:|---:|---:|
-| M3 Max | 16 | 1.264 s | 0.579 s | 59.194 s | 62.677 s | ×0.94 |
-| Core Ultra 5 225H | 14 | 0.953 s | 0.877 s | 54.530 s | 64.325 s | ×0.85 |
+| M3 Max | 16 | 1.267 s | 0.600 s | 59.615 s (59.441–59.789) | 63.640 s (63.060–64.220) | ×0.94 |
+| Core Ultra 5 225H | 14 | 1.262 s | 1.013 s | 62.495 s (59.364–65.627) | 65.804 s (65.693–65.914) | ×0.95 |
 
 The last column divides C++ transform time by Rust transform time, so values above
 ×1.00 favor Rust. Equivalent transform throughput is:
 
 | Host | C++/OpenMP | Rust/Rayon |
 |---|---:|---:|
-| M3 Max | 1.689 million rows/s | 1.595 million rows/s |
-| Core Ultra 5 225H | 1.834 million rows/s | 1.555 million rows/s |
+| M3 Max | 1.677 million rows/s | 1.571 million rows/s |
+| Core Ultra 5 225H | 1.600 million rows/s | 1.520 million rows/s |
 
-In that initial sequence, C++ appears about 5.9% faster on the M3 Max and 18.0% faster
-on the Core Ultra. The M3 result reproduced; the Core Ultra ranking did not.
+The balanced central estimates put C++ about 6.8% ahead on the M3 Max and 5.3% ahead
+on the Core Ultra for this complete recursive-transform path. Those are fixture-level
+results, not a general OpenMP-versus-Rayon ranking.
 
 ### Run-order and thermal sensitivity
 
-Reversing the order retained the M3 result but reversed the Core Ultra result:
+The new balanced sequence still exposes position sensitivity. On the M3, C++ changes
+by 0.6% between positions one and four and Rust by 1.8% between positions two and
+three. On the Core Ultra, the identical C++ executable changes from 59.364 seconds in
+the first position to 65.627 seconds in the fourth—a 10.5% slowdown—while the two
+middle Rust samples differ by only 0.3%. Symmetric ordering prevents either
+implementation from owning only the cold or hot endpoint, but two samples do not
+remove the underlying thermal and sustained-power uncertainty.
 
-| Host | Execution order | C++ transform | Rust transform | C++ / Rust transform |
-|---|---|---:|---:|---:|
-| M3 Max | Rust, then C++ | 59.035 s | 62.581 s | ×0.94 |
-| Core Ultra 5 225H, initial | C++, then Rust | 54.530 s | 64.325 s | ×0.85 |
-| Core Ultra 5 225H, reversed | Rust, then C++ | 63.753 s | 61.214 s | ×1.04 |
-
-The unchanged Core Ultra C++ binary moved from 54.530 to 63.753 seconds—a 16.9%
-change—and went from first to second place. A shorter order-balanced diagnostic ran
-C++, Rust, Rust, C++ consecutively over 20,000,000 rows without an artificial
-cooldown. The temperatures are the Linux `x86_pkg_temp` readings immediately before
-and after each timed transform:
-
-| Position | Implementation | Transform | Package temperature before → after |
-|---:|---|---:|---:|
-| 1 | C++/OpenMP | 10.083 s | 59°C → 97°C |
-| 2 | Rust/Rayon | 12.010 s | 89°C → 84°C |
-| 3 | Rust/Rayon | 12.828 s | 84°C → 82°C |
-| 4 | C++/OpenMP | 13.092 s | 79°C → 82°C |
-
-The same C++ executable became 29.8% slower solely by moving from the first to the
-last position. The instantaneous temperature does not describe the complete clock,
-power-limit, and cooling state, but reaching 97°C on the first pass and the strong
-position dependence demonstrate that sustained-power and thermal history dominate
-the apparent Core Ultra difference. The original 18.0% C++ advantage is therefore
-not a valid implementation ranking.
-
-Future long-running Core Ultra comparisons must alternate or randomize execution
-order, cool the machine to a defined starting condition, collect multiple samples,
-and report frequency, power, and temperature telemetry. The earlier 87.363-second
-equal-partition OpenMP result is likewise useful as a scheduling warning, but the
-one-pass measurements cannot isolate or quantify the benefit of
-`schedule(dynamic, 4096)` from thermal state alone.
+Future long-running comparisons should continue to alternate or randomize execution
+order, cool the machine to a defined starting condition, collect more samples, and
+record frequency, power, and temperature telemetry. The wide Core Ultra C++ range is
+more important than the few-percent difference between the central estimates.
 
 This is not a table-bandwidth result. Each pass moves only about 1.6 GB of table
 payload—one four-byte input and one four-byte output per row—over roughly one minute.
@@ -686,24 +634,25 @@ GD_PAR_ROWS=1000000 GD_PAR_OPERATION=square \
   GD_PAR_WARMUPS=5 GD_PAR_REPETITIONS=1000 <benchmark executable>
 ```
 
-The results below are medians of five process-level samples. “First transform” comes
-from five fresh processes and therefore includes initial parallel-runtime activation
-and cold-state effects. “Warm transform” is the median per-pass time from five
-1,000-repetition processes after five untimed warmups. Build time is taken from the
-fresh-process samples. Validation runs after timing.
+The results below are medians of five process-level samples with implementation order
+alternated between samples. “First transform” comes from five fresh processes and
+therefore includes initial parallel-runtime activation and cold-state effects. “Warm
+transform” is the median per-pass time from five 1,000-repetition processes after five
+untimed warmups. Build time is taken from the fresh-process samples. Validation runs
+after timing.
 
 | Host | Workers | C++ build | Rust build | C++ first transform | Rust first transform | C++ warm transform | Rust warm transform |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| M3 Max | 16 | 12.470 ms | 6.239 ms | 0.872 ms | 0.521 ms | 0.168 ms | 0.222 ms |
-| Core Ultra 5 225H | 14 | 9.754 ms | 8.292 ms | 0.515 ms | 0.645 ms | 0.176 ms | 0.101 ms |
+| M3 Max | 16 | 13.218 ms | 5.978 ms | 0.746 ms | 0.767 ms | 0.165 ms | 0.252 ms |
+| Core Ultra 5 225H | 14 | 9.630 ms | 8.190 ms | 0.664 ms | 0.917 ms | 0.180 ms | 0.106 ms |
 
 The transform is no longer the dominant end-to-end cost. Adding the median build and
-first-transform measurements gives about 13.34 ms for C++ versus 6.76 ms for Rust on
-the M3 Max, and 10.27 ms for C++ versus 8.94 ms for Rust on the Core Ultra. Those sums
+first-transform measurements gives about 13.96 ms for C++ versus 6.75 ms for Rust on
+the M3 Max, and 10.29 ms for C++ versus 9.11 ms for Rust on the Core Ultra. Those sums
 exclude the separate validation pass.
 
 The warmed comparison reverses between hosts: OpenMP is about 1.32 times as fast as
-Rayon on the M3 Max, while Rayon is about 1.75 times as fast as OpenMP on the Core
+Rayon on the M3 Max, while Rayon is about 1.70 times as fast as OpenMP on the Core
 Ultra. At only 0.1–0.9 ms per pass, parallel-region entry and exit, chunk scheduling,
 heterogeneous-core placement, cache state, and ordinary timing noise are material
 parts of the result. This is consequently a useful parallel-overhead case, but not a
