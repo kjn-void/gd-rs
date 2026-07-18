@@ -38,6 +38,7 @@ add_executable(gd_cpp_reference_benchmarks
     arguments_benchmark.cpp
     binary_benchmark.cpp
     expression_benchmark.cpp
+    price_total_benchmark.cpp
     sqlite_benchmark.cpp
     table_column_buffer_benchmark.cpp
     table_index_benchmark.cpp

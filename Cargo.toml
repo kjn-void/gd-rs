@@ -78,6 +78,14 @@ name = "table_nightly_simd"
 harness = false
 
 [[bench]]
+name = "nullable_maximum"
+harness = false
+
+[[bench]]
+name = "price_total"
+harness = false
+
+[[bench]]
 name = "par_benchmark"
 harness = false
 

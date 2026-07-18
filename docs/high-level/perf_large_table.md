@@ -219,6 +219,183 @@ Explicit SIMD improves `u8`, `f64`, `f32`, and `i32`, is effectively neutral for
 `u16`, and regresses `u64`. As on the M3, explicit vector syntax is not a universal
 speed switch: element width, reduction dependencies, and code generation all matter.
 
+#### Nullable `u32` and auto-vectorization
+
+Benchmark source: [Rust stable and nightly nullable maximum](../../benches/nullable_maximum.rs)
+
+This focused fixture asks whether a maximum over `Vec<Option<u32>>` receives the same
+automatic vectorization as a dense required `Vec<u32>`. Both vectors contain
+10,000,000 ascending values; every sixteenth nullable element is `None`, and the
+remaining maximum is `Some(9,999,999)`. On these 64-bit targets, `u32` occupies four
+bytes while `Option<u32>` occupies eight, so the scanned storage is 40 MB and 80 MB
+respectively. The Rust layout of `Option<u32>` must not be reinterpreted as a stable
+pair of integers even though that describes the observed size.
+
+The stable case uses the idiomatic iterator reductions
+`values.iter().copied().max()` and `values.iter().flatten().copied().max()`. The
+nightly case uses four independent 128-bit `std::simd` accumulators. Required values
+can be loaded directly from the slice. Nullable values are packed safely, lane by
+lane, with `None` mapped to zero; no assumption is made about the enum's physical
+representation. Finding an initial `Some` separately preserves the all-`None` result.
+
+The benchmark is reproduced with:
+
+```sh
+cargo bench --bench nullable_maximum
+
+CARGO_TARGET_DIR=target/nullable-nightly-simd \
+  RUSTFLAGS='--cfg nightly_simd' \
+  cargo +nightly bench --bench nullable_maximum
+
+# Core Ultra P-core: prefix each command with `taskset -c 0 env`.
+```
+
+Criterion means from ten flat samples, measured on 2026-07-18:
+
+| Host and implementation | Required `Vec<u32>` | Nullable `Vec<Option<u32>>` | Nullable / required |
+|---|---:|---:|---:|
+| M3 Max, stable rustc 1.97 | 0.465 ms | 5.288 ms | ×11.38 |
+| M3 Max, nightly `std::simd` | 0.448 ms | 2.014 ms | ×4.50 |
+| Core Ultra P-core, stable rustc 1.97 | 1.777 ms | 3.749 ms | ×2.11 |
+| Core Ultra P-core, nightly `std::simd` | 1.597 ms | 4.893 ms | ×3.06 |
+
+Generated optimized assembly answers the auto-vectorization question directly. On
+both machines, rustc 1.97 turns the required reduction into a packed vector loop with
+multiple accumulators. It leaves the nullable reduction scalar: each element loads
+and tests its discriminant before conditionally selecting its payload. Therefore Rust
+*can* auto-vectorize the dense `Vec<u32>` maximum, but this compiler does not
+auto-vectorize the equivalent idiomatic `Vec<Option<u32>>` loop on either AArch64 or
+x86-64.
+
+Explicit `std::simd` reduces the M3 nullable time by ×2.63, but it is still ×4.50
+slower than the required SIMD path because every vector first has to be assembled from
+scalar `Option` values. On the Core Ultra, that packing cost is worse than rustc's
+scalar conditional-move loop: explicit SIMD is ×1.31 slower than stable for the
+nullable vector. This is also why `Vec<Option<T>>` is a poor long-term layout for
+SIMD-oriented nullable primitive columns. A dense `Vec<T>` plus a separate validity
+bitmap would retain contiguous payload loads and make null handling an independent
+mask operation.
+
+There is no C++ counterpart for this result: it isolates Rust's nullable storage and
+code generation rather than comparing the GD table APIs.
+
+#### Price calculation: aligned AoS versus typed SoA
+
+Benchmark sources: [Rust typed-SoA price calculation](../../benches/price_total.rs) ·
+[C++ GD aligned-AoS price calculation](../../benches/cpp-reference/price_total_benchmark.cpp)
+
+This fixture stores 10,000,000 prices, tax percentages, and quantities, then writes
+each row's total cost into a separate preallocated `f64` result vector:
+
+```text
+total_cost[row] = qty[row] * price[row] * (1 + tax[row] / 100)
+```
+
+The output is deliberately outside both tables. Its 80 MB allocation happens once
+before timing, every timed pass overwrites all elements, and the complete buffer is
+passed through the benchmark black-box or memory-clobber boundary. This prevents the
+compiler from deleting calculations whose results would otherwise be unused.
+
+The C++ input is a GD `table_column_buffer`. Its row bytes match this AoS structure:
+
+```cpp
+struct alignas(8) PriceRow {
+    double price;       // offset  0, 8 bytes
+    double tax;         // offset  8, 8 bytes
+    std::uint32_t qty;  // offset 16, 4 bytes
+                       // offset 20, 4 bytes padding
+};                      // size 24, alignment 8
+```
+
+GD does not round the three-column row from 20 to 24 bytes, which would place every
+other row's `double` values at a four-byte-aligned address. The fixture therefore adds
+a fourth `uint32` padding column and aborts unless GD reports a 24-byte row. Each pass
+uses GD's raw row API and `memcpy`s those 24 bytes into a `PriceRow`; this is defined
+for alignment and aliasing and lets the optimizer lower the copy to ordinary loads.
+
+The C++ source contains two otherwise identical ten-million-row loops. `AoSCompiler`
+leaves unrolling and vectorization entirely to the optimizer. `AoSUnrolled16` applies
+Clang's or GCC's 16-way unroll hint directly to the full loop; it does not reduce the
+fixture to 16 rows and does not introduce a block/tail algorithm. Keeping both cases
+shows whether forcing that decision improves the generated loop on each CPU.
+
+Rust stores the three required columns as independent dense vectors and borrows them
+through `Column::as_slice`: `Vec<f64>` price, `Vec<f64>` tax, and `Vec<u32>` quantity.
+The calculation zips those slices with the mutable output slice. It has 20 input bytes
+per logical row without inter-column padding:
+
+```text
+C++ GD AoS input                       Rust typed SoA input
+
+[price tax qty pad][price tax qty pad]  price: [p0 p1 p2 ...]
+    8   8   4   4 = 24 bytes/row        tax:   [t0 t1 t2 ...]
+                                         qty:   [q0 q1 q2 ...]
+                                         total: 8 + 8 + 4 = 20 bytes/row
+
+10M rows = 240 MB input                 10M rows = 200 MB input
+result   =  80 MB output                result   =  80 MB output
+```
+
+Prices repeat from 1.00 through 100.99, tax repeats from 0 through 25 percent, and
+quantity repeats from 1 through 100. Construction, slice selection, output allocation,
+and validation are outside the measured operation. Both implementations use portable
+optimized release settings without architecture-native flags, sanitizers, unchecked
+Rust, or fast-math. The Core Ultra uses the same binaries pinned to CPU 0 or CPU 4.
+
+The runs are reproduced with:
+
+```sh
+cargo bench --bench price_total
+
+cd benches/cpp-reference
+cmake --preset release
+cmake --build --preset release
+../../target/cpp-reference/release/gd_cpp_reference_benchmarks \
+  --benchmark_filter='^PriceTotal/' \
+  --benchmark_min_time=2s \
+  --benchmark_repetitions=3 \
+  --benchmark_report_aggregates_only=true
+
+# Core Ultra: prefix each benchmark invocation with `taskset -c 0`
+# for the P-core or `taskset -c 4` for the E-core.
+```
+
+Central estimates measured on 2026-07-18. Each C++ value is the median of three
+repetitions; Rust is the Criterion mean of ten flat samples. The comparison selects
+the faster C++ loop on each host. `Best C++ / Rust` above ×1.00 favors Rust; `Rust
+faster` is the corresponding throughput advantage,
+`(C++ time / Rust time - 1) × 100`.
+
+| Host | C++ compiler-selected | C++ forced unroll ×16 | Best C++ | Rust typed SoA | Best C++ / Rust | Rust faster |
+|---|---:|---:|---:|---:|---:|---:|
+| M3 Max | 4.46 ms | 4.70 ms | 4.46 ms | 2.535 ms | ×1.76 | 76% |
+| Core Ultra P-core (CPU 0) | 14.3 ms | 12.3 ms | 12.3 ms | 9.048 ms | ×1.36 | 36% |
+| Core Ultra E-core (CPU 4) | 12.0 ms | 12.5 ms | 12.0 ms | 9.806 ms | ×1.22 | 22% |
+
+Forced unrolling is therefore useful for this GCC-generated P-core loop, improving it
+by about 14%. It is not a portable improvement: it makes the Apple Clang M3 loop about
+5% slower and the GCC E-core loop about 4% slower. The proposed L1 explanation does
+not apply here. Every implementation streams through 10 million rows once, and the
+384 bytes corresponding to 16 rows are not reused after entering cache. The pragma's
+effect is instead compiler- and microarchitecture-specific loop code generation, with
+tradeoffs such as instruction-level parallelism, dependency scheduling, front-end
+bandwidth, and code size.
+
+The P-core result was repeated with each case in a separate process and both execution
+orders, separated by a 30-second idle interval. A→B measured 14.3 then 12.3 ms; B→A
+measured 12.3 then 14.3 ms. Both sequences began with CPU 0 reporting its 400 MHz idle
+frequency, while readings between cases were approximately 4.45–4.83 GHz. Reversing
+which implementation received the cold start did not change either result. This does
+not support a run-order or simple frequency-ramp explanation. Package temperature was
+not instrumented, so the order control is not a general thermal characterization.
+
+The input-size advantage alone is 240/200 = ×1.20, so it closely matches the E-core
+ratio but does not explain the larger M3 and P-core gaps. SoA also gives each input a
+unit-stride stream of one type, while AoS makes each field a 24-byte-stride stream and
+requires extracting three differently sized members from every row. The result
+therefore measures the combination of lower input traffic and simpler loop code, not
+an isolated claim about RAM bandwidth or arithmetic throughput.
+
 #### Harvest cost and operations over one reused vector
 
 Benchmark sources: [C++ `MixedNumeric/HarvestCost/u8`,
