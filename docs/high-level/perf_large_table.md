@@ -648,6 +648,13 @@ enum itself. Borrowing ties the slice lifetime to the table and prevents mutatio
 it is in use. Nullable columns deliberately reject this API until they have an explicit
 typed nullable view; callers can continue using `ValueRef` iteration for them.
 
+The same price-calculation kernel is also measured across RISC-V, AArch64, and
+x86-64 with two single-core cache regimes. See the complete
+[10k-row cache-resident report](../../benches/price-total-10k.md) and
+[500k-row larger-working-set report](../../benches/price-total-500k.md) for timings,
+load/store totals, cycles, cache and TLB counters, generated-loop analysis, compiler
+comparisons, and full CPU-topology diagrams.
+
 ## Hundred-million-row parallel recursive transform
 
 Benchmark sources: [Rust/Rayon `par_benchmark`](../../benches/par_benchmark.rs) ·

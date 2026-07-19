@@ -1,20 +1,26 @@
-//! Cross-platform 500,000-row price calculation benchmark and `perf stat` workload.
+//! Cross-platform price calculation benchmark and `perf stat` workload.
 
 use std::{env, hint::black_box, process::ExitCode, time::Instant};
 
 use gd::{ColumnSpec, DataType, Schema, Table, Value};
 
-const ROWS: usize = 500_000;
-const WARMUPS: u32 = 16;
+const DEFAULT_ROWS: usize = 500_000;
+const MINIMUM_ROWS: usize = 10_000;
+const WARMUP_LOGICAL_ROWS: usize = 8_000_000;
+const TIMING_LOGICAL_ROWS: usize = 256_000_000;
+const PERF_LOGICAL_ROWS: usize = 2_048_000_000;
 const TIMING_SAMPLES: u32 = 9;
-const TIMING_ITERATIONS: u32 = 512;
-const PERF_ITERATIONS: u32 = 4_096;
 
 #[derive(Clone, Copy)]
 enum Mode {
     Check,
     Timing,
     Perf,
+}
+
+struct Config {
+    mode: Mode,
+    rows: usize,
 }
 
 #[inline(never)]
@@ -26,15 +32,15 @@ fn calculate(prices: &[f64], taxes: &[f64], quantities: &[u32], totals: &mut [f6
     }
 }
 
-fn make_table() -> Table {
+fn make_table(rows: usize) -> Table {
     let schema = Schema::new([
         ColumnSpec::new("price", DataType::F64),
         ColumnSpec::new("tax", DataType::F64),
         ColumnSpec::new("qty", DataType::U32),
     ])
     .unwrap();
-    let mut table = Table::with_capacity(schema, ROWS);
-    for row in 0..ROWS {
+    let mut table = Table::with_capacity(schema, rows);
+    for row in 0..rows {
         let price = 1.0 + f64::from(u32::try_from(row % 10_000).unwrap()) * 0.01;
         let tax = f64::from(u32::try_from(row % 26).unwrap());
         let quantity = u32::try_from(row % 100 + 1).unwrap();
@@ -45,13 +51,30 @@ fn make_table() -> Table {
     table
 }
 
-fn parse_mode() -> Result<Mode, String> {
-    match env::args().nth(1).as_deref() {
-        None => Ok(Mode::Check),
-        Some("timing") => Ok(Mode::Timing),
-        Some("perf") => Ok(Mode::Perf),
-        _ => Err("usage: price_total_500k {timing|perf}".to_owned()),
+fn parse_config() -> Result<Config, String> {
+    let mut args = env::args().skip(1);
+    let mode = match args.next().as_deref() {
+        None => Mode::Check,
+        Some("timing") => Mode::Timing,
+        Some("perf") => Mode::Perf,
+        _ => return Err("usage: price_total_500k {timing|perf} [ROWS]".to_owned()),
+    };
+    let rows = args
+        .next()
+        .map(|value| value.parse::<usize>())
+        .transpose()
+        .map_err(|_| "ROWS must be an unsigned integer".to_owned())?
+        .unwrap_or(DEFAULT_ROWS);
+    if args.next().is_some() || rows < MINIMUM_ROWS {
+        return Err(format!(
+            "usage: price_total_500k {{timing|perf}} [ROWS >= {MINIMUM_ROWS}]"
+        ));
     }
+    Ok(Config { mode, rows })
+}
+
+fn iterations_for(logical_rows: usize, rows: usize) -> u32 {
+    u32::try_from(logical_rows.div_ceil(rows)).expect("iteration count fits in u32")
 }
 
 fn run_iterations(
@@ -73,15 +96,15 @@ fn run_iterations(
 }
 
 fn main() -> ExitCode {
-    let mode = match parse_mode() {
-        Ok(mode) => mode,
+    let config = match parse_config() {
+        Ok(config) => config,
         Err(message) => {
             eprintln!("{message}");
             return ExitCode::FAILURE;
         }
     };
 
-    let table = make_table();
+    let table = make_table(config.rows);
     let prices = table
         .column_named("price")
         .unwrap()
@@ -97,31 +120,39 @@ fn main() -> ExitCode {
         .unwrap()
         .as_slice::<u32>()
         .unwrap();
-    let mut totals = vec![0.0; ROWS];
+    let mut totals = vec![0.0; config.rows];
 
-    assert_eq!(prices.len(), ROWS);
-    assert_eq!(taxes.len(), ROWS);
-    assert_eq!(quantities.len(), ROWS);
-    match mode {
+    assert_eq!(prices.len(), config.rows);
+    assert_eq!(taxes.len(), config.rows);
+    assert_eq!(quantities.len(), config.rows);
+    let warmups = iterations_for(WARMUP_LOGICAL_ROWS, config.rows);
+    match config.mode {
         Mode::Check => run_iterations(1, prices, taxes, quantities, &mut totals),
         Mode::Timing => {
-            run_iterations(WARMUPS, prices, taxes, quantities, &mut totals);
+            let iterations = iterations_for(TIMING_LOGICAL_ROWS, config.rows);
+            run_iterations(warmups, prices, taxes, quantities, &mut totals);
             for _ in 0..TIMING_SAMPLES {
                 let start = Instant::now();
-                run_iterations(TIMING_ITERATIONS, prices, taxes, quantities, &mut totals);
+                run_iterations(iterations, prices, taxes, quantities, &mut totals);
                 println!(
                     "{:.6}",
-                    start.elapsed().as_secs_f64() * 1_000_000.0 / f64::from(TIMING_ITERATIONS)
+                    start.elapsed().as_secs_f64() * 1_000_000.0 / f64::from(iterations)
                 );
             }
         }
         Mode::Perf => {
-            run_iterations(WARMUPS, prices, taxes, quantities, &mut totals);
-            run_iterations(PERF_ITERATIONS, prices, taxes, quantities, &mut totals);
+            run_iterations(warmups, prices, taxes, quantities, &mut totals);
+            run_iterations(
+                iterations_for(PERF_LOGICAL_ROWS, config.rows),
+                prices,
+                taxes,
+                quantities,
+                &mut totals,
+            );
         }
     }
 
-    let checksum = totals[0] + totals[1] + totals[25] + totals[9_999] + totals[ROWS - 1];
-    eprintln!("mode=rust-soa checksum={checksum:.17}");
+    let checksum = totals[0] + totals[1] + totals[25] + totals[9_999] + totals[config.rows - 1];
+    eprintln!("mode=rust-soa rows={} checksum={checksum:.17}", config.rows);
     ExitCode::SUCCESS
 }

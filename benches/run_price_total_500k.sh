@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-    echo "usage: $0 CPU" >&2
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "usage: $0 CPU [ROWS]" >&2
     exit 2
 fi
 
 cpu=$1
+rows=${2:-500000}
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
@@ -34,20 +35,20 @@ cpp_bin=target/price_total_500k_cpp
 run=(taskset -c "$cpu")
 
 echo "Rust SoA timing"
-"${run[@]}" "$rust_bin" timing
+"${run[@]}" "$rust_bin" timing "$rows"
 echo "C++ AoS unrestricted timing"
-"${run[@]}" "$cpp_bin" unrestricted timing
+"${run[@]}" "$cpp_bin" unrestricted timing "$rows"
 echo "C++ AoS restricted timing"
-"${run[@]}" "$cpp_bin" restricted timing
+"${run[@]}" "$cpp_bin" restricted timing "$rows"
 
 if [[ -n ${PERF_EVENTS:-} ]]; then
     perf_repeat=${PERF_REPEAT:-3}
     for workload in rust unrestricted restricted; do
         echo "perf: $workload"
         if [[ $workload == rust ]]; then
-            command=("$rust_bin" perf)
+            command=("$rust_bin" perf "$rows")
         else
-            command=("$cpp_bin" "$workload" perf)
+            command=("$cpp_bin" "$workload" perf "$rows")
         fi
         perf stat -r "$perf_repeat" -e "$PERF_EVENTS" -- \
             "${run[@]}" "${command[@]}"

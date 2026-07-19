@@ -7,6 +7,9 @@ Benchmark sources: [Rust typed-SoA workload](price_total_500k.rs) ·
 This benchmark compares the Rust table's typed structure-of-arrays columns with a
 24-byte C++ array-of-structures row matching the corresponding GD row layout:
 
+The same configurable sources are also measured with a cache-resident working set in
+the [10k-row companion report](price-total-10k.md).
+
 ```text
 Rust input:  Vec<f64> + Vec<f64> + Vec<u32> = 20 bytes/row
 C++ input:   PriceRow                       = 24 bytes/row
