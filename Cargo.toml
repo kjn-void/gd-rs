@@ -86,6 +86,10 @@ name = "price_total"
 harness = false
 
 [[bench]]
+name = "price_total_500k"
+harness = false
+
+[[bench]]
 name = "par_benchmark"
 harness = false
 
