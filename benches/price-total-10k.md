@@ -40,8 +40,9 @@ C++ AoS
 
 Both working sets exceed every tested L1D cache but fit in every tested L2: the Ky X1
 and Cortex-A76 have 512 KiB available, Lion Cove has a private 3 MiB L2, and each
-four-core Skymont cluster shares 4 MiB. Rust scans 12.5% fewer bytes because its
-separate typed vectors contain no four-byte inter-row padding.
+four-core Skymont cluster shares 4 MiB. The Apple M4 performance cluster has a
+128 KiB L1D per core and shares 16 MiB of L2. Rust scans 12.5% fewer bytes because
+its separate typed vectors contain no four-byte inter-row padding.
 
 ## Method
 
@@ -53,6 +54,13 @@ compiler comparison uses Clang 18.1.3 with libstdc++ or libc++ 18.
 The C++ binaries may contract multiply-add because of `-ffast-math`; Rust retains
 its normal floating-point semantics and the inspected Rust loops use separate
 multiply and add instructions. Checksums match the expected result in every run.
+
+The Apple M4 addition uses rustc 1.97.1 and Apple Clang 17.0.0 on macOS 26.5, also
+without a target-CPU override. macOS does not expose a supported `taskset` equivalent,
+so these serial processes use foreground application scheduling rather than hard
+affinity. `sysctl` reports four performance cores with a shared 16 MiB L2 and six
+efficiency cores with a shared 4 MiB L2. The timings are consistent with performance-
+core execution, but core placement was not directly observable.
 
 The 10k fixture increases its pass counts to preserve the 500k experiment's logical
 work:
@@ -89,8 +97,10 @@ Logical CPU numbering is specific to these machines:
 | Rockchip RK3588 | CPU 4 | Arm Cortex-A76 performance core |
 | Intel Core Ultra 5 225H | CPU 0 | Lion Cove performance core (P-core) |
 | Intel Core Ultra 5 225H | CPU 4 | Skymont efficiency core (E-core) |
+| Apple M4 | macOS foreground scheduler | Scheduler-managed; performance-core placement expected but not hard-pinned |
 
-The full `lstopo --no-io --no-factorize` diagrams are shared with the 500k report:
+The full `lstopo --no-io --no-factorize` diagrams for the Linux hosts are shared with
+the 500k report:
 
 **Ky X1 — benchmark CPU 0**
 
@@ -108,19 +118,21 @@ The full `lstopo --no-io --no-factorize` diagrams are shared with the 500k repor
 
 Median time per complete 10,000-row pass:
 
-| Host and affinity | Rust SoA | C++ GCC AoS | C++ GCC AoS `restrict` | Fastest |
+| Host and affinity | Rust SoA | C++ AoS | C++ AoS `restrict` | Fastest |
 |---|---:|---:|---:|---:|
 | Ky X1 RISC-V, CPU 0 | 107.344 us | 56.147 us | 65.060 us | C++ unrestricted |
 | RK3588 Cortex-A76, CPU 4 | 7.289 us | 10.024 us | 9.707 us | Rust |
 | Core Ultra 5 225H Lion Cove, CPU 0 | 2.688 us | 3.686 us | 3.678 us | Rust |
 | Core Ultra 5 225H Skymont, CPU 4 | 2.279 us | 3.705 us | 3.927 us | Rust |
+| Apple M4, macOS foreground scheduler | 2.177 us | 2.995 us | 2.987 us | Rust |
 
 Rust has 33.2% more throughput than the faster GCC path on the A76, 36.8% more on
 Lion Cove, and 62.5% more on Skymont. GCC unrestricted has 91.2% more throughput than
-Rust on the Ky X1. The three Lion Cove Rust run medians were 2.574, 2.724, and 2.772
-us; their monotonic spread is retained in the geometric mean rather than selecting
-the most favorable run. The corresponding `perf` time and cycle count agree with a
-roughly 2.68 us steady-state pass.
+Rust on the Ky X1. Rust has 37.2% more throughput than the faster Apple Clang path on
+the M4. The three Lion Cove Rust run medians were 2.574, 2.724, and 2.772 us; their
+monotonic spread is retained in the geometric mean rather than selecting the most
+favorable run. The corresponding `perf` time and cycle count agree with a roughly
+2.68 us steady-state pass.
 
 ### Packed-vectorization A/B for Rust and C++
 
@@ -136,34 +148,46 @@ RUSTFLAGS="-C no-vectorize-loops -C no-vectorize-slp" \
 g++ -std=c++20 -O3 -ffast-math -DNDEBUG -fno-exceptions -fno-rtti \
   -fno-tree-loop-vectorize -fno-tree-slp-vectorize \
   benches/cpp-reference/price_total_500k_benchmark.cpp -o price_total_no_vector
+
+clang++ -std=c++20 -O3 -ffast-math -DNDEBUG -fno-exceptions -fno-rtti \
+  -fno-vectorize -fno-slp-vectorize \
+  benches/cpp-reference/price_total_500k_benchmark.cpp -o price_total_no_vector_m4
 ```
 
 Only the 10k fixture was run. Results use the same three run medians, nine samples per
-run, and pinned cores as the main table. C++ unrestricted and `restrict` order was
-alternated between repetitions. Smaller is faster:
+run, and affinity or scheduler policy as the main table. C++ unrestricted and
+`restrict` order was alternated between repetitions. Smaller is faster:
 
-| Implementation | Cortex-A76 | Lion Cove | Skymont |
-|---|---:|---:|---:|
-| Rust SoA, ordinary | 7.289 us | 2.688 us | 2.279 us |
-| Rust SoA, vectorizers disabled | 13.517 us | 3.410 us | 5.022 us |
-| C++ AoS, ordinary | 10.024 us | 3.686 us | 3.705 us |
-| C++ AoS, vectorizers disabled | 10.034 us | 3.660 us | 3.714 us |
-| C++ AoS `restrict`, ordinary | 9.707 us | 3.678 us | 3.927 us |
-| C++ AoS `restrict`, vectorizers disabled | 9.609 us | 3.641 us | 3.712 us |
+| Implementation | Cortex-A76 | Lion Cove | Skymont | Apple M4 |
+|---|---:|---:|---:|---:|
+| Rust SoA, ordinary | 7.289 us | 2.688 us | 2.279 us | 2.177 us |
+| Rust SoA, vectorizers disabled | 13.517 us | 3.410 us | 5.022 us | 2.446 us |
+| C++ AoS, ordinary | 10.024 us | 3.686 us | 3.705 us | 2.995 us |
+| C++ AoS, vectorizers disabled | 10.034 us | 3.660 us | 3.714 us | 2.983 us |
+| C++ AoS `restrict`, ordinary | 9.707 us | 3.678 us | 3.927 us | 2.987 us |
+| C++ AoS `restrict`, vectorizers disabled | 9.609 us | 3.641 us | 3.712 us | 2.975 us |
 
-| Implementation | Cortex-A76 disabled/ordinary | Lion Cove disabled/ordinary | Skymont disabled/ordinary |
-|---|---:|---:|---:|
-| Rust SoA | 1.855× | 1.268× | 2.204× |
-| C++ AoS | 1.001× | 0.993× | 1.002× |
-| C++ AoS `restrict` | 0.990× | 0.990× | 0.945× |
+| Implementation | Cortex-A76 disabled/ordinary | Lion Cove disabled/ordinary | Skymont disabled/ordinary | M4 disabled/ordinary |
+|---|---:|---:|---:|---:|
+| Rust SoA | 1.855× | 1.268× | 2.204× | 1.124× |
+| C++ AoS | 1.001× | 0.993× | 1.002× | 0.996× |
+| C++ AoS `restrict` | 0.990× | 0.990× | 0.945× | 0.996× |
 
 The Lion Cove scalar run was repeated because its individual medians varied. The
 first and repeat three-run geometric means were 3.410 and 3.412 us, respectively, so
 the aggregate result is reproducible despite that per-run variation.
 
+The M4 required a different stabilization step. An unconditioned first Rust run
+inherited a post-build frequency state and produced a 1.714 us median, while later
+runs settled near 2.15--2.17 us. Each reported M4 path was therefore preconditioned
+with its own 2.048-billion-logical-row `perf` body immediately before timing. The
+reported geometric means use ordinary Rust run medians of 2.144, 2.214, and 2.174 us,
+and disabled-vectorizer medians of 2.416, 2.470, and 2.454 us. This is a sustained
+per-kernel result rather than a transient post-idle or post-compilation peak.
+
 Disassembly confirms that packed arithmetic is absent from the disabled calculation
-loops. Portable Rust x86-64 retains mandatory scalar SSE2
-floating-point instructions and processes two rows per loop through independent
+loops. Portable Rust x86-64 retains mandatory scalar SSE2 floating-point
+instructions and processes two rows per loop through independent
 `cvtsi2sd`/`mulsd`/`addsd` chains; an `xorps` zero idiom clears each scalar register
 but does not process multiple rows. Rust AArch64 processes one row per loop with
 scalar `ucvtf d`, `fmul d`, `fadd d`, and `str d`.
@@ -173,6 +197,13 @@ scalar `cvtsi2sd`, `mulsd`, `addsd`, and `movsd` operations. On AArch64, GCC ret
 the 16-row unroll and schedules many scalar `ucvtf` and `fmadd` chains concurrently.
 It also combines adjacent scalar memory operations into `ldp`/`stp` register pairs;
 these transfer two scalar D registers but are not packed NEON arithmetic.
+
+On M4, ordinary Rust handles 16 rows per main-loop iteration through eight NEON
+two-lane `f64` groups. With the vectorizers disabled, Apple/LLVM still unrolls three
+scalar rows and uses paired scalar loads and stores. Apple Clang's explicitly
+16-row-unrolled timed C++ block is scalar in both builds; its ordinary binary also
+contains a vectorized remainder path, but 10,000 rows divide evenly by 16 so that
+remainder is not executed in this fixture.
 
 This is not a literal removal of the architectures' SIMD/FP register files: scalar
 floating point uses XMM registers on x86-64 and the scalar view of FP/NEON registers
@@ -184,16 +215,24 @@ vectorization mainly removes store grouping from the ordinary restricted x86-64
 path, and that path was not faster to begin with. By contrast, the ordinary Rust SoA
 loop performs genuinely packed arithmetic. With vectorization disabled, C++
 `restrict` has 40.7% more throughput on the A76 and 35.3% more on Skymont, while Rust
-retains 6.8% more throughput on Lion Cove.
+retains 6.8% more throughput on Lion Cove and 21.6% more on M4.
 
 This scalar-only cross-language result includes two intentional differences: C++
 still requests a 16-row unroll through its checked-in pragma and `-ffast-math` permits
 scalar FMA on AArch64, while Rust uses normal floating-point semantics and receives a
-two-row x86-64 unroll or no AArch64 unroll. It therefore demonstrates the value of
-Rust's ordinary SoA vectorization and C++'s explicit instruction-level parallelism;
-it is not a layout-only comparison. Because the working sets are L2-resident, the
-differences primarily measure execution width, instruction count, and exposed
-independent work rather than DRAM bandwidth.
+two-row x86-64 unroll, no Linux AArch64 unroll, or a three-row Apple AArch64 unroll.
+It therefore demonstrates the value of Rust's ordinary SoA vectorization and C++'s
+explicit instruction-level parallelism; it is not a layout-only comparison. Because
+the working sets are L2-resident, the differences primarily measure execution width,
+instruction count, and exposed independent work rather than DRAM bandwidth.
+
+The M4's 1.124× Rust ratio is smaller than Lion Cove's 1.268× ratio, but timing alone
+cannot separate clock/power behavior from microarchitecture. Privileged
+`powermetrics` frequency data was unavailable, macOS core placement was not directly
+observable, and the generated scalar schedules differ. The M4 result does establish
+that Apple/LLVM exposes enough scalar instruction-level parallelism to retain 89% of
+the vectorized throughput after sustained per-binary preconditioning; it does not by
+itself prove that the core maintains the same clock in both modes.
 
 ### RISC-V GCC versus Clang
 
@@ -344,6 +383,7 @@ executables therefore use the same steady-state loops documented in the 500k rep
 |---|---|
 | portable x86-64 | Rust SSE2, four rows per loop through two independent vector groups |
 | portable AArch64 | Rust NEON, eight rows per loop through four independent vector groups |
+| Apple `arm64-apple-darwin` | Rust NEON, 16 rows per loop through eight independent vector groups |
 | portable RISC-V `rv64imafdc` | Rust scalar, one row per loop, no unrolling |
 
 GCC and Clang use scalar RV64 FMA instructions for the AoS input and honor the
@@ -361,9 +401,10 @@ becomes the fastest Ky X1 implementation.
 - Rust remains faster on AArch64 and x86-64 because SoA combines the smaller working
   set with straightforward packed SIMD loads and stores.
 - Disabling LLVM's vectorizers makes the Rust loop 1.27× slower on Lion Cove, 1.85×
-  slower on Cortex-A76, and 2.20× slower on Skymont. Disabling GCC's vectorizers
-  changes its already-scalar AoS paths by between -5.5% and +0.2%, confirming that
-  packed arithmetic is a material part of the cache-resident Rust SoA advantage.
+  slower on Cortex-A76, 2.20× slower on Skymont, and 1.12× slower on M4. Disabling
+  the C++ compiler vectorizers changes the timed, already-scalar AoS paths by between
+  -5.5% and +0.2%, confirming that packed arithmetic is a material part of the
+  cache-resident Rust SoA advantage.
 - Ky X1 remains a compiler/code-generation exception: portable Rust is scalar and
   non-unrolled, while the explicitly unrolled C++ variants expose more independent
   work. Clang restricted is fastest once the fixture resides in L2.
