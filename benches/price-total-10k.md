@@ -122,6 +122,46 @@ us; their monotonic spread is retained in the geometric mean rather than selecti
 the most favorable run. The corresponding `perf` time and cycle count agree with a
 roughly 2.68 us steady-state pass.
 
+### Rust with packed vectorization disabled
+
+Benchmark source: [Rust typed-SoA workload](price_total_500k.rs). This is a Rust-only
+A/B test; there is no corresponding C++ result. The scalar-oriented binary uses the
+same optimized benchmark profile and portable target as the ordinary Rust binary,
+but disables both LLVM vectorization passes:
+
+```sh
+RUSTFLAGS="-C no-vectorize-loops -C no-vectorize-slp" \
+  cargo bench --bench price_total_500k --no-run
+```
+
+Only the 10k fixture was run. Results use the same three run medians, nine samples per
+run, and pinned cores as the main table. Smaller is faster:
+
+| CPU and affinity | Ordinary Rust | Vectorizers disabled | Time ratio | Time increase |
+|---|---:|---:|---:|---:|
+| RK3588 Cortex-A76, CPU 4 | 7.289 us | 13.517 us | 1.855× | 85.5% |
+| Core Ultra 5 225H Lion Cove, CPU 0 | 2.688 us | 3.410 us | 1.268× | 26.8% |
+| Core Ultra 5 225H Skymont, CPU 4 | 2.279 us | 5.022 us | 2.204× | 120.4% |
+
+The Lion Cove scalar run was repeated because its individual medians varied. The
+first and repeat three-run geometric means were 3.410 and 3.412 us, respectively, so
+the aggregate result is reproducible despite that per-run variation.
+
+Disassembly confirms that packed data processing is absent from the calculation
+loops. Portable x86-64 retains mandatory scalar SSE2 floating-point instructions and
+processes two rows per loop through independent `cvtsi2sd`/`mulsd`/`addsd` chains;
+an `xorps` zero idiom clears each scalar register but does not process multiple rows.
+AArch64 processes one row per loop with scalar `ucvtf d`, `fmul d`, `fadd d`, and
+`str d`. Neither loop contains packed arithmetic or packed data loads and stores.
+
+This is not a literal removal of the architectures' SIMD/FP register files: scalar
+floating point uses XMM registers on x86-64 and the scalar view of FP/NEON registers
+on AArch64. The flags specifically prevent LLVM from turning the row loop into
+packed, data-parallel work. Because the 280,000-byte working set is L2-resident, the
+large A76 and Skymont differences primarily measure execution width, instruction
+count, and exposed independent work rather than DRAM bandwidth. Lion Cove extracts
+more throughput from the two scalar chains and consequently loses less performance.
+
 ### RISC-V GCC versus Clang
 
 | Ky X1 compiler and standard library | C++ AoS | C++ AoS `restrict` | Faster variant |
@@ -287,6 +327,9 @@ becomes the fastest Ky X1 implementation.
   compared with 500k and almost eliminates L2, LLC, and page-walk traffic.
 - Rust remains faster on AArch64 and x86-64 because SoA combines the smaller working
   set with straightforward packed SIMD loads and stores.
+- Disabling LLVM's vectorizers makes the Rust loop 1.27× slower on Lion Cove, 1.85×
+  slower on Cortex-A76, and 2.20× slower on Skymont, confirming that packed SIMD is a
+  material part of the cache-resident SoA advantage.
 - Ky X1 remains a compiler/code-generation exception: portable Rust is scalar and
   non-unrolled, while the explicitly unrolled C++ variants expose more independent
   work. Clang restricted is fastest once the fixture resides in L2.
