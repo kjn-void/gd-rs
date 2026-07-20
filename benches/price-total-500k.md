@@ -47,13 +47,15 @@ event names, event time-enabled percentage, and kernel perf permissions with res
 
 ## Results
 
-These measurements were made on 2026-07-19 with the checked-in benchmark sources.
+These measurements were made on 2026-07-19 and 2026-07-20 with the checked-in
+benchmark sources.
 All binaries use portable release settings: Rust has no `target-cpu` override, and
 C++ uses GCC `-O3 -ffast-math -DNDEBUG` without `-march`. The Linux machines used
 rustc 1.97.0 or 1.97.1; the Ky X1 and Core Ultra used GCC 13.3.0, while the RK3588
-used GCC 15.2.0. A separate Ky X1 compiler comparison used Clang 18.1.3 with both
-libstdc++ and libc++ 18. The Core Ultra runs pin the same binaries to CPU 0 (Lion
-Cove P-core) or CPU 4 (Skymont E-core); the RK3588 run pins to CPU 4 (Cortex-A76).
+and Ryzen used GCC 15.2.0. A separate Ky X1 compiler comparison used Clang 18.1.3
+with both libstdc++ and libc++ 18. The Core Ultra runs pin the same binaries to CPU 0
+(Lion Cove P-core) or CPU 4 (Skymont E-core); the RK3588 run pins to CPU 4
+(Cortex-A76). The Ryzen run pins to guest CPU 0 under Microsoft Hyper-V.
 
 The logical CPU numbers identify these physical core types on the tested machines:
 
@@ -63,6 +65,7 @@ The logical CPU numbers identify these physical core types on the tested machine
 | Rockchip RK3588 | CPU 4 | Arm Cortex-A76 performance core |
 | Intel Core Ultra 5 225H | CPU 0 | Lion Cove performance core (P-core) |
 | Intel Core Ultra 5 225H | CPU 4 | Skymont efficiency core (E-core) |
+| AMD Ryzen 9 3900X under Hyper-V | Guest CPU 0 | Zen 2 core; guest CPU 1 is its SMT sibling |
 
 These mappings are specific to the tested systems' Linux logical-CPU numbering;
 CPU 0 or CPU 4 should not be assumed to select the same core type on another system.
@@ -102,6 +105,11 @@ split into two four-core clusters sharing 4 MB L2 per cluster. The final two
 low-power E-cores share a separate 2 MB L2 outside the 18 MB L3 hierarchy shown for
 the main compute tile.
 
+The Ryzen guest reports 12 cores and 24 threads, private 32 KiB L1D and 512 KiB L2
+per core, and one 16 MiB L3 instance. These are Hyper-V's exposed topology rather
+than a bare-metal `lstopo` view; `taskset` fixes the Linux vCPU but cannot control how
+Hyper-V schedules that vCPU on the Windows host.
+
 Median time per 500,000-row pass, calculated as the geometric mean of the collected
 run medians. Each run contains nine samples of 512 passes after 16 warm-up passes:
 
@@ -111,11 +119,20 @@ run medians. Each run contains nine samples of 512 passes after 16 warm-up passe
 | RK3588 Cortex-A76, CPU 4 | 953.265 us | 1,106.142 us | 1,113.598 us | Rust |
 | Core Ultra 5 225H P-core, CPU 0 | 309.670 us | 355.518 us | 356.724 us | Rust |
 | Core Ultra 5 225H E-core, CPU 4 | 282.342 us | 334.549 us | 355.661 us | Rust |
+| Ryzen 9 3900X under Hyper-V, guest CPU 0 | 287.469 us | 625.365 us | 749.107 us | Rust |
 
 Rust is 16.0% faster than unrestricted C++ on the A76, 14.8% faster on the P-core,
-and 18.5% faster on the E-core. Unrestricted GCC C++ is 51.4% faster than Rust on the
-Ky X1. With GCC, `restrict` does not improve elapsed time in this fixture even where
-it changes the generated store loop.
+18.5% faster on the E-core, and has 117.5% more throughput than unrestricted C++ in
+the Ryzen guest. Unrestricted GCC C++ is 51.4% faster than Rust on the Ky X1. With
+GCC, `restrict` does not improve elapsed time in this fixture even where it changes
+the generated store loop.
+
+The Ryzen guest inherited a slow post-compilation/frequency state: unconditioned
+medians accelerated materially with run order. Each published run therefore first
+executes its own 2.048-billion-row `perf` body, immediately followed by the normal
+nine-sample timing process. The three conditioned Rust medians are 292.605, 287.255,
+and 282.633 us; unrestricted C++ records 633.880, 620.470, and 621.832 us. This is a
+sustained guest result rather than the transient first-run state.
 
 #### RISC-V GCC versus Clang
 
@@ -214,6 +231,21 @@ restricted C++, Rust still retires 49.4% fewer loads; the roughly 2% difference 
 store totals is setup overhead around two kernels whose steady-state store rate is
 one instruction per two rows.
 
+Zen 2 exposes dispatched rather than retired load/store events. They should not be
+compared numerically with the Intel retired events, but show the same within-core
+relationship. These are three-run averages with 100% event time enabled:
+
+| Ryzen guest CPU 0 | Dispatched loads | Loads / processed row | Dispatched stores | Stores / processed row |
+|---|---:|---:|---:|---:|
+| Rust SoA | 3.137 B | 1.526 | 1.056 B | 0.514 |
+| C++ AoS | 6.242 B | 3.036 | 2.084 B | 1.014 |
+| C++ AoS `restrict` | 6.250 B | 3.040 | 1.044 B | 0.508 |
+
+Thus Rust dispatches approximately half as many load operations as C++, while its
+store count is approximately half that of unrestricted C++ and close to restricted
+C++. The result agrees with the inspected packed Rust loop and paired restricted
+C++ output stores.
+
 The Cortex-A76 PMU exposed `LD_SPEC` and `ST_SPEC`, but its architected
 `LD_RETIRED`/`ST_RETIRED` events returned zero and are not implemented by this
 kernel/PMU combination. These are therefore **speculatively executed memory
@@ -264,13 +296,47 @@ averages:
 | Core Ultra E-core 4 | Rust SoA | 4.970 B | 10.964 B | 2.206 |
 | Core Ultra E-core 4 | C++ AoS | 5.987 B | 12.909 B | 2.156 |
 | Core Ultra E-core 4 | C++ AoS `restrict` | 6.244 B | 17.407 B | 2.788 |
+| Ryzen guest CPU 0 | Rust SoA | 5.093 B | 10.937 B | 2.147 |
+| Ryzen guest CPU 0 | C++ AoS | 10.273 B | 12.875 B | 1.253 |
+| Ryzen guest CPU 0 | C++ AoS `restrict` | 15.963 B | 17.501 B | 1.096 |
 
 IPC alone does not rank these loops. Restricted C++ retires more instructions at a
 higher IPC on both Intel cores but still takes more cycles than Rust. Elapsed time
 and cycles are the outcome; IPC describes how a particular instruction stream
-occupied the core.
+occupied the core. On the Ryzen guest, GCC's packed reconstruction of strided AoS
+rows increases both instructions and cycles, so restricted C++ is slower at a lower
+IPC.
 
 ### Cache and data-TLB counters
+
+The Ryzen Zen 2 PMU reports L1D miss-allocation and demand-fill sources. Hyper-V
+virtualizes these counters, so the values characterize this guest configuration and
+must not be treated as bare-metal Ryzen totals. The 500k events were stable enough to
+report, used 100% event time, and are three-run averages:
+
+| Ryzen guest CPU 0 | L1D MAB load allocations | L1D MAB store allocations | Fills from L2 | Fills from local cache | Fills from local DRAM |
+|---|---:|---:|---:|---:|---:|
+| Rust SoA | 11.213 M | 2.538 M | 4.605 M | 5.687 M | 2.824 M |
+| C++ AoS | 36.540 M | 0.943 M | 5.079 M | 9.151 M | 4.056 M |
+| C++ AoS `restrict` | 18.952 M | 0.783 M | 210.594 M | 41.925 M | 97.384 M |
+
+`local cache` means a cache in the local Zen 2 complex other than private L2. Remote
+cache and remote-DRAM fill events were zero. GCC 15's restricted loop reconstructs
+packed vectors from the 24-byte AoS stride; its much larger demand-fill totals
+coincide with the loop's higher cycle count rather than demonstrating a general
+property of `restrict`.
+
+The corresponding translation events show the expected larger-working-set regime:
+
+| Ryzen guest CPU 0 | L1 DTLB reloads | Completed data-side page walks |
+|---|---:|---:|
+| Rust SoA | 13.153 M | 11.471 M |
+| C++ AoS | 14.998 M | 13.870 M |
+| C++ AoS `restrict` | 16.004 M | 15.016 M |
+
+Most L1 DTLB reloads in this 14–16 MiB repeated scan proceed to a page walk. This is
+translation activity, not evidence that the data itself is fetched from DRAM; the
+data-cache fill-source counters above are separate events.
 
 The A76 events count cache accesses/refills at each level. They show both the event
 totals and their denominators directly:
@@ -374,6 +440,14 @@ extracts the three row fields from strided addresses. `restrict` permits packed
 output stores on Intel, explaining the halved store count, but does not remove the
 strided input work and does not improve the measured time.
 
+GCC 15 on the Ryzen guest goes further in the ordinary restricted build: it
+vectorizes the AoS loop by issuing scalar field loads and rebuilding two-row SSE2
+vectors with `movd`, `punpck*`, and shuffle instructions before `mulpd`/`addpd`.
+The vectorizers-disabled build instead retains the explicit 16-row scalar unroll.
+This raises the ordinary restricted process from about 12.9 to 17.5 billion
+instructions and makes it slower; it is an example of unprofitable AoS
+auto-vectorization, not a failure of SIMD arithmetic itself.
+
 ### Interpretation
 
 The key conclusions from this fixture are:
@@ -382,7 +456,7 @@ The key conclusions from this fixture are:
   bytes because SoA has no four-byte inter-row padding.
 - On x86-64 and AArch64, Rust's SoA layout gives LLVM straightforward packed loads,
   vector conversion, arithmetic, and stores. It wins on the A76 and both 225H core
-  types.
+  types, and decisively in the virtualized Ryzen run.
 - The direct PMU counts are essential denominators. A larger miss percentage can
   coexist with fewer memory instructions and fewer absolute downstream refills.
 - `restrict` changes generated scheduling but does not make the AoS input contiguous.
@@ -392,4 +466,5 @@ The key conclusions from this fixture are:
   loop wins decisively there even though its rows move more bytes.
 - PMU event semantics are architecture- and even core-type-specific. Compare totals
   and rates only within the same PMU, and never compare percentages without the event
-  counts used as their denominator.
+  counts used as their denominator. The Ryzen values additionally carry a Hyper-V
+  virtualization caveat.
