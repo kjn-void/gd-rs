@@ -42,3 +42,14 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 
 These files are comparison fixtures owned by `gd-rs`; update them alongside changes
 to the corresponding Rust benchmark or the C++ API being measured.
+
+`stream_benchmark.cpp` is a standalone POSIX STREAM-style host-memory
+benchmark used by the
+[`STREAM report`](../../docs/high-level/perf_stream.md). It deliberately has no Rust
+counterpart because it measures the benchmark hosts rather than either table API. It
+does not use Google Benchmark or link against GD and can be built directly:
+
+```sh
+c++ -O3 -march=native -std=c++20 -pthread \
+  stream_benchmark.cpp -o /tmp/stream_benchmark
+```

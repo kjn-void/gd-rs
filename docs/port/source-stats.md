@@ -5,7 +5,7 @@ on 2026-07-20. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include the current
-characterization tests and matched benchmarks.
+characterization tests and maintained benchmarks.
 
 ## Results
 
@@ -20,12 +20,12 @@ divided by the number of functions recognized by Lizard.
 | Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 41 | 8,529 | 334 | 786 | 2.35 |
 | C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
 | C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
-| C++ product + tests + matched benchmarks | 168 | 65,043 | 8,465 | 19,713 | 2.33 |
+| C++ product + tests + maintained benchmarks | 169 | 65,218 | 8,471 | 19,744 | 2.33 |
 
 The requested Rust totals are therefore **4,819 SLOC without test/benchmark code**
 and **8,529 SLOC with both**. Tests account for 1,624 SLOC and benchmarks for 2,086
 SLOC. In the C++ scopes, tests account for 712 SLOC and benchmarks for a further
-1,523 SLOC.
+1,698 SLOC.
 
 These totals should not be read as a claim that Rust needs 7.7% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
@@ -56,7 +56,8 @@ PYTHONPATH=/tmp/gd-code-metrics python3 -m lizard \
 Add `tests` and `benches` to the `find` roots for the inclusive Rust result. For
 C++, run from `gd-rs`, replace the roots with `../gd/source ../gd/tests
 benches/cpp-reference`, select the C/C++ suffixes listed above, and use
-`--languages cpp`.
+`--languages cpp`. The maintained C++ benchmark scope includes matched GD references
+and standalone host fixtures; reports identify fixtures that have no Rust counterpart.
 
 Lizard assigns CCN 1 to a straight-line function and adds paths for recognized
 branches and loops. Its parsers are language-aware but not compiler front ends.
