@@ -9,7 +9,7 @@
 namespace {
 
 constexpr std::size_t kDefaultRows = 500'000;
-constexpr std::size_t kMinimumRows = 10'000;
+constexpr std::size_t kMinimumRows = 2'000;
 constexpr std::size_t kWarmupLogicalRows = 8'000'000;
 constexpr std::size_t kTimingLogicalRows = 256'000'000;
 constexpr std::size_t kPerfLogicalRows = 2'048'000'000;
@@ -123,7 +123,7 @@ int main(int argc, char** argv)
    {
       std::fprintf(stderr,
                    "usage: price_total_500k_benchmark "
-                   "{unrestricted|restricted} {timing|perf} [ROWS >= 10000]\n");
+                   "{unrestricted|restricted} {timing|perf} [ROWS >= 2000]\n");
       return 2;
    }
 
@@ -166,8 +166,9 @@ int main(int argc, char** argv)
       RunIterations(calculate, IterationsFor(kPerfLogicalRows, rows), data, results);
    }
 
+   const std::size_t checksum_row = rows >= 10'000 ? 9'999 : rows - 1;
    const double checksum =
-      results[0] + results[1] + results[25] + results[9'999] + results.back();
+      results[0] + results[1] + results[25] + results[checksum_row] + results.back();
    std::fprintf(stderr, "mode=cpp-%.*s rows=%zu checksum=%.17g\n",
                 static_cast<int>(calculation.size()), calculation.data(), rows, checksum);
 }

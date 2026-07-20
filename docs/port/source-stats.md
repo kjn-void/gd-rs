@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and sibling `gd` baseline measured
-on 2026-07-19. It measures source shape, not
+on 2026-07-20. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include the current
@@ -17,15 +17,15 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 20 | 4,819 | 180 | 421 | 2.34 |
 | Rust product + tests (`src`, `tests`) | 28 | 6,443 | 254 | 540 | 2.13 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 41 | 8,527 | 334 | 786 | 2.35 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 41 | 8,529 | 334 | 786 | 2.35 |
 | C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
 | C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
-| C++ product + tests + matched benchmarks | 168 | 65,042 | 8,465 | 19,712 | 2.33 |
+| C++ product + tests + matched benchmarks | 168 | 65,043 | 8,465 | 19,713 | 2.33 |
 
 The requested Rust totals are therefore **4,819 SLOC without test/benchmark code**
-and **8,527 SLOC with both**. Tests account for 1,624 SLOC and benchmarks for 2,084
+and **8,529 SLOC with both**. Tests account for 1,624 SLOC and benchmarks for 2,086
 SLOC. In the C++ scopes, tests account for 712 SLOC and benchmarks for a further
-1,522 SLOC.
+1,523 SLOC.
 
 These totals should not be read as a claim that Rust needs 7.7% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while

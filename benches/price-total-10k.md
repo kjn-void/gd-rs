@@ -12,6 +12,9 @@ executables, formula, compiler settings, data layout, and validation:
 result = price * quantity + tax
 ```
 
+The RK3588 Cortex-A55 is also measured with an L2-resident working set in the
+[2k-row companion report](price-total-2k.md).
+
 Setup, table construction, slice selection, output allocation, and validation are
 outside the reported timing samples. The result is written to a separate allocation
 and consumed after every pass so the optimizer cannot remove the calculation.
@@ -38,18 +41,19 @@ C++ AoS
                                       320,000 bytes = 312.50 KiB
 ```
 
-Both working sets exceed every tested L1D cache but fit in every tested L2: the Ky X1
-and Cortex-A76 have 512 KiB available, Lion Cove has a private 3 MiB L2, and each
-four-core Skymont cluster shares 4 MiB. The Apple M4 performance cluster has a
-128 KiB L1D per core and shares 16 MiB of L2. Rust scans 12.5% fewer bytes because
-its separate typed vectors contain no four-byte inter-row padding.
+Both working sets exceed every tested L1D cache. They fit in the Ky X1's shared
+512 KiB L2, the Cortex-A76's private 512 KiB L2, Lion Cove's private 3 MiB L2, each
+four-core Skymont cluster's shared 4 MiB L2, and the Apple M4 performance cluster's
+shared 16 MiB L2. They do not fit in the Cortex-A55's private 128 KiB L2 and instead
+spill into the RK3588's shared 3 MiB L3. Rust scans 12.5% fewer bytes because its
+separate typed vectors contain no four-byte inter-row padding.
 
 ## Method
 
-These measurements were made on 2026-07-19. Rust uses rustc 1.97.0 or 1.97.1 with no
-`target-cpu` override. C++ uses GCC 13.3.0 on the Ky X1 and Core Ultra, GCC 15.2.0 on
-the RK3588, and `-O3 -ffast-math -DNDEBUG` without `-march`. The separate Ky X1
-compiler comparison uses Clang 18.1.3 with libstdc++ or libc++ 18.
+These measurements were made on 2026-07-19 and 2026-07-20. Rust uses rustc 1.97.0 or
+1.97.1 with no `target-cpu` override. C++ uses GCC 13.3.0 on the Ky X1 and Core Ultra,
+GCC 15.2.0 on the RK3588, and `-O3 -ffast-math -DNDEBUG` without `-march`. The
+separate Ky X1 compiler comparison uses Clang 18.1.3 with libstdc++ or libc++ 18.
 
 The C++ binaries may contract multiply-add because of `-ffast-math`; Rust retains
 its normal floating-point semantics and the inspected Rust loops use separate
@@ -94,6 +98,7 @@ Logical CPU numbering is specific to these machines:
 | Host | Affinity | CPU/core type |
 |---|---:|---|
 | Ky X1 RISC-V | CPU 0 | Ky X1 RISC-V core |
+| Rockchip RK3588 | CPU 0 | Arm Cortex-A55 efficiency core |
 | Rockchip RK3588 | CPU 4 | Arm Cortex-A76 performance core |
 | Intel Core Ultra 5 225H | CPU 0 | Lion Cove performance core (P-core) |
 | Intel Core Ultra 5 225H | CPU 4 | Skymont efficiency core (E-core) |
@@ -106,7 +111,7 @@ the 500k report:
 
 ![Ky X1 eight-core lstopo topology](topology/ky-x1.svg)
 
-**RK3588 — benchmark Cortex-A76 CPU 4**
+**RK3588 — benchmark Cortex-A55 CPU 0 and Cortex-A76 CPU 4 separately**
 
 ![RK3588 eight-core lstopo topology](topology/rk3588.svg)
 
@@ -116,23 +121,28 @@ the 500k report:
 
 ## Timing results
 
+Benchmark sources: [Rust typed-SoA workload](price_total_500k.rs) ·
+[C++ aligned-AoS workload](cpp-reference/price_total_500k_benchmark.cpp).
+
 Median time per complete 10,000-row pass:
 
 | Host and affinity | Rust SoA | C++ AoS | C++ AoS `restrict` | Fastest |
 |---|---:|---:|---:|---:|
 | Ky X1 RISC-V, CPU 0 | 107.344 us | 56.147 us | 65.060 us | C++ unrestricted |
+| RK3588 Cortex-A55, CPU 0 | 43.138 us | 59.975 us | 34.735 us | C++ `restrict` |
 | RK3588 Cortex-A76, CPU 4 | 7.289 us | 10.024 us | 9.707 us | Rust |
 | Core Ultra 5 225H Lion Cove, CPU 0 | 2.688 us | 3.686 us | 3.678 us | Rust |
 | Core Ultra 5 225H Skymont, CPU 4 | 2.279 us | 3.705 us | 3.927 us | Rust |
 | Apple M4, macOS foreground scheduler | 2.177 us | 2.995 us | 2.987 us | Rust |
 
-Rust has 33.2% more throughput than the faster GCC path on the A76, 36.8% more on
-Lion Cove, and 62.5% more on Skymont. GCC unrestricted has 91.2% more throughput than
-Rust on the Ky X1. Rust has 37.2% more throughput than the faster Apple Clang path on
-the M4. The three Lion Cove Rust run medians were 2.574, 2.724, and 2.772 us; their
-monotonic spread is retained in the geometric mean rather than selecting the most
-favorable run. The corresponding `perf` time and cycle count agree with a roughly
-2.68 us steady-state pass.
+GCC `restrict` has 24.2% more throughput than Rust on the Cortex-A55. Rust has 33.2%
+more throughput than the faster GCC path on the A76, 36.8% more on Lion Cove, and
+62.5% more on Skymont. GCC unrestricted has 91.2% more throughput than Rust on the
+Ky X1. Rust has 37.2% more throughput than the faster Apple Clang path on the M4.
+The three Lion Cove Rust run medians were 2.574, 2.724, and 2.772 us; their monotonic
+spread is retained in the geometric mean rather than selecting the most favorable
+run. The corresponding `perf` time and cycle count agree with a roughly 2.68 us
+steady-state pass.
 
 ### Packed-vectorization A/B for Rust and C++
 
@@ -158,20 +168,35 @@ Only the 10k fixture was run. Results use the same three run medians, nine sampl
 run, and affinity or scheduler policy as the main table. C++ unrestricted and
 `restrict` order was alternated between repetitions. Smaller is faster:
 
-| Implementation | Cortex-A76 | Lion Cove | Skymont | Apple M4 |
-|---|---:|---:|---:|---:|
-| Rust SoA, ordinary | 7.289 us | 2.688 us | 2.279 us | 2.177 us |
-| Rust SoA, vectorizers disabled | 13.517 us | 3.410 us | 5.022 us | 2.446 us |
-| C++ AoS, ordinary | 10.024 us | 3.686 us | 3.705 us | 2.995 us |
-| C++ AoS, vectorizers disabled | 10.034 us | 3.660 us | 3.714 us | 2.983 us |
-| C++ AoS `restrict`, ordinary | 9.707 us | 3.678 us | 3.927 us | 2.987 us |
-| C++ AoS `restrict`, vectorizers disabled | 9.609 us | 3.641 us | 3.712 us | 2.975 us |
+| Implementation | Cortex-A55 | Cortex-A76 | Lion Cove | Skymont | Apple M4 |
+|---|---:|---:|---:|---:|---:|
+| Rust SoA, ordinary | 43.138 us | 7.289 us | 2.688 us | 2.279 us | 2.177 us |
+| Rust SoA, vectorizers disabled | 97.371 us | 13.517 us | 3.410 us | 5.022 us | 2.446 us |
+| C++ AoS, ordinary | 59.975 us | 10.024 us | 3.686 us | 3.705 us | 2.995 us |
+| C++ AoS, vectorizers disabled | 59.978 us | 10.034 us | 3.660 us | 3.714 us | 2.983 us |
+| C++ AoS `restrict`, ordinary | 34.735 us | 9.707 us | 3.678 us | 3.927 us | 2.987 us |
+| C++ AoS `restrict`, vectorizers disabled | 35.229 us | 9.609 us | 3.641 us | 3.712 us | 2.975 us |
 
-| Implementation | Cortex-A76 disabled/ordinary | Lion Cove disabled/ordinary | Skymont disabled/ordinary | M4 disabled/ordinary |
-|---|---:|---:|---:|---:|
-| Rust SoA | 1.855× | 1.268× | 2.204× | 1.124× |
-| C++ AoS | 1.001× | 0.993× | 1.002× | 0.996× |
-| C++ AoS `restrict` | 0.990× | 0.990× | 0.945× | 0.996× |
+| Implementation | Cortex-A55 disabled/ordinary | Cortex-A76 disabled/ordinary | Lion Cove disabled/ordinary | Skymont disabled/ordinary | M4 disabled/ordinary |
+|---|---:|---:|---:|---:|---:|
+| Rust SoA | 2.257× | 1.855× | 1.268× | 2.204× | 1.124× |
+| C++ AoS | 1.000× | 1.001× | 0.993× | 1.002× | 0.996× |
+| C++ AoS `restrict` | 1.014× | 0.990× | 0.990× | 0.945× | 0.996× |
+
+On the in-order Cortex-A55, packed Rust is 2.257× faster than Rust with both
+vectorizers disabled. GCC `restrict` is 1.727× as fast as unrestricted C++ and is
+the fastest A55 path. The three-run geometric means are stable despite reversing and
+mixing execution order: the individual Rust medians are 43.130, 43.138, and
+43.145 us, while restricted C++ records 34.747, 34.739, and 34.719 us.
+
+The A55 takes 5.918× as long as the A76 for ordinary Rust, 7.203× for scalar Rust,
+5.983× for unrestricted C++, and 3.579× for restricted C++. This combines the
+in-order versus out-of-order core difference with a cache-level difference: the
+10k working sets fit in the A76's private L2 but not the A55's. Against the other
+in-order design, the Ky X1, ordinary A55 Rust is 2.488× as fast. Comparing the
+A55's vectorizers-disabled Rust with the Ky X1's inspected scalar, non-unrolled Rust
+loop reduces that advantage to 1.102×. Much of the ordinary difference is therefore
+NEON code generation versus the portable `rv64imafdc` target, not just core speed.
 
 The Lion Cove scalar run was repeated because its individual medians varied. The
 first and repeat three-run geometric means were 3.410 and 3.412 us, respectively, so
@@ -195,8 +220,11 @@ scalar `ucvtf d`, `fmul d`, `fadd d`, and `str d`.
 Both C++ x86-64 variants become the same explicitly 16-row-unrolled sequence of
 scalar `cvtsi2sd`, `mulsd`, `addsd`, and `movsd` operations. On AArch64, GCC retains
 the 16-row unroll and schedules many scalar `ucvtf` and `fmadd` chains concurrently.
-It also combines adjacent scalar memory operations into `ldp`/`stp` register pairs;
-these transfer two scalar D registers but are not packed NEON arithmetic.
+The A55's restricted loop postpones stores and writes each group through eight
+paired `stp` instructions; the unrestricted loop intersperses calculations with
+16 individual `stur` stores. These paired transfers still operate on scalar D
+registers and are not packed NEON arithmetic. The out-of-order A76 largely hides
+the scheduling difference, while it is decisive on the in-order A55.
 
 On M4, ordinary Rust handles 16 rows per main-loop iteration through eight NEON
 two-lane `f64` groups. With the vectorizers disabled, Apple/LLVM still unrolls three
@@ -223,8 +251,8 @@ scalar FMA on AArch64, while Rust uses normal floating-point semantics and recei
 two-row x86-64 unroll, no Linux AArch64 unroll, or a three-row Apple AArch64 unroll.
 It therefore demonstrates the value of Rust's ordinary SoA vectorization and C++'s
 explicit instruction-level parallelism; it is not a layout-only comparison. Because
-the working sets are L2-resident, the differences primarily measure execution width,
-instruction count, and exposed independent work rather than DRAM bandwidth.
+the working sets are cache-resident, the differences primarily measure execution
+width, instruction count, and exposed independent work rather than DRAM bandwidth.
 
 The M4's 1.124× Rust ratio is smaller than Lion Cove's 1.268× ratio, but timing alone
 cannot separate clock/power behavior from microarchitecture. Privileged
@@ -262,10 +290,11 @@ processes each row faster than the 500k fixture:
 | Lion Cove | ×2.30 | ×1.93 | ×1.94 |
 | Skymont | ×2.48 | ×1.81 | ×1.81 |
 
-Cache residency substantially improves every AArch64 and x86-64 path. The scalar,
-non-unrolled Rust loop on portable RISC-V is 3% slower per row at 10k, showing that
-its 500k result was not primarily constrained by streaming the larger working set.
-Both GCC paths improve on Ky X1; Clang restricted improves enough to overtake GCC.
+Cache residency substantially improves every AArch64 and x86-64 path listed in this
+table. The scalar, non-unrolled Rust loop on portable RISC-V is 3% slower per row at
+10k, showing that its 500k result was not primarily constrained by streaming the
+larger working set. Both GCC paths improve on Ky X1; Clang restricted improves enough
+to overtake GCC.
 
 ## Load and store operations
 
@@ -395,16 +424,19 @@ becomes the fastest Ky X1 implementation.
 ## Interpretation
 
 - The hot set is exactly 280,000 bytes for Rust and 320,000 bytes for C++ before
-  negligible descriptors; both fit in every tested L2 but not L1D.
+  negligible descriptors. Neither fits in L1D, and the Cortex-A55 is the one tested
+  core whose private L2 is also too small; its separate
+  [2k-row report](price-total-2k.md) isolates the L2-resident case.
 - Cache residency roughly doubles per-row throughput on A76, Lion Cove, and Skymont
   compared with 500k and almost eliminates L2, LLC, and page-walk traffic.
-- Rust remains faster on AArch64 and x86-64 because SoA combines the smaller working
-  set with straightforward packed SIMD loads and stores.
-- Disabling LLVM's vectorizers makes the Rust loop 1.27× slower on Lion Cove, 1.85×
-  slower on Cortex-A76, 2.20× slower on Skymont, and 1.12× slower on M4. Disabling
-  the C++ compiler vectorizers changes the timed, already-scalar AoS paths by between
-  -5.5% and +0.2%, confirming that packed arithmetic is a material part of the
-  cache-resident Rust SoA advantage.
+- Rust remains faster on the out-of-order AArch64 and tested x86-64 cores because SoA
+  combines the smaller working set with straightforward packed SIMD loads and stores.
+  The in-order A55 instead favors GCC's explicitly unrolled restricted schedule.
+- Disabling LLVM's vectorizers makes the Rust loop 2.26× slower on Cortex-A55, 1.85×
+  slower on Cortex-A76, 1.27× slower on Lion Cove, 2.20× slower on Skymont, and
+  1.12× slower on M4. Disabling the C++ compiler vectorizers changes the timed,
+  already-scalar AoS paths only slightly, confirming that packed arithmetic is a
+  material part of Rust's SoA advantage.
 - Ky X1 remains a compiler/code-generation exception: portable Rust is scalar and
   non-unrolled, while the explicitly unrolled C++ variants expose more independent
   work. Clang restricted is fastest once the fixture resides in L2.

@@ -649,8 +649,9 @@ it is in use. Nullable columns deliberately reject this API until they have an e
 typed nullable view; callers can continue using `ValueRef` iteration for them.
 
 The same price-calculation kernel is also measured across RISC-V, AArch64, and
-x86-64 with two single-core cache regimes. See the complete
-[10k-row cache-resident report](../../benches/price-total-10k.md) and
+x86-64 with several single-core cache regimes. See the complete
+[2k-row Cortex-A55 private-L2 report](../../benches/price-total-2k.md),
+[10k-row cross-platform cache report](../../benches/price-total-10k.md), and
 [500k-row larger-working-set report](../../benches/price-total-500k.md) for timings,
 load/store totals, cycles, cache and TLB counters, generated-loop analysis, compiler
 comparisons, and full CPU-topology diagrams.

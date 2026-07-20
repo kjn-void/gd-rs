@@ -5,7 +5,7 @@ use std::{env, hint::black_box, process::ExitCode, time::Instant};
 use gd::{ColumnSpec, DataType, Schema, Table, Value};
 
 const DEFAULT_ROWS: usize = 500_000;
-const MINIMUM_ROWS: usize = 10_000;
+const MINIMUM_ROWS: usize = 2_000;
 const WARMUP_LOGICAL_ROWS: usize = 8_000_000;
 const TIMING_LOGICAL_ROWS: usize = 256_000_000;
 const PERF_LOGICAL_ROWS: usize = 2_048_000_000;
@@ -152,7 +152,9 @@ fn main() -> ExitCode {
         }
     }
 
-    let checksum = totals[0] + totals[1] + totals[25] + totals[9_999] + totals[config.rows - 1];
+    let checksum_row = 9_999.min(config.rows - 1);
+    let checksum =
+        totals[0] + totals[1] + totals[25] + totals[checksum_row] + totals[config.rows - 1];
     eprintln!("mode=rust-soa rows={} checksum={checksum:.17}", config.rows);
     ExitCode::SUCCESS
 }
