@@ -105,10 +105,15 @@ split into two four-core clusters sharing 4 MB L2 per cluster. The final two
 low-power E-cores share a separate 2 MB L2 outside the 18 MB L3 hierarchy shown for
 the main compute tile.
 
-The Ryzen guest reports 12 cores and 24 threads, private 32 KiB L1D and 512 KiB L2
-per core, and one 16 MiB L3 instance. These are Hyper-V's exposed topology rather
-than a bare-metal `lstopo` view; `taskset` fixes the Linux vCPU but cannot control how
-Hyper-V schedules that vCPU on the Windows host.
+**AMD Ryzen 9 3900X under Hyper-V — 12 guest-visible cores and 24 processing
+units; benchmark pinned to guest CPU 0**
+
+![Ryzen 9 3900X Hyper-V guest lstopo topology](topology/ryzen-3900x-hyperv.svg)
+
+The Ryzen guest reports private 32 KiB L1D and 512 KiB L2 caches per core and one
+16 MiB L3 instance. The diagram is the topology exposed by Hyper-V, not the physical
+3900X chiplet topology. `taskset` fixes the Linux vCPU but cannot control how Hyper-V
+schedules that vCPU on the Windows host.
 
 Median time per 500,000-row pass, calculated as the geometric mean of the collected
 run medians. Each run contains nine samples of 512 passes after 16 warm-up passes:

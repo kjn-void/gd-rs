@@ -122,9 +122,14 @@ shared with the 500k report:
 
 ![Core Ultra 5 225H fourteen-core lstopo topology](topology/core-ultra-225h.svg)
 
-The Ryzen Linux guest exposes 12 cores, 24 threads, private 32 KiB L1D and 512 KiB
-L2 per core, and one 16 MiB L3 instance. This is Hyper-V's virtual topology;
-`taskset` fixes guest CPU 0 but cannot pin its underlying Windows host execution.
+**AMD Ryzen 9 3900X under Hyper-V — benchmark guest CPU 0**
+
+![Ryzen 9 3900X Hyper-V guest lstopo topology](topology/ryzen-3900x-hyperv.svg)
+
+The Ryzen Linux guest exposes 12 cores, 24 processing units, private 32 KiB L1D and
+512 KiB L2 per core, and one 16 MiB L3 instance. This is Hyper-V's virtual topology,
+not the physical 3900X chiplet topology; `taskset` fixes guest CPU 0 but cannot pin
+its underlying Windows host execution.
 
 ## Timing results
 
