@@ -52,7 +52,7 @@ The implemented core currently provides:
 - [SQLite adapter](docs/high-level/sqlite.md)
 - [Benchmark methodology and results](docs/high-level/performance.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
-- [STREAM-style memory-bandwidth scaling](docs/high-level/perf_stream.md)
+- [libc memory-operation scaling](docs/high-level/perf_memory.md)
 
 ### Porting record
 
