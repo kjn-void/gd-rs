@@ -13,18 +13,16 @@ no Rust counterpart because it characterizes the benchmark hosts rather than GD 
 
 ## What the numbers mean
 
-The benchmark reports three values:
+The benchmark reports two values:
 
-- **`memcpy` payload GB/s**: destination bytes copied per second, which is the usual
-  convention for a copy benchmark;
-- **`memcpy` read+write GB/s**: twice the payload rate, counting one source read and
-  one destination write per byte;
+- **`memcpy` logical read+write GB/s**: counts one source read and one destination
+  write per byte copied;
 - **`memset` GB/s**: destination bytes initialized per second.
 
-The read+write column is logical accounting, not a hardware counter. Cache-line
+The `memcpy` value is logical accounting, not a hardware counter. Cache-line
 allocation, non-temporal stores, cache absorption, eviction, and deferred writeback
 can make physical traffic differ. `memset` has no source-read input and therefore
-must not be compared directly with the doubled `memcpy` value.
+must not be compared directly with the `memcpy` value.
 
 ## Method
 
@@ -88,33 +86,31 @@ rather than an idle-system certification result.
 All rates below are decimal GB/s. The placement columns identify the independently
 best configuration for each libc function.
 
-| Host | `memcpy` payload | `memcpy` read+write | Copy placement | `memset` | Set placement |
-|---|---:|---:|---|---:|---|
-| M3 Max | **111.8** | **223.7** | 8 workers | **125.1** | 8 workers |
-| Base M4 | **53.5** | **106.9** | 6 workers | **116.2** | 8 workers |
-| Core Ultra 5 225H | **34.9** | **69.9** | 4 Lion Cove | **55.9** | 4 Lion Cove |
-| RK3588 | **9.4** | **18.8** | 2 Cortex-A76 | **25.3** | all 8 cores |
-| Ky X1 RISC-V | **3.4** | **6.8** | all 8 cores | **7.6** | 1 core |
-| Core i7-5775C | **8.8** | **17.6** | 1 core | **22.9** | 4 cores |
-| Ryzen 9 3900X under WSL2 | **16.2** | **32.4** | 4 cores | **28.9** | all 24 threads |
+| Host | `memcpy` logical read+write | Copy placement | `memset` | Set placement |
+|---|---:|---|---:|---|
+| M3 Max | **223.7** | 8 workers | **125.1** | 8 workers |
+| Base M4 | **106.9** | 6 workers | **116.2** | 8 workers |
+| Core Ultra 5 225H | **69.9** | 4 Lion Cove | **55.9** | 4 Lion Cove |
+| RK3588 | **18.8** | 2 Cortex-A76 | **25.3** | all 8 cores |
+| Ky X1 RISC-V | **6.8** | all 8 cores | **7.6** | 1 core |
+| Core i7-5775C | **17.6** | 1 core | **22.9** | 4 cores |
+| Ryzen 9 3900X under WSL2 | **32.4** | 4 cores | **28.9** | all 24 threads |
 
 ### Single-core share of peak
 
 For heterogeneous Linux hosts, “single core” means one performance-class core:
 Lion Cove CPU 0 on the 225H and Cortex-A76 CPU 4 on RK3588. The Apple rows use one
-normal-priority worker and remain scheduler-managed. The copy percentage is identical
-whether payload or read+write accounting is used because the latter is exactly twice
-the former.
+normal-priority worker and remain scheduler-managed.
 
-| Host | 1-core `memcpy` | Peak `memcpy` | 1 core / peak | 1-core `memset` | Peak `memset` | 1 core / peak |
+| Host | 1-core `memcpy` read+write | Peak `memcpy` read+write | 1 core / peak | 1-core `memset` | Peak `memset` | 1 core / peak |
 |---|---:|---:|---:|---:|---:|---:|
-| M3 Max | 57.5 | 111.8 | **51.5%** | 110.2 | 125.1 | **88.1%** |
-| Base M4 | 45.7 | 53.5 | **85.5%** | 73.5 | 116.2 | **63.2%** |
-| Core Ultra 5 225H, Lion Cove | 25.5 | 34.9 | **73.1%** | 18.8 | 55.9 | **33.7%** |
-| RK3588, Cortex-A76 | 8.6 | 9.4 | **91.3%** | 15.9 | 25.3 | **62.8%** |
-| Ky X1 RISC-V | 3.24 | 3.40 | **95.5%** | 7.55 | 7.55 | **100.0%** |
-| Core i7-5775C | 8.8 | 8.8 | **100.0%** | 12.3 | 22.9 | **53.7%** |
-| Ryzen 9 3900X under WSL2 | 14.3 | 16.2 | **88.4%** | 20.3 | 28.9 | **70.3%** |
+| M3 Max | 115.1 | 223.7 | **51.5%** | 110.2 | 125.1 | **88.1%** |
+| Base M4 | 91.5 | 106.9 | **85.5%** | 73.5 | 116.2 | **63.2%** |
+| Core Ultra 5 225H, Lion Cove | 51.1 | 69.9 | **73.1%** | 18.8 | 55.9 | **33.7%** |
+| RK3588, Cortex-A76 | 17.1 | 18.8 | **91.3%** | 15.9 | 25.3 | **62.8%** |
+| Ky X1 RISC-V | 6.49 | 6.79 | **95.5%** | 7.55 | 7.55 | **100.0%** |
+| Core i7-5775C | 17.6 | 17.6 | **100.0%** | 12.3 | 22.9 | **53.7%** |
+| Ryzen 9 3900X under WSL2 | 28.6 | 32.4 | **88.4%** | 20.3 | 28.9 | **70.3%** |
 
 The percentages show that copy and fill can saturate at very different worker counts.
 Broadwell and Ky X1 need only one core for peak or near-peak copy, while their
@@ -125,14 +121,14 @@ for filling: one Lion Cove reaches only 33.7% of the four-core `memset` maximum.
 
 ### M3 Max
 
-| Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---:|---:|---:|---:|
-| 1 | 57.5 | 115.1 | 110.2 |
-| 2 | 77.1 | 154.2 | 116.4 |
-| 4 | 92.0 | 184.0 | 118.9 |
-| 8 | **111.8** | **223.7** | **125.1** |
-| 12 | 109.4 | 218.7 | 122.6 |
-| 16 | 109.7 | 219.5 | 123.6 |
+| Workers | `memcpy` logical read+write | `memset` |
+|---:|---:|---:|
+| 1 | 115.1 | 110.2 |
+| 2 | 154.2 | 116.4 |
+| 4 | 184.0 | 118.9 |
+| 8 | **223.7** | **125.1** |
+| 12 | 218.7 | 122.6 |
+| 16 | 219.5 | 123.6 |
 
 Copy throughput peaks at eight workers. `memset` is already 88.1% of its maximum with
 one worker and changes little after two workers. Adding workers beyond eight does not
@@ -140,30 +136,30 @@ improve either operation.
 
 ### Base M4
 
-| Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---:|---:|---:|---:|
-| 1 | 45.7 | 91.5 | 73.5 |
-| 2 | 52.1 | 104.1 | 73.5 |
-| 4 | 51.6 | 103.3 | 73.2 |
-| 6 | **53.5** | **106.9** | 105.8 |
-| 8 | 53.1 | 106.2 | **116.2** |
-| 10 | 52.9 | 105.8 | 112.3 |
+| Workers | `memcpy` logical read+write | `memset` |
+|---:|---:|---:|
+| 1 | 91.5 | 73.5 |
+| 2 | 104.1 | 73.5 |
+| 4 | 103.3 | 73.2 |
+| 6 | **106.9** | 105.8 |
+| 8 | 106.2 | **116.2** |
+| 10 | 105.8 | 112.3 |
 
-Two workers are within 2.6% of maximum copy payload. `memset` behaves differently:
+Two workers are within 2.6% of maximum copy throughput. `memset` behaves differently:
 one to four workers remain near 73.5 GB/s, while six to eight workers reach a higher
 throughput tier. Exact P/E placement is not observable.
 
 ### Core Ultra 5 225H
 
-| Placement | Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---|---:|---:|---:|---:|
-| Skymont | 1 | 18.6 | 37.2 | 14.2 |
-| Skymont | 2 | 26.8 | 53.6 | 24.3 |
-| Skymont | 4 | 25.9 | 51.8 | 26.6 |
-| Skymont | 8 | 31.5 | 63.0 | 33.0 |
-| Lion Cove | 1 | 25.5 | 51.1 | 18.8 |
-| Lion Cove | 4 | **34.9** | **69.9** | **55.9** |
-| Lion Cove + Skymont | 12 | 33.3 | 66.6 | 37.6 |
+| Placement | Workers | `memcpy` logical read+write | `memset` |
+|---|---:|---:|---:|
+| Skymont | 1 | 37.2 | 14.2 |
+| Skymont | 2 | 53.6 | 24.3 |
+| Skymont | 4 | 51.8 | 26.6 |
+| Skymont | 8 | 63.0 | 33.0 |
+| Lion Cove | 1 | 51.1 | 18.8 |
+| Lion Cove | 4 | **69.9** | **55.9** |
+| Lion Cove + Skymont | 12 | 66.6 | 37.6 |
 
 Four Lion Cove cores produce the best result for both operations. Dividing equal-size
 ranges across the heterogeneous twelve-core set regresses both functions, especially
@@ -171,13 +167,13 @@ ranges across the heterogeneous twelve-core set regresses both functions, especi
 
 ### RK3588
 
-| Placement | Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---|---:|---:|---:|---:|
-| Cortex-A55 | 4 | 9.2 | 18.5 | 22.8 |
-| Cortex-A76 | 1 | 8.6 | 17.1 | 15.9 |
-| Cortex-A76 | 2 | **9.4** | **18.8** | 17.2 |
-| Cortex-A76 | 4 | 8.9 | 17.8 | 17.4 |
-| Cortex-A55 + Cortex-A76 | 8 | 9.2 | 18.3 | **25.3** |
+| Placement | Workers | `memcpy` logical read+write | `memset` |
+|---|---:|---:|---:|
+| Cortex-A55 | 4 | 18.5 | 22.8 |
+| Cortex-A76 | 1 | 17.1 | 15.9 |
+| Cortex-A76 | 2 | **18.8** | 17.2 |
+| Cortex-A76 | 4 | 17.8 | 17.4 |
+| Cortex-A55 + Cortex-A76 | 8 | 18.3 | **25.3** |
 
 One or two A76 cores are sufficient for maximum copy throughput. `memset` continues
 scaling across both core types and is 47.5% faster with all eight cores than with two
@@ -185,12 +181,12 @@ A76 cores.
 
 ### Ky X1 RISC-V
 
-| Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---:|---:|---:|---:|
-| 1 | 3.24 | 6.49 | **7.55** |
-| 2 | 3.08 | 6.16 | 7.55 |
-| 4 | 3.07 | 6.15 | 7.51 |
-| 8 | **3.40** | **6.79** | 7.45 |
+| Workers | `memcpy` logical read+write | `memset` |
+|---:|---:|---:|
+| 1 | 6.49 | **7.55** |
+| 2 | 6.16 | 7.55 |
+| 4 | 6.15 | 7.51 |
+| 8 | **6.79** | 7.45 |
 
 The libc copy path gains only 4.7% from one to eight workers, and `memset` is saturated
 by one core. This host lacks usable performance counters, so the data cannot separate
@@ -198,12 +194,12 @@ libc implementation limits from the controller and DRAM ceiling.
 
 ### Core i7-5775C
 
-| Placement | Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---|---:|---:|---:|---:|
-| 1 physical core | 1 | **8.8** | **17.6** | 12.3 |
-| 2 physical cores | 2 | 8.4 | 16.7 | 19.4 |
-| 4 physical cores | 4 | 8.0 | 16.0 | **22.9** |
-| 4 cores, all SMT threads | 8 | 7.7 | 15.5 | 22.4 |
+| Placement | Workers | `memcpy` logical read+write | `memset` |
+|---|---:|---:|---:|
+| 1 physical core | 1 | **17.6** | 12.3 |
+| 2 physical cores | 2 | 16.7 | 19.4 |
+| 4 physical cores | 4 | 16.0 | **22.9** |
+| 4 cores, all SMT threads | 8 | 15.5 | 22.4 |
 
 One Broadwell core maximizes `memcpy`; additional workers compete for the same
 throughput and gradually regress. `memset` instead scales through four physical cores.
@@ -212,19 +208,19 @@ the 128 MiB Crystalwell L4 and cannot reside wholly in that cache.
 
 ### Ryzen 9 3900X under WSL2
 
-| Placement | Workers | `memcpy` payload | `memcpy` read+write | `memset` |
-|---|---:|---:|---:|---:|
-| Physical cores | 1 | 14.3 | 28.6 | 20.3 |
-| Physical cores | 2 | 15.5 | 30.9 | 20.7 |
-| Physical cores | 4 | **16.2** | **32.4** | 20.8 |
-| Physical cores | 8 | 15.4 | 30.8 | 25.3 |
-| Physical cores | 12 | 15.8 | 31.7 | 27.7 |
-| All SMT threads | 24 | 15.1 | 30.3 | **28.9** |
+| Placement | Workers | `memcpy` logical read+write | `memset` |
+|---|---:|---:|---:|
+| Physical cores | 1 | 28.6 | 20.3 |
+| Physical cores | 2 | 30.9 | 20.7 |
+| Physical cores | 4 | **32.4** | 20.8 |
+| Physical cores | 8 | 30.8 | 25.3 |
+| Physical cores | 12 | 31.7 | 27.7 |
+| All SMT threads | 24 | 30.3 | **28.9** |
 
-Copy payload is effectively saturated by two to four physical cores. `memset` follows
-a different curve and continues improving through all exposed threads. These figures
-remain WSL2 results affected by Hyper-V topology, host memory allocation, mitigations,
-and libc implementation details.
+Logical copy throughput is effectively saturated by two to four physical cores.
+`memset` follows a different curve and continues improving through all exposed
+threads. These figures remain WSL2 results affected by Hyper-V topology, host memory
+allocation, mitigations, and libc implementation details.
 
 The 3900X result is not unexpectedly low for its memory configuration. Dual-channel
 DDR4-2666 has a theoretical transfer rate of 42.7 GB/s. The peak logical `memcpy`
@@ -235,9 +231,9 @@ they are useful context but are not measured DRAM-bus utilization.
 
 ## Conclusions
 
-- M3 Max delivers the highest copy payload at 111.8 GB/s and peaks around eight
+- M3 Max delivers the highest logical copy traffic at 223.7 GB/s and peaks around eight
   scheduler-managed workers.
-- Base M4 reaches 85.5% of maximum copy payload with one worker and is effectively
+- Base M4 reaches 85.5% of maximum copy throughput with one worker and is effectively
   saturated with two.
 - Four Lion Cove cores are substantially more effective than an equal static split
   over all 225H core types.
@@ -245,9 +241,9 @@ they are useful context but are not measured DRAM-bus utilization.
   `memset`.
 - Ky X1 and Broadwell saturate `memcpy` with one core or close to it; more threads do
   not automatically create more bandwidth.
-- The Ryzen WSL2 path reaches 16.2 GB/s copy payload, equivalent to 32.4 GB/s of
-  logical read+write traffic. That is 75.9% of the theoretical bandwidth of its
-  dual-channel DDR4-2666 memory and is not an unexpectedly low result.
+- The Ryzen WSL2 path reaches 32.4 GB/s of logical `memcpy` read+write traffic. That
+  is 75.9% of the theoretical bandwidth of its dual-channel DDR4-2666 memory and is
+  not an unexpectedly low result.
 
 The reliable comparison is between the same libc function and byte-accounting
 convention. Neither function should be described as a direct measurement of physical

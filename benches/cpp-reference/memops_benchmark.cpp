@@ -153,13 +153,10 @@ int main(int argc, char **argv) {
 
     const auto memcpy_seconds = median(memcpy_times);
     const auto memset_seconds = median(memset_times);
-    const auto payload = static_cast<double>(bytes) / 1.0e9;
-    std::cout
-        << "workers,memcpy_payload_gbps,memcpy_read_write_gbps,memset_gbps,"
-           "checksum\n"
-        << workers << ',' << payload / memcpy_seconds << ','
-        << 2.0 * payload / memcpy_seconds << ',' << payload / memset_seconds
-        << ',' << checksum << '\n';
+    const auto gigabytes = static_cast<double>(bytes) / 1.0e9;
+    std::cout << "workers,memcpy_read_write_gbps,memset_gbps,checksum\n"
+              << workers << ',' << 2.0 * gigabytes / memcpy_seconds << ','
+              << gigabytes / memset_seconds << ',' << checksum << '\n';
   } catch (const std::exception &error) {
     std::cerr << "memops_benchmark: " << error.what() << '\n';
     return 1;

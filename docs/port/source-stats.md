@@ -20,12 +20,12 @@ divided by the number of functions recognized by Lizard.
 | Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 41 | 8,529 | 334 | 786 | 2.35 |
 | C++ product (`source`) | 138 | 62,808 | 8,328 | 19,362 | 2.32 |
 | C++ product + tests (`source`, `tests`) | 157 | 63,520 | 8,372 | 19,437 | 2.32 |
-| C++ product + tests + maintained benchmarks | 170 | 65,365 | 8,477 | 19,772 | 2.33 |
+| C++ product + tests + maintained benchmarks | 170 | 65,362 | 8,477 | 19,772 | 2.33 |
 
 The requested Rust totals are therefore **4,819 SLOC without test/benchmark code**
 and **8,529 SLOC with both**. Tests account for 1,624 SLOC and benchmarks for 2,086
 SLOC. In the C++ scopes, tests account for 712 SLOC and benchmarks for a further
-1,845 SLOC.
+1,842 SLOC.
 
 These totals should not be read as a claim that Rust needs 7.7% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
