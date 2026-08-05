@@ -17,6 +17,7 @@ pub use schema::{ColumnSpec, Schema, UnknownFields};
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;
+use std::ops::Range;
 use std::sync::Arc;
 #[cfg(test)]
 use storage::ColumnData;
@@ -61,6 +62,16 @@ pub enum TableError {
         /// Requested row.
         row: usize,
         /// Current row count.
+        row_count: usize,
+    },
+    /// A requested row range is reversed or extends past the table.
+    #[error("row range {start}..{end} is out of bounds for {row_count} rows")]
+    RowRangeOutOfBounds {
+        /// Inclusive start position.
+        start: usize,
+        /// Exclusive end position.
+        end: usize,
+        /// Number of rows currently stored.
         row_count: usize,
     },
     /// A column position is outside the schema.
@@ -180,6 +191,141 @@ impl Table {
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.row_count == 0
+    }
+
+    /// Copies one contiguous range into a new table with the same shared schema.
+    ///
+    /// Each column copies one contiguous storage slice. Required fixed-width
+    /// columns therefore use one bulk allocation and copy per column rather than
+    /// materializing dynamic row values.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowRangeOutOfBounds`] when the range is reversed or
+    /// its end is greater than [`Table::row_count`].
+    pub fn copy_range(&self, rows: Range<usize>) -> Result<Self, TableError> {
+        if rows.start > rows.end || rows.end > self.row_count {
+            return Err(TableError::RowRangeOutOfBounds {
+                start: rows.start,
+                end: rows.end,
+                row_count: self.row_count,
+            });
+        }
+        let row_count = rows.len();
+        Ok(self.copy_with(
+            row_count,
+            |column| column.copy_range(rows.clone()),
+            |extras| extras.copy_range(rows.clone()),
+        ))
+    }
+
+    /// Copies selected source rows into consecutive rows of a new table.
+    ///
+    /// Selection order and duplicates are preserved. Storage is gathered one
+    /// column at a time, and the immutable schema is shared with the source.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for the first invalid source row.
+    pub fn copy_rows(&self, rows: &[usize]) -> Result<Self, TableError> {
+        if let Some(&row) = rows.iter().find(|&&row| row >= self.row_count) {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            });
+        }
+        Ok(self.copy_with(
+            rows.len(),
+            |column| column.copy_rows(rows),
+            |extras| extras.copy_rows(rows),
+        ))
+    }
+
+    /// Copies one contiguous range in parallel into a new table.
+    ///
+    /// Each column is submitted as an independent Rayon task. The current Rayon
+    /// pool determines how many tasks can execute concurrently. The immutable
+    /// schema is shared with the source. Row-local extras, when enabled by the
+    /// schema, are copied after the fixed columns.
+    ///
+    /// For small tables or narrow schemas, [`Table::copy_range`] can be faster
+    /// because it avoids parallel scheduling overhead.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowRangeOutOfBounds`] when the range is reversed or
+    /// its end is greater than [`Table::row_count`].
+    #[cfg(feature = "rayon")]
+    pub fn par_copy_range(&self, rows: Range<usize>) -> Result<Self, TableError> {
+        use rayon::prelude::*;
+
+        if rows.start > rows.end || rows.end > self.row_count {
+            return Err(TableError::RowRangeOutOfBounds {
+                start: rows.start,
+                end: rows.end,
+                row_count: self.row_count,
+            });
+        }
+        Ok(Self {
+            schema: Arc::clone(&self.schema),
+            columns: self
+                .columns
+                .par_iter()
+                .map(|column| column.copy_range(rows.clone()))
+                .collect(),
+            extras: self.extras.copy_range(rows.clone()),
+            row_count: rows.len(),
+        })
+    }
+
+    /// Copies selected source rows in parallel into consecutive destination rows.
+    ///
+    /// Each column is submitted as an independent Rayon task. The current Rayon
+    /// pool determines how many tasks can execute concurrently. Selection order
+    /// and duplicates are preserved, and the immutable schema is shared with the
+    /// source. Row-local extras, when enabled by the schema, are copied after the
+    /// fixed columns.
+    ///
+    /// For small tables or narrow schemas, [`Table::copy_rows`] can be faster
+    /// because it avoids parallel scheduling overhead.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for the first invalid source row.
+    #[cfg(feature = "rayon")]
+    pub fn par_copy_rows(&self, rows: &[usize]) -> Result<Self, TableError> {
+        use rayon::prelude::*;
+
+        if let Some(&row) = rows.iter().find(|&&row| row >= self.row_count) {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            });
+        }
+        Ok(Self {
+            schema: Arc::clone(&self.schema),
+            columns: self
+                .columns
+                .par_iter()
+                .map(|column| column.copy_rows(rows))
+                .collect(),
+            extras: self.extras.copy_rows(rows),
+            row_count: rows.len(),
+        })
+    }
+
+    fn copy_with(
+        &self,
+        row_count: usize,
+        mut copy_column: impl FnMut(&ColumnStorage) -> ColumnStorage,
+        copy_extras: impl FnOnce(&ExtrasStorage) -> ExtrasStorage,
+    ) -> Self {
+        Self {
+            schema: Arc::clone(&self.schema),
+            columns: self.columns.iter().map(&mut copy_column).collect(),
+            extras: copy_extras(&self.extras),
+            row_count,
+        }
     }
 
     /// Appends one complete row after validating every value.
@@ -706,8 +852,8 @@ mod tests {
     use std::sync::Arc;
 
     use super::{
-        ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table,
-        UnknownFields, Value,
+        ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table, TableError,
+        UnknownFields, Value, ValueRef,
     };
 
     #[test]
@@ -777,5 +923,103 @@ mod tests {
         assert!(std::ptr::eq(second.schema(), schema.as_ref()));
         assert!(Arc::ptr_eq(&schema, &from_table));
         assert_eq!(Arc::strong_count(&schema), 4);
+    }
+
+    fn copy_source() -> Table {
+        let schema = Schema::new([
+            ColumnSpec::new("id", DataType::U64),
+            ColumnSpec::new("score", DataType::I32).nullable(true),
+            ColumnSpec::new("name", DataType::String),
+        ])
+        .unwrap()
+        .with_unknown_fields(UnknownFields::Store);
+        let mut table = Table::new(schema);
+        for row in 0..5_u64 {
+            let position = table
+                .push_row([
+                    Value::U64(row),
+                    if row == 2 {
+                        Value::Null
+                    } else {
+                        Value::I32(i32::try_from(row * 10).unwrap())
+                    },
+                    Value::from(format!("row-{row}")),
+                ])
+                .unwrap();
+            table
+                .set_named(position, "source_position", Value::U64(row))
+                .unwrap();
+        }
+        table
+    }
+
+    #[test]
+    fn copy_range_shares_schema_and_copies_columns_and_extras() {
+        let source = copy_source();
+        let copied = source.copy_range(1..4).unwrap();
+
+        assert!(Arc::ptr_eq(&source.schema_arc(), &copied.schema_arc()));
+        assert_eq!(copied.row_count(), 3);
+        assert_eq!(copied.cell(0, 0), Ok(ValueRef::U64(1)));
+        assert_eq!(copied.cell(1, 1), Ok(ValueRef::Null));
+        assert_eq!(copied.cell(2, 2), Ok(ValueRef::String("row-3")));
+        assert_eq!(
+            copied.cell_named(1, "source_position"),
+            Ok(ValueRef::U64(2))
+        );
+    }
+
+    #[test]
+    fn copy_rows_preserves_selection_order_and_duplicates() {
+        let source = copy_source();
+        let copied = source.copy_rows(&[4, 1, 4]).unwrap();
+
+        assert_eq!(copied.row_count(), 3);
+        assert_eq!(copied.cell(0, 0), Ok(ValueRef::U64(4)));
+        assert_eq!(copied.cell(1, 0), Ok(ValueRef::U64(1)));
+        assert_eq!(copied.cell(2, 2), Ok(ValueRef::String("row-4")));
+        assert_eq!(
+            copied.cell_named(2, "source_position"),
+            Ok(ValueRef::U64(4))
+        );
+    }
+
+    #[cfg(feature = "rayon")]
+    #[test]
+    fn parallel_copy_operations_match_sequential_copies() {
+        let source = copy_source();
+        let range = source.par_copy_range(1..4).unwrap();
+        let selected = source.par_copy_rows(&[4, 1, 4]).unwrap();
+
+        assert_eq!(range.row_count(), 3);
+        assert_eq!(range.cell(1, 1), Ok(ValueRef::Null));
+        assert_eq!(range.cell_named(1, "source_position"), Ok(ValueRef::U64(2)));
+        assert_eq!(selected.row_count(), 3);
+        assert_eq!(selected.cell(0, 0), Ok(ValueRef::U64(4)));
+        assert_eq!(selected.cell(1, 0), Ok(ValueRef::U64(1)));
+        assert_eq!(
+            selected.cell_named(2, "source_position"),
+            Ok(ValueRef::U64(4))
+        );
+    }
+
+    #[test]
+    fn copy_operations_reject_invalid_rows() {
+        let source = copy_source();
+        assert_eq!(
+            source.copy_range(3..6).unwrap_err(),
+            TableError::RowRangeOutOfBounds {
+                start: 3,
+                end: 6,
+                row_count: 5,
+            }
+        );
+        assert_eq!(
+            source.copy_rows(&[0, 5]).unwrap_err(),
+            TableError::RowOutOfBounds {
+                row: 5,
+                row_count: 5,
+            }
+        );
     }
 }

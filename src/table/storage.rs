@@ -134,6 +134,22 @@ impl ExtrasStorage {
             Self::Enabled(rows) => rows.len() == row_count,
         }
     }
+
+    pub(super) fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
+        match self {
+            Self::Disabled => Self::Disabled,
+            Self::Enabled(rows) => Self::Enabled(rows[range].to_vec()),
+        }
+    }
+
+    pub(super) fn copy_rows(&self, selected_rows: &[usize]) -> Self {
+        match self {
+            Self::Disabled => Self::Disabled,
+            Self::Enabled(rows) => {
+                Self::Enabled(selected_rows.iter().map(|&row| rows[row].clone()).collect())
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -214,6 +230,32 @@ impl<T> ColumnData<T> {
         match self {
             Self::Required(values) => drop(values.pop()),
             Self::Nullable(values) => drop(values.pop()),
+        }
+    }
+}
+
+impl<T: Clone> ColumnData<T> {
+    fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
+        match self {
+            Self::Required(values) => Self::Required(values[range].to_vec()),
+            Self::Nullable(values) => Self::Nullable(values[range].to_vec()),
+        }
+    }
+
+    fn copy_rows(&self, selected_rows: &[usize]) -> Self {
+        match self {
+            Self::Required(values) => Self::Required(
+                selected_rows
+                    .iter()
+                    .map(|&row| values[row].clone())
+                    .collect(),
+            ),
+            Self::Nullable(values) => Self::Nullable(
+                selected_rows
+                    .iter()
+                    .map(|&row| values[row].clone())
+                    .collect(),
+            ),
         }
     }
 }
@@ -402,6 +444,56 @@ impl ColumnStorage {
             Self::String(values) => values.pop(),
             Self::Bytes(values) => values.pop(),
             Self::Uuid(values) => values.pop(),
+        }
+    }
+
+    pub(super) fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
+        macro_rules! copy {
+            ($values:expr, $variant:ident) => {
+                Self::$variant($values.copy_range(range))
+            };
+        }
+        match self {
+            Self::Null(_) => Self::Null(range.len()),
+            Self::Bool(values) => copy!(values, Bool),
+            Self::I8(values) => copy!(values, I8),
+            Self::I16(values) => copy!(values, I16),
+            Self::I32(values) => copy!(values, I32),
+            Self::I64(values) => copy!(values, I64),
+            Self::U8(values) => copy!(values, U8),
+            Self::U16(values) => copy!(values, U16),
+            Self::U32(values) => copy!(values, U32),
+            Self::U64(values) => copy!(values, U64),
+            Self::F32(values) => copy!(values, F32),
+            Self::F64(values) => copy!(values, F64),
+            Self::String(values) => copy!(values, String),
+            Self::Bytes(values) => copy!(values, Bytes),
+            Self::Uuid(values) => copy!(values, Uuid),
+        }
+    }
+
+    pub(super) fn copy_rows(&self, selected_rows: &[usize]) -> Self {
+        macro_rules! copy {
+            ($values:expr, $variant:ident) => {
+                Self::$variant($values.copy_rows(selected_rows))
+            };
+        }
+        match self {
+            Self::Null(_) => Self::Null(selected_rows.len()),
+            Self::Bool(values) => copy!(values, Bool),
+            Self::I8(values) => copy!(values, I8),
+            Self::I16(values) => copy!(values, I16),
+            Self::I32(values) => copy!(values, I32),
+            Self::I64(values) => copy!(values, I64),
+            Self::U8(values) => copy!(values, U8),
+            Self::U16(values) => copy!(values, U16),
+            Self::U32(values) => copy!(values, U32),
+            Self::U64(values) => copy!(values, U64),
+            Self::F32(values) => copy!(values, F32),
+            Self::F64(values) => copy!(values, F64),
+            Self::String(values) => copy!(values, String),
+            Self::Bytes(values) => copy!(values, Bytes),
+            Self::Uuid(values) => copy!(values, Uuid),
         }
     }
 }

@@ -36,6 +36,7 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 | `binary_benchmark.cpp` | `../binary.rs` |
 | `expression_benchmark.cpp` | `../expression.rs` |
 | `sqlite_benchmark.cpp` | `../sqlite.rs` |
+| `table_copy_benchmark.cpp` | `../table_copy.rs` |
 | `table_column_buffer_benchmark.cpp`, `table_index_benchmark.cpp` | `../table.rs` |
 | `utf8_benchmark.cpp` | `../text.rs` |
 | `variant_benchmark.cpp` | `../value.rs` |

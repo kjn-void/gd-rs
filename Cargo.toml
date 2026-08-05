@@ -53,6 +53,11 @@ name = "table"
 harness = false
 
 [[bench]]
+name = "table_copy"
+harness = false
+required-features = ["rayon"]
+
+[[bench]]
 name = "binary"
 harness = false
 

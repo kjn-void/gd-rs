@@ -187,6 +187,50 @@ become visible together. `into_table` requires ownership of the builder, while
 After either operation, use the ordinary mutable table API or partition typed columns
 and rows with Rayon.
 
+### Copying row selections
+
+`copy_range` creates a new table from one contiguous source range. It shares the
+immutable schema and copies each typed column as one contiguous slice. For required
+fixed-width columns, this is one allocation and bulk copy per column; values are not
+converted through `Value` or a row view.
+
+`copy_rows` accepts arbitrary source positions and gathers each column into a dense
+destination column. Selection order and duplicate positions are preserved:
+
+With the `rayon` feature, `par_copy_range` and `par_copy_rows` submit one independent
+task per fixed column. The current Rayon pool controls concurrency, allowing callers
+to limit workers without statically grouping uneven columns. The sequential methods
+can remain faster for small selections or narrow schemas.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U64),
+    ColumnSpec::new("score", DataType::F32),
+])
+.unwrap();
+let mut source = Table::new(schema);
+for id in 0_u64..5 {
+    source
+        .push_row([Value::U64(id), Value::F32(id as f32 * 0.5)])
+        .unwrap();
+}
+
+let range = source.copy_range(1..4).unwrap();
+assert_eq!(range.row_count(), 3);
+assert_eq!(range.cell(0, 0).unwrap(), ValueRef::U64(1));
+
+let selected = source.copy_rows(&[4, 1, 4]).unwrap();
+assert_eq!(selected.row_count(), 3);
+assert_eq!(selected.cell(0, 0).unwrap(), ValueRef::U64(4));
+assert_eq!(selected.cell(1, 0).unwrap(), ValueRef::U64(1));
+assert_eq!(selected.cell(2, 0).unwrap(), ValueRef::U64(4));
+```
+
+Both methods clone nullable values and open-schema row extras along with their fixed
+columns. Invalid positions return `TableError` without constructing a partial result.
+
 ## Reading rows, columns, and cells
 
 ```rust

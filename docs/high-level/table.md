@@ -33,6 +33,19 @@ ownership; schema metadata is released only after the last handle is dropped.
 `push_row_vec(Vec<Value>)` handles runtime-width rows and consumes the existing vector.
 Both validate the entire row before changing any column.
 
+`copy_range` and `copy_rows` construct independent row storage while sharing the
+source table's immutable schema. A contiguous range copies each typed vector slice in
+bulk. An arbitrary row selection gathers values one column at a time into consecutive
+destination positions, preserving selection order and duplicates. This keeps table
+selection aligned with the SoA layout instead of transposing every source row through
+dynamic `Value` objects.
+
+With the `rayon` feature, `par_copy_range` and `par_copy_rows` submit each fixed column
+as an independent task. The current Rayon pool controls concurrency, so workers can
+dynamically steal uneven column tasks. Row-local extras are copied after the fixed
+columns because they are a single row-oriented sidecar rather than one store per
+declared column.
+
 Nullable columns accept `Value::Null`; non-nullable columns reject it. Unlike C++
 `row_add()`, an omitted value never becomes a non-null cell with uninitialized bytes.
 
