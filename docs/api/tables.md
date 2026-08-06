@@ -37,14 +37,18 @@ A `DataType::Null` column is always nullable. Other columns are non-nullable unl
 
 ### Explicit column conversion
 
-Table writes remain strict unless a column declares a named [`ColumnConverter`]. The
+Table writes remain strict unless a column declares a named `ColumnConverter`. The
 converter runs only when a non-null input has a different logical type. Exact-type
-values keep the ordinary fast path, and nullability is never bypassed:
+values keep the ordinary fast path, and nullability is never bypassed.
+
+`ColumnConverter::new` takes a stable policy name and a `Send + Sync` closure. The
+closure receives a borrowed `ValueRef` and either returns an owned value or a
+`ColumnConversionError`. Attach the converter with `ColumnSpec::with_converter`:
 
 ```rust
 use gd::{
-    ColumnConversionError, ColumnConverter, ColumnSpec, DataType, Schema, Table, Value,
-    ValueRef,
+    ColumnConversionError, ColumnConverter, ColumnSpec, DataType, Schema, Table, TableError,
+    Value, ValueRef,
 };
 
 let parse_u32 = ColumnConverter::new("decimal-u32", |value| match value {
@@ -55,26 +59,58 @@ let parse_u32 = ColumnConverter::new("decimal-u32", |value| match value {
     _ => Err(ColumnConversionError::new("expected decimal text")),
 });
 let schema = Schema::new([
-    ColumnSpec::new("id", DataType::U32).with_converter(parse_u32),
+    ColumnSpec::new("id", DataType::U32).with_converter(parse_u32.clone()),
+    ColumnSpec::new("attempts", DataType::U32).with_converter(parse_u32),
     ColumnSpec::new("name", DataType::String),
 ])
 .unwrap();
 let mut table = Table::new(schema);
 
 table
-    .push_row([Value::from("42"), Value::from("Ada")])
+    .push_row([
+        Value::from("42"),
+        Value::from("3"),
+        Value::from("Ada"),
+    ])
     .unwrap();
 assert_eq!(table.cell(0, 0), Ok(ValueRef::U32(42)));
+assert_eq!(table.cell(0, 1), Ok(ValueRef::U32(3)));
+
+// Exact U32 inputs bypass the converter.
+table
+    .push_row([Value::U32(7), Value::U32(1), Value::from("Grace")])
+    .unwrap();
+
+// A failed conversion rejects the complete row.
+let error = table
+    .push_row([
+        Value::from("not a number"),
+        Value::from("4"),
+        Value::from("Linus"),
+    ])
+    .unwrap_err();
+assert!(matches!(
+    error,
+    TableError::ConversionFailed { column: 0, .. }
+));
+assert_eq!(table.row_count(), 2);
 ```
 
 Converter output is checked against the column's type and nullability before any
-column changes. A converter error becomes `TableError::ConversionFailed`; invalid
-output remains a `TypeMismatch` or `NullNotAllowed` error. Complete-row writes stay
-atomic.
+column changes. A converter error becomes `TableError::ConversionFailed`; returning a
+value of the wrong type remains a `TypeMismatch`, and returning null for a required
+column remains `NullNotAllowed`.
 
-Converters are `Send + Sync` and also run during `ConcurrentTableBuilder` insertion.
+Conversion is part of every dynamic fixed-cell write path: `push_row`,
+`push_row_vec`, `push_row_with_extras`, `set_cell`, `set_named`, mutable `RowMut`
+writes, and `ConcurrentTableBuilder` insertion. Complete-row writes remain atomic: a
+later conversion failure does not append values already converted earlier in that
+row.
+
 Their names are semantic identities for structural schema equality. Independently
 constructed converters with the same name must therefore implement the same contract.
+Use different names when two converters intentionally apply different policies, even
+if they produce the same destination type.
 
 ### Sharing one schema between tables
 
