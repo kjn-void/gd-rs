@@ -11,6 +11,8 @@ contract.
 | Arguments | packed ordered buffer; duplicate/unnamed entries | ordered `Vec<Argument>`; duplicates and unnamed preserved | implemented |
 | Argument index lifetime | offsets and string views can become stale after mutation | immutable borrow prevents mutation | implemented |
 | Table layout | packed row-major fixed buffer plus references | typed vectors per column | implemented |
+| Table input conversion | call-site `tag_convert` attempts broad runtime coercion | strict by default; named per-column converters opt in at schema boundaries | intentional API difference; implemented |
+| Table properties | mutable argument-backed property bag | uniquely named insertion-ordered `Arguments` owned by each table | implemented |
 | Unknown table fields | argument-backed tables redirect unknown names to per-row dynamic storage | strict by default; `UnknownFields::Store` enables lazy owned row extras | implemented |
 | Empty null-enabled row | cells marked non-null with uninitialized fixed payloads | null must be explicit; non-null columns reject null | intentionally rejected |
 | Column name lengths | unaligned `uint16_t` pointer casts | normal string containers | C++ defect retained; Rust avoids it |

@@ -27,8 +27,10 @@ Accessors are explicit and return `ValueError` on a type mismatch. Integer-to-`i
 conversion checks the unsigned range. Numeric-to-`f64` conversion can lose precision
 for large integers, matching Rust casts; it never silently parses text.
 
-Parsing, display formatting, and schema-directed conversions belong in separate APIs
-so a read does not unexpectedly allocate or reinterpret a value.
+Parsing and display formatting remain explicit so a read does not unexpectedly
+allocate or reinterpret a value. A table schema can attach a named `ColumnConverter`
+to an individual column when an input boundary deliberately accepts another type.
+Converters run only during writes, and their output is checked before table mutation.
 
 ## Complexity
 

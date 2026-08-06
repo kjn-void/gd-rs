@@ -1,9 +1,9 @@
 //! Integration and property tests for schemas, typed columns, and column indexes.
 
 use gd::{
-    ColumnSelectionError, ColumnSliceError, ColumnSpec, ConcurrentTableBuilder, DataType,
-    IndexKeyRef, NullOrder, Schema, SortDirection, Table, TableError, UnknownFields, Value,
-    ValueRef, table_debug,
+    ColumnConversionError, ColumnConverter, ColumnSelectionError, ColumnSliceError, ColumnSpec,
+    ConcurrentTableBuilder, DataType, IndexKeyRef, NullOrder, Schema, SortDirection, Table,
+    TableError, UnknownFields, Value, ValueRef, table_debug,
 };
 use proptest::prelude::*;
 
@@ -14,6 +14,19 @@ fn people_schema() -> Schema {
         ColumnSpec::new("score", DataType::I32).nullable(true),
     ])
     .unwrap()
+}
+
+fn parse_u32_converter() -> ColumnConverter {
+    ColumnConverter::new("parse-u32", |value| match value {
+        ValueRef::String(text) => text
+            .parse::<u32>()
+            .map(Value::U32)
+            .map_err(|error| ColumnConversionError::new(error.to_string())),
+        ValueRef::U64(value) => u32::try_from(value)
+            .map(Value::U32)
+            .map_err(|error| ColumnConversionError::new(error.to_string())),
+        _ => Err(ColumnConversionError::new("expected text or u64")),
+    })
 }
 
 #[test]
@@ -37,6 +50,85 @@ fn preserves_schema_rows_names_aliases_and_nulls() {
         table.row(0).unwrap().iter().collect::<Vec<_>>(),
         vec![ValueRef::U64(7), ValueRef::String("Ada"), ValueRef::I32(42)]
     );
+}
+
+#[test]
+fn schema_converters_apply_atomically_to_all_cell_write_paths() {
+    let schema = Schema::new([
+        ColumnSpec::new("id", DataType::U32).with_converter(parse_u32_converter()),
+        ColumnSpec::new("label", DataType::String),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+
+    table
+        .push_row([Value::from("42"), Value::from("first")])
+        .unwrap();
+    table
+        .push_row([Value::U32(7), Value::from("exact-type fast path")])
+        .unwrap();
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::U32(42)));
+    assert_eq!(table.cell(1, 0), Ok(ValueRef::U32(7)));
+
+    table.set_cell(0, 0, Value::U64(99)).unwrap();
+    table
+        .row_mut(1)
+        .unwrap()
+        .set_named("id", Value::from("100"))
+        .unwrap();
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::U32(99)));
+    assert_eq!(table.cell(1, 0), Ok(ValueRef::U32(100)));
+
+    assert!(matches!(
+        table.push_row([Value::from("invalid"), Value::from("not inserted")]),
+        Err(TableError::ConversionFailed {
+            column: 0,
+            ref converter,
+            ..
+        }) if converter == "parse-u32"
+    ));
+    assert_eq!(table.row_count(), 2);
+}
+
+#[test]
+fn named_converters_work_with_structurally_equal_concurrent_schemas() {
+    let table_schema =
+        Schema::new([ColumnSpec::new("id", DataType::U32).with_converter(parse_u32_converter())])
+            .unwrap();
+    let mut table = Table::new(table_schema);
+
+    let builder_schema =
+        Schema::new([ColumnSpec::new("id", DataType::U32).with_converter(parse_u32_converter())])
+            .unwrap();
+    let builder = ConcurrentTableBuilder::new(builder_schema);
+    builder.push_row([Value::from("17")]).unwrap();
+    assert_eq!(builder.append_to(&mut table), Ok(0..1));
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::U32(17)));
+}
+
+#[test]
+fn table_properties_replace_remove_and_follow_table_copies() {
+    let mut table = Table::new(people_schema());
+    table
+        .push_row([Value::U64(1), Value::from("Ada"), Value::I32(10)])
+        .unwrap();
+
+    assert_eq!(table.set_property("source", "sqlite"), None);
+    assert_eq!(table.set_property("version", 1_u32), None);
+    assert_eq!(table.set_property("version", 2_u32), Some(Value::U32(1)));
+    assert_eq!(table.property("source"), Some(ValueRef::String("sqlite")));
+    assert_eq!(table.property("version"), Some(ValueRef::U32(2)));
+    assert!(table.contains_property("source"));
+    assert_eq!(table.properties().len(), 2);
+
+    let mut copy = table.copy_range(0..1).unwrap();
+    assert_eq!(copy.property("source"), Some(ValueRef::String("sqlite")));
+    assert_eq!(copy.remove_property("version"), Some(Value::U32(2)));
+    assert_eq!(copy.property("version"), None);
+    assert_eq!(table.property("version"), Some(ValueRef::U32(2)));
+
+    copy.clear_properties();
+    assert!(copy.properties().is_empty());
 }
 
 #[test]

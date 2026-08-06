@@ -35,6 +35,47 @@ returns `TableError::DuplicateColumnName` rather than selecting one ambiguous co
 A `DataType::Null` column is always nullable. Other columns are non-nullable unless
 `nullable(true)` is specified.
 
+### Explicit column conversion
+
+Table writes remain strict unless a column declares a named [`ColumnConverter`]. The
+converter runs only when a non-null input has a different logical type. Exact-type
+values keep the ordinary fast path, and nullability is never bypassed:
+
+```rust
+use gd::{
+    ColumnConversionError, ColumnConverter, ColumnSpec, DataType, Schema, Table, Value,
+    ValueRef,
+};
+
+let parse_u32 = ColumnConverter::new("decimal-u32", |value| match value {
+    ValueRef::String(text) => text
+        .parse::<u32>()
+        .map(Value::U32)
+        .map_err(|error| ColumnConversionError::new(error.to_string())),
+    _ => Err(ColumnConversionError::new("expected decimal text")),
+});
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U32).with_converter(parse_u32),
+    ColumnSpec::new("name", DataType::String),
+])
+.unwrap();
+let mut table = Table::new(schema);
+
+table
+    .push_row([Value::from("42"), Value::from("Ada")])
+    .unwrap();
+assert_eq!(table.cell(0, 0), Ok(ValueRef::U32(42)));
+```
+
+Converter output is checked against the column's type and nullability before any
+column changes. A converter error becomes `TableError::ConversionFailed`; invalid
+output remains a `TypeMismatch` or `NullNotAllowed` error. Complete-row writes stay
+atomic.
+
+Converters are `Send + Sync` and also run during `ConcurrentTableBuilder` insertion.
+Their names are semantic identities for structural schema equality. Independently
+constructed converters with the same name must therefore implement the same contract.
+
 ### Sharing one schema between tables
 
 `Table::new` and `Table::with_capacity` accept either an owned `Schema` or an
@@ -95,8 +136,34 @@ Use `push_row([Value; N])` when the width is known at the call site.
 second staging vector.
 
 The entire row is checked before any column changes. Width, exact logical type, and
-nullability errors therefore leave the table unchanged. Numeric widths are not
-implicitly widened during insertion.
+nullability errors therefore leave the table unchanged. Columns without converters
+do not implicitly widen or parse values during insertion.
+
+### Table properties
+
+Properties are insertion-ordered, uniquely named dynamic values describing the table
+as a whole. They are independent of row-local extras and are preserved when a table is
+cloned or copied with `copy_range`, `copy_rows`, or their parallel variants:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([ColumnSpec::new("id", DataType::U64)]).unwrap();
+let mut table = Table::new(schema);
+table.push_row([Value::U64(1)]).unwrap();
+
+assert_eq!(table.set_property("source", "sqlite"), None);
+assert_eq!(table.set_property("version", 1_u32), None);
+assert_eq!(table.property("source"), Some(ValueRef::String("sqlite")));
+
+let copied = table.copy_range(0..1).unwrap();
+assert_eq!(copied.property("version"), Some(ValueRef::U32(1)));
+```
+
+`set_property` replaces an existing value and returns it. `contains_property` checks
+for a name; `remove_property` and `clear_properties` remove values, while `properties`
+exposes an immutable `Arguments` view in insertion order. Row JSON and CSV formatters
+serialize rows only; they do not include table properties.
 
 ### Constructing rows concurrently
 
@@ -425,7 +492,8 @@ the fixed-width type.
 
 ## Mutation
 
-`set_cell` validates position, exact type, and nullability before changing storage.
+`set_cell` applies the selected column's converter when needed, then validates
+position, type, and nullability before changing storage.
 `pop_row` removes the last cell from every column atomically with respect to the table
 structure.
 
@@ -467,8 +535,8 @@ assert_eq!(row.get_named("language"), Some(ValueRef::String("COBOL")));
 ```
 
 The mutable view cannot add or remove fixed columns or rows. Declared fields retain
-the schema's exact type/null checks; an unknown name is accepted only by an open
-schema and remains local to that row.
+the schema's conversion and validation policy; an unknown name is accepted only by an
+open schema and remains local to that row.
 
 ### Parallel row mutation
 
@@ -605,8 +673,8 @@ fn files() -> Result<Table, TableError> {
 }
 ```
 
-Known names still use typed column storage and exact type/null validation. A closed
-schema allocates no extras sidecar. An open schema adds a parallel nullable-pointer
+Known names still use typed column storage and schema-directed conversion and
+validation. A closed schema allocates no extras sidecar. An open schema adds a parallel nullable-pointer
 vector and creates each row's extras object only when the row receives an unknown
 field; the first two values use inline storage. `cell_named` and `Row::get_named`
 search fixed names first and then the row extras.

@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{Value, ValueRef};
 
 use super::storage::{ColumnData, ColumnStorage, ExtrasStorage, RowExtras};
-use super::{Schema, Table, TableError, UnknownFields, validate_cell};
+use super::{Schema, Table, TableError, UnknownFields, prepare_cell};
 
 enum ColumnSliceMut<'a, T> {
     Required(&'a mut [T]),
@@ -398,13 +398,13 @@ impl RowMut<'_> {
         self.extras.get(name_or_alias).map(Value::as_ref)
     }
 
-    /// Replaces one fixed cell after exact type and nullability validation.
+    /// Replaces one fixed cell after schema-directed conversion and validation.
     ///
     /// # Errors
     ///
     /// Returns a column bounds, type, or nullability error without changing the
     /// cell.
-    pub fn set(&mut self, column: usize, value: Value) -> Result<(), TableError> {
+    pub fn set(&mut self, column: usize, mut value: Value) -> Result<(), TableError> {
         let spec = self
             .schema
             .column(column)
@@ -412,7 +412,7 @@ impl RowMut<'_> {
                 column,
                 column_count: self.cells.len(),
             })?;
-        validate_cell(spec, &value, column)?;
+        prepare_cell(spec, &mut value, column)?;
         self.cells[column].set_validated(value);
         Ok(())
     }

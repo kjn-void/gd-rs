@@ -13,7 +13,7 @@ pub use concurrent::ConcurrentTableBuilder;
 pub use index::{ColumnIndex, IndexKeyRef};
 pub use ordering::{NullOrder, RowOrder, SortDirection};
 pub use row_mut::{RowMut, RowsMut};
-pub use schema::{ColumnSpec, Schema, UnknownFields};
+pub use schema::{ColumnConversionError, ColumnConverter, ColumnSpec, Schema, UnknownFields};
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;
@@ -24,7 +24,7 @@ use storage::ColumnData;
 use storage::{ColumnStorage, ExtrasStorage, RowExtras};
 use thiserror::Error;
 
-use crate::{DataType, Value, ValueRef};
+use crate::{Arguments, DataType, Value, ValueRef};
 
 /// A table schema, storage, or access error.
 #[derive(Clone, Debug, Error, PartialEq)]
@@ -49,6 +49,16 @@ pub enum TableError {
         expected: DataType,
         /// Supplied type.
         actual: DataType,
+    },
+    /// A schema column's explicit input converter rejected a value.
+    #[error("column {column} converter {converter} failed: {source}")]
+    ConversionFailed {
+        /// Positional column index.
+        column: usize,
+        /// Stable converter name from the schema.
+        converter: CompactString,
+        /// Converter-provided failure information.
+        source: ColumnConversionError,
     },
     /// A null value was supplied to a non-nullable column.
     #[error("column {column} is not nullable")]
@@ -133,6 +143,7 @@ pub struct Table {
     schema: Arc<Schema>,
     columns: Vec<ColumnStorage>,
     extras: ExtrasStorage,
+    properties: Arguments,
     row_count: usize,
 }
 
@@ -157,6 +168,7 @@ impl Table {
             schema,
             columns,
             extras,
+            properties: Arguments::new(),
             row_count: 0,
         }
     }
@@ -173,6 +185,66 @@ impl Table {
     #[must_use]
     pub fn schema_arc(&self) -> Arc<Schema> {
         Arc::clone(&self.schema)
+    }
+
+    /// Returns the insertion-ordered table property collection.
+    ///
+    /// Properties describe the table as a whole and are independent of its row
+    /// and column storage. Property names are unique when modified through the
+    /// table API.
+    #[must_use]
+    pub const fn properties(&self) -> &Arguments {
+        &self.properties
+    }
+
+    /// Returns one table property by name.
+    #[must_use]
+    pub fn property(&self, name: &str) -> Option<ValueRef<'_>> {
+        self.properties
+            .get_named(name)
+            .map(|entry| entry.value_ref())
+    }
+
+    /// Returns whether the table has a property with this name.
+    #[must_use]
+    pub fn contains_property(&self, name: &str) -> bool {
+        self.properties.contains_name(name)
+    }
+
+    /// Inserts or replaces one table property.
+    ///
+    /// Returns the replaced value when the name already existed.
+    pub fn set_property(
+        &mut self,
+        name: impl Into<CompactString>,
+        value: impl Into<Value>,
+    ) -> Option<Value> {
+        let name = name.into();
+        let value = value.into();
+        let position = {
+            let mut properties = self.properties.iter();
+            properties.position(|entry| entry.name() == Some(name.as_str()))
+        };
+        if let Some(position) = position {
+            return self
+                .properties
+                .get_mut(position)
+                .map(|entry| std::mem::replace(entry.value_mut(), value));
+        }
+        self.properties.push_named(name, value);
+        None
+    }
+
+    /// Removes and returns one table property.
+    pub fn remove_property(&mut self, name: &str) -> Option<Value> {
+        self.properties
+            .remove_named(name)
+            .map(|entry| entry.into_parts().1)
+    }
+
+    /// Removes every table property while retaining allocated capacity.
+    pub fn clear_properties(&mut self) {
+        self.properties.clear();
     }
 
     /// Returns the number of rows.
@@ -274,6 +346,7 @@ impl Table {
                 .map(|column| column.copy_range(rows.clone()))
                 .collect(),
             extras: self.extras.copy_range(rows.clone()),
+            properties: self.properties.clone(),
             row_count: rows.len(),
         })
     }
@@ -310,6 +383,7 @@ impl Table {
                 .map(|column| column.copy_rows(rows))
                 .collect(),
             extras: self.extras.copy_rows(rows),
+            properties: self.properties.clone(),
             row_count: rows.len(),
         })
     }
@@ -324,21 +398,26 @@ impl Table {
             schema: Arc::clone(&self.schema),
             columns: self.columns.iter().map(&mut copy_column).collect(),
             extras: copy_extras(&self.extras),
+            properties: self.properties.clone(),
             row_count,
         }
     }
 
-    /// Appends one complete row after validating every value.
+    /// Appends one complete row after converting and validating every value.
     ///
-    /// The operation is atomic with respect to type/null validation: no column
-    /// changes if any supplied value is invalid.
+    /// The operation is atomic with respect to conversion and validation: no
+    /// column changes if any supplied value is invalid.
     ///
     /// # Errors
     ///
-    /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
-    /// [`TableError::NullNotAllowed`] when the row does not match the schema.
-    pub fn push_row<const N: usize>(&mut self, values: [Value; N]) -> Result<usize, TableError> {
-        validate_row(self.schema(), &values)?;
+    /// Returns [`TableError::RowWidth`], [`TableError::ConversionFailed`],
+    /// [`TableError::TypeMismatch`], or [`TableError::NullNotAllowed`] when the
+    /// row does not match the schema.
+    pub fn push_row<const N: usize>(
+        &mut self,
+        mut values: [Value; N],
+    ) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
         Ok(self.push_validated_row(values))
     }
 
@@ -355,7 +434,7 @@ impl Table {
     /// [`TableError::ExtraFieldConflictsWithColumn`] for a declared name.
     pub fn push_row_with_extras<const N: usize, I, K, V>(
         &mut self,
-        values: [Value; N],
+        mut values: [Value; N],
         extras: I,
     ) -> Result<usize, TableError>
     where
@@ -363,7 +442,7 @@ impl Table {
         K: Into<CompactString>,
         V: Into<Value>,
     {
-        validate_row(self.schema(), &values)?;
+        prepare_row(self.schema(), &mut values)?;
         let extras = collect_extras(self.schema(), extras)?;
         let row = self.push_validated_row(values);
         if !extras.is_empty() {
@@ -382,8 +461,8 @@ impl Table {
     ///
     /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
     /// [`TableError::NullNotAllowed`] when the row does not match the schema.
-    pub fn push_row_vec(&mut self, values: Vec<Value>) -> Result<usize, TableError> {
-        validate_row(self.schema(), &values)?;
+    pub fn push_row_vec(&mut self, mut values: Vec<Value>) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
         Ok(self.push_validated_row(values))
     }
 
@@ -453,12 +532,17 @@ impl Table {
             .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))
     }
 
-    /// Replaces one cell after exact type and nullability validation.
+    /// Replaces one cell after schema-directed conversion and validation.
     ///
     /// # Errors
     ///
     /// Returns a position, type, or nullability error without changing the cell.
-    pub fn set_cell(&mut self, row: usize, column: usize, value: Value) -> Result<(), TableError> {
+    pub fn set_cell(
+        &mut self,
+        row: usize,
+        column: usize,
+        mut value: Value,
+    ) -> Result<(), TableError> {
         self.validate_position(row, column)?;
         let spec = self
             .schema
@@ -467,14 +551,14 @@ impl Table {
                 column,
                 column_count: self.column_count(),
             })?;
-        validate_cell(spec, &value, column)?;
+        prepare_cell(spec, &mut value, column)?;
         self.columns[column].set_validated(row, value);
         Ok(())
     }
 
     /// Replaces a fixed cell or stores an unknown name as a row-local value.
     ///
-    /// Declared names and aliases retain exact schema type/null validation.
+    /// Declared names and aliases retain schema conversion and validation.
     /// Unknown names are accepted only when the schema uses
     /// [`UnknownFields::Store`]. Setting an existing extra replaces its value.
     ///
@@ -813,15 +897,36 @@ fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), 
     Ok(())
 }
 
-fn validate_row(schema: &Schema, values: &[Value]) -> Result<(), TableError> {
+fn prepare_cell(spec: &ColumnSpec, value: &mut Value, column: usize) -> Result<(), TableError> {
+    let actual = value.data_type();
+    if actual == DataType::Null || actual == spec.data_type() {
+        return validate_cell(spec, value, column);
+    }
+    let Some(converter) = spec.converter() else {
+        return validate_cell(spec, value, column);
+    };
+    let output =
+        converter
+            .convert(value.as_ref())
+            .map_err(|source| TableError::ConversionFailed {
+                column,
+                converter: converter.name().into(),
+                source,
+            })?;
+    validate_cell(spec, &output, column)?;
+    *value = output;
+    Ok(())
+}
+
+fn prepare_row(schema: &Schema, values: &mut [Value]) -> Result<(), TableError> {
     if values.len() != schema.len() {
         return Err(TableError::RowWidth {
             expected: schema.len(),
             actual: values.len(),
         });
     }
-    for (column, (spec, value)) in schema.iter().zip(values.iter()).enumerate() {
-        validate_cell(spec, value, column)?;
+    for (column, (spec, value)) in schema.iter().zip(values.iter_mut()).enumerate() {
+        prepare_cell(spec, value, column)?;
     }
     Ok(())
 }

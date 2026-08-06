@@ -14,7 +14,7 @@ be considered as a separate package if golden-output tests establish a concrete 
 ```mermaid
 flowchart TD
     Value["DataType / Value / ValueRef"] --> Arguments["Arguments / ArgumentIndex"]
-    Value --> Schema["Schema / ColumnSpec"]
+    Value --> Schema["Schema / ColumnSpec / ColumnConverter"]
     Schema --> Table["Table / Row / Column"]
     Value --> Table
     Schema --> Builder["ConcurrentTableBuilder"]
@@ -69,9 +69,15 @@ cannot be structurally mutated while offsets or borrowed keys are in use. This r
 the stale-pointer and stale-offset states possible in the C++ companion index types.
 
 `Schema` is immutable and normally held through `Arc`, so independent tables and
-concurrent builders can share column metadata without sharing row storage. Standard
-atomic reference counting replaces the source implementation's manual schema
-lifetime protocol.
+concurrent builders can share column metadata and named input converters without
+sharing row storage. Converters are explicit per-column policies for mismatched,
+non-null input; their output still passes the schema's ordinary type and nullability
+checks. Standard atomic reference counting replaces the source implementation's manual
+schema lifetime protocol.
+
+Each `Table` also owns an insertion-ordered property collection. Properties describe
+the complete table rather than individual rows, are cloned by row-selection copies,
+and do not affect the shared schema or typed column layout.
 
 ## Concurrency model
 
@@ -94,8 +100,9 @@ flowchart LR
     Split --> Rayon["Rayon workers"]
 ```
 
-During construction, producers share `&ConcurrentTableBuilder`. Row values and any
-open-schema extras are checked and assembled before one complete pending row is
+During construction, producers share `&ConcurrentTableBuilder`. Row values are first
+processed by any schema-declared converters; converted values and any open-schema
+extras are checked and assembled before one complete pending row is
 published through `orx-concurrent-vec`; separate typed columns are never allowed to
 advance independently. Single-row insertion returns its schedule-dependent final
 position. Batch insertion reserves a consecutive range and validates the complete

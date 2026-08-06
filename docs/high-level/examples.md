@@ -467,8 +467,9 @@ fn rust_nullable_table() -> Result<(), TableError> {
 ```
 
 Non-nullable columns reject `Value::Null`. Wrong widths, wrong types, and row-width
-mismatches are `TableError` values rather than implicit conversions. Parse or convert
-application input before constructing the row.
+mismatches are `TableError` values by default. When an input boundary deliberately
+accepts another representation, attach a named `ColumnConverter` to that column;
+converter output still has to satisfy the ordinary schema contract.
 
 ### Rows and columns as borrowed views
 

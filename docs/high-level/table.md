@@ -7,11 +7,12 @@ tables with the same layout can share all schema metadata without sharing row da
 
 ```mermaid
 flowchart TD
-    Schema["Arc&lt;Schema&gt;\nColumnSpec + ahash name/alias map"] --> Table
+    Schema["Arc&lt;Schema&gt;\nColumnSpec + converters + name/alias map"] --> Table
     Table --> C0["required: Vec&lt;T0&gt;"]
     Table --> C1["nullable: Vec&lt;Option&lt;T1&gt;&gt;"]
     Table --> CN["required or nullable typed column"]
     Table --> Extras["optional Box&lt;RowExtras&gt; per row"]
+    Table --> Properties["table-wide Arguments properties"]
     Table -->|"immutable borrow"| Index["ColumnIndex\ntyped AHashMap&lt;key, rows&gt;"]
     Table -->|"immutable borrow"| Order["RowOrder\nstable Vec&lt;row position&gt;"]
 ```
@@ -23,7 +24,9 @@ row-major despite “columnar” wording in its documentation.
 
 Primary names and aliases are unique across different columns. Schema lookup uses
 `ahash` and is expected O(name length). A row must have exactly the schema width.
-Values must match the declared `DataType`; conversion is not implicit.
+Values must match the declared `DataType` unless that column explicitly attaches a
+named `ColumnConverter`. A converter handles only mismatched non-null input and its
+output is validated before storage.
 
 `Table::new` and `Table::with_capacity` accept either an owned `Schema` or a shared
 `Arc<Schema>`. Cloning a table or its `schema_arc` handle increments standard atomic
@@ -31,7 +34,7 @@ ownership; schema metadata is released only after the last handle is dropped.
 
 `push_row([Value; N])` consumes a fixed-width array without a staging allocation.
 `push_row_vec(Vec<Value>)` handles runtime-width rows and consumes the existing vector.
-Both validate the entire row before changing any column.
+Both convert and validate the entire row before changing any column.
 
 `copy_range` and `copy_rows` construct independent row storage while sharing the
 source table's immutable schema. A contiguous range copies each typed vector slice in
@@ -49,10 +52,14 @@ declared column.
 Nullable columns accept `Value::Null`; non-nullable columns reject it. Unlike C++
 `row_add()`, an omitted value never becomes a non-null cell with uninitialized bytes.
 
+Table-wide properties use uniquely named dynamic `Value`s in insertion order. They
+are independent of rows, typed columns, and open-schema extras. Row-selection copies
+clone the properties together with the selected data.
+
 ### Concurrent construction
 
 `ConcurrentTableBuilder` separates parallel row production from the final `Table`.
-Producers share `&ConcurrentTableBuilder`; every row is validated and assembled before
+Producers share `&ConcurrentTableBuilder`; every row is converted, validated, and assembled before
 it is published as one concurrent-vector element. This avoids a partially appended
 row if validation fails or another producer observes the collection concurrently.
 

@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 use crate::Value;
 
 use super::storage::RowExtras;
-use super::{Schema, Table, TableError, collect_extras, validate_row};
+use super::{Schema, Table, TableError, collect_extras, prepare_row};
 
 const INLINE_ROW_VALUES: usize = 8;
 
@@ -113,8 +113,8 @@ impl ConcurrentTableBuilder {
     /// # Panics
     ///
     /// Panics if the concurrent vector's maximum capacity is exhausted.
-    pub fn push_row<const N: usize>(&self, values: [Value; N]) -> Result<usize, TableError> {
-        validate_row(self.schema(), &values)?;
+    pub fn push_row<const N: usize>(&self, mut values: [Value; N]) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
         Ok(self.rows.push(PendingRow::new(values)))
     }
 
@@ -127,8 +127,8 @@ impl ConcurrentTableBuilder {
     /// # Panics
     ///
     /// Panics if the concurrent vector's maximum capacity is exhausted.
-    pub fn push_row_vec(&self, values: Vec<Value>) -> Result<usize, TableError> {
-        validate_row(self.schema(), &values)?;
+    pub fn push_row_vec(&self, mut values: Vec<Value>) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
         Ok(self.rows.push(PendingRow::from_vec(values)))
     }
 
@@ -148,7 +148,7 @@ impl ConcurrentTableBuilder {
     /// Panics if the concurrent vector's maximum capacity is exhausted.
     pub fn push_row_with_extras<const N: usize, I, K, V>(
         &self,
-        values: [Value; N],
+        mut values: [Value; N],
         extras: I,
     ) -> Result<usize, TableError>
     where
@@ -156,7 +156,7 @@ impl ConcurrentTableBuilder {
         K: Into<CompactString>,
         V: Into<Value>,
     {
-        validate_row(self.schema(), &values)?;
+        prepare_row(self.schema(), &mut values)?;
         let extras = collect_extras(self.schema(), extras)?;
         Ok(self.rows.push(PendingRow::with_extras(values, extras)))
     }
@@ -181,8 +181,8 @@ impl ConcurrentTableBuilder {
         rows: impl IntoIterator<Item = [Value; N]>,
     ) -> Result<Range<usize>, TableError> {
         let mut pending = Vec::new();
-        for values in rows {
-            validate_row(self.schema(), &values)?;
+        for mut values in rows {
+            prepare_row(self.schema(), &mut values)?;
             pending.push(PendingRow::new(values));
         }
         let count = pending.len();

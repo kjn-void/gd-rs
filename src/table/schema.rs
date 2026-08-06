@@ -1,19 +1,124 @@
 //! Table schemas and column declarations.
 
+use std::{fmt, sync::Arc};
+
 use ahash::AHashMap;
 use compact_str::CompactString;
+use thiserror::Error;
 
-use crate::DataType;
+use crate::{DataType, Value, ValueRef};
 
 use super::TableError;
 
-/// A schema column's name, optional alias, type, and nullability.
+/// A failure reported by a schema column's input converter.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[error("{message}")]
+pub struct ColumnConversionError {
+    message: CompactString,
+}
+
+impl ColumnConversionError {
+    /// Creates a conversion failure with an application-facing explanation.
+    pub fn new(message: impl Into<CompactString>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    /// Returns the conversion failure explanation.
+    #[must_use]
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+impl From<&str> for ColumnConversionError {
+    fn from(message: &str) -> Self {
+        Self::new(message)
+    }
+}
+
+impl From<String> for ColumnConversionError {
+    fn from(message: String) -> Self {
+        Self::new(message)
+    }
+}
+
+impl From<CompactString> for ColumnConversionError {
+    fn from(message: CompactString) -> Self {
+        Self::new(message)
+    }
+}
+
+type ConvertValue =
+    dyn for<'value> Fn(ValueRef<'value>) -> Result<Value, ColumnConversionError> + Send + Sync;
+
+/// A named, thread-safe input conversion policy reusable by schema columns.
+///
+/// The converter runs only for a non-null input whose logical type differs from
+/// the column type. Its returned value is validated against the ordinary type and
+/// nullability contract before a table mutation occurs.
+///
+/// The name is the converter's semantic identity when schemas are compared. Two
+/// independently constructed converters with the same name must implement the
+/// same conversion contract.
+#[derive(Clone)]
+pub struct ColumnConverter {
+    name: CompactString,
+    convert: Arc<ConvertValue>,
+}
+
+impl ColumnConverter {
+    /// Creates a named converter from a reusable function or closure.
+    pub fn new(
+        name: impl Into<CompactString>,
+        convert: impl for<'value> Fn(ValueRef<'value>) -> Result<Value, ColumnConversionError>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            convert: Arc::new(convert),
+        }
+    }
+
+    /// Returns the stable semantic name used in diagnostics and schema equality.
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub(super) fn convert(&self, value: ValueRef<'_>) -> Result<Value, ColumnConversionError> {
+        (self.convert)(value)
+    }
+}
+
+impl fmt::Debug for ColumnConverter {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ColumnConverter")
+            .field("name", &self.name)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for ColumnConverter {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for ColumnConverter {}
+
+/// A schema column's name, optional alias, type, nullability, and input policy.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ColumnSpec {
     name: CompactString,
     alias: Option<CompactString>,
     data_type: DataType,
     nullable: bool,
+    converter: Option<ColumnConverter>,
 }
 
 /// Policy for names that are not declared as schema columns or aliases.
@@ -34,6 +139,7 @@ impl ColumnSpec {
             alias: None,
             data_type,
             nullable: data_type == DataType::Null,
+            converter: None,
         }
     }
 
@@ -50,6 +156,17 @@ impl ColumnSpec {
     #[must_use]
     pub const fn nullable(mut self, nullable: bool) -> Self {
         self.nullable = nullable || matches!(self.data_type, DataType::Null);
+        self
+    }
+
+    /// Sets an explicit converter for non-null input values of another type.
+    ///
+    /// Exact-type values retain the existing fast path and do not call the
+    /// converter. Conversion output is still checked against this column's type
+    /// and nullability before the table changes.
+    #[must_use]
+    pub fn with_converter(mut self, converter: ColumnConverter) -> Self {
+        self.converter = Some(converter);
         self
     }
 
@@ -75,6 +192,12 @@ impl ColumnSpec {
     #[must_use]
     pub const fn is_nullable(&self) -> bool {
         self.nullable
+    }
+
+    /// Returns the optional input converter.
+    #[must_use]
+    pub fn converter(&self) -> Option<&ColumnConverter> {
+        self.converter.as_ref()
     }
 }
 
