@@ -36,6 +36,7 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 | `binary_benchmark.cpp` | `../binary.rs` |
 | `expression_benchmark.cpp` | `../expression.rs` |
 | `sqlite_benchmark.cpp` | `../sqlite.rs` |
+| `sqlite_to_table_benchmark.cpp` | `../sqlite_to_table.rs` |
 | `table_copy_benchmark.cpp` | `../table_copy.rs` |
 | `table_column_buffer_benchmark.cpp`, `table_index_benchmark.cpp` | `../table.rs` |
 | `utf8_benchmark.cpp` | `../text.rs` |
@@ -43,6 +44,14 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 
 These files are comparison fixtures owned by `gd-rs`; update them alongside changes
 to the corresponding Rust benchmark or the C++ API being measured.
+
+Run `../run_sqlite_to_table.sh` for the matched SQLite cursor-to-table comparison.
+Both sides generate three in-memory SQLite tables with a deterministic xorshift64
+schema generator, 3–5 numeric columns per table, and the same seed and SQL value
+formulas. `GD_SQLITE_TO_TABLE_ROWS` defaults to `1000000` rows per table;
+`GD_SQLITE_TO_TABLE_SEED` defaults to `0x6a09e667f3bcc909`. Fixture construction is
+outside timing; schema discovery, query preparation, conversion, allocation, and
+population are timed.
 
 `stream_benchmark.cpp` is a standalone POSIX array-loop diagnostic retained for
 experimentation. It deliberately has no Rust counterpart, does not use Google

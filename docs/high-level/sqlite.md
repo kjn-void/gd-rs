@@ -48,6 +48,12 @@ UUID columns accept text recognized by the `uuid` crate or a 16-byte blob. Integ
 
 Both paths require valid UTF-8 for SQLite `TEXT` values.
 
+`schema_for_table` constructs a schema from a table's declared column metadata.
+`load_table` combines that discovery with `SELECT *` and explicit-schema streaming.
+Exact-width numeric declarations use the `INTEGER_I8`/`INTEGER_U8` family through 64
+bits and `REAL_F32`/`REAL_F64`; ordinary SQLite declarations retain their conventional
+`I64`, `F64`, `String`, and `Bytes` mappings. Unknown declarations fail explicitly.
+
 ## Transactions and errors
 
 The adapter returns `SqliteError`; it does not log expected failures. Engine errors,

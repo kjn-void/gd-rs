@@ -40,11 +40,13 @@ add_executable(gd_cpp_reference_benchmarks
     expression_benchmark.cpp
     price_total_benchmark.cpp
     sqlite_benchmark.cpp
+    sqlite_to_table_benchmark.cpp
     table_copy_benchmark.cpp
     table_column_buffer_benchmark.cpp
     table_index_benchmark.cpp
     utf8_benchmark.cpp
     variant_benchmark.cpp
+    "${GD_SOURCE_DIR}/source/database/gd_database_io.cpp"
 )
 target_compile_features(gd_cpp_reference_benchmarks PRIVATE cxx_std_20)
 target_link_libraries(gd_cpp_reference_benchmarks

@@ -105,6 +105,17 @@ pub enum SqliteError {
         /// Number of result columns.
         actual: usize,
     },
+    /// A named `SQLite` table does not exist or has no visible columns.
+    #[error("SQLite table not found: {0}")]
+    TableNotFound(CompactString),
+    /// A declared `SQLite` column type has no lossless GD schema mapping.
+    #[error("SQLite column {column} has unsupported declared type {declared}")]
+    UnsupportedDeclaredType {
+        /// Column whose declaration could not be mapped.
+        column: CompactString,
+        /// Declared `SQLite` type, or an empty string for an untyped column.
+        declared: CompactString,
+    },
     /// One inferred result column used more than one non-null `SQLite` storage class.
     #[error("SQLite column {column} changes type from {first} to {actual}")]
     MixedColumnType {
@@ -323,6 +334,54 @@ impl SqliteDatabase {
         Ok(table)
     }
 
+    /// Creates a GD schema from one `SQLite` table's declared columns.
+    ///
+    /// Column order, names, and `NOT NULL`/primary-key constraints are preserved.
+    /// `SQLite`'s native `INTEGER`, `REAL`, `TEXT`, and `BLOB` declarations map to
+    /// `I64`, `F64`, `String`, and `Bytes`. Exact numeric declarations use
+    /// `INTEGER_I8` through `INTEGER_U64`, plus `REAL_F32` and `REAL_F64`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SqliteError::TableNotFound`] when `table_name` has no visible
+    /// columns, [`SqliteError::UnsupportedDeclaredType`] for an unknown declared
+    /// type, or an engine/schema error.
+    pub fn schema_for_table(&self, table_name: &str) -> Result<Schema, SqliteError> {
+        let mut statement = self.connection.prepare(
+            "SELECT name, type, \"notnull\", pk \
+             FROM pragma_table_info(?1) ORDER BY cid",
+        )?;
+        let mut rows = statement.query([table_name])?;
+        let mut columns = Vec::new();
+        while let Some(row) = rows.next()? {
+            let name: String = row.get(0)?;
+            let declared: String = row.get(1)?;
+            let not_null: bool = row.get(2)?;
+            let primary_key: i64 = row.get(3)?;
+            let data_type = declared_data_type(&name, &declared)?;
+            columns.push(ColumnSpec::new(name, data_type).nullable(!not_null && primary_key == 0));
+        }
+        if columns.is_empty() {
+            return Err(SqliteError::TableNotFound(table_name.into()));
+        }
+        Ok(Schema::new(columns)?)
+    }
+
+    /// Creates and populates a typed GD table from all columns of a `SQLite` table.
+    ///
+    /// The schema is discovered with [`Self::schema_for_table`], then rows are
+    /// streamed through the same loss-checked conversions as
+    /// [`Self::query_table_with_schema`].
+    ///
+    /// # Errors
+    ///
+    /// Returns a schema-discovery, query, conversion, or table error.
+    pub fn load_table(&self, table_name: &str) -> Result<Table, SqliteError> {
+        let schema = self.schema_for_table(table_name)?;
+        let query = format!("SELECT * FROM {}", quote_identifier(table_name));
+        self.query_table_with_schema(&query, &Arguments::new(), schema)
+    }
+
     /// Returns the wrapped connection for advanced read-only operations.
     #[must_use]
     pub const fn connection(&self) -> &SqliteConnection {
@@ -526,6 +585,43 @@ fn inferred_value(column: usize, value: SqlValueRef<'_>) -> Result<Value, Sqlite
         ),
         SqlValueRef::Blob(value) => Value::from(value),
     })
+}
+
+fn declared_data_type(column: &str, declared: &str) -> Result<DataType, SqliteError> {
+    let normalized = declared.trim().to_ascii_uppercase();
+    match normalized.as_str() {
+        "INTEGER_I8" | "INT8" | "TINYINT" => Ok(DataType::I8),
+        "INTEGER_I16" | "INT16" | "SMALLINT" => Ok(DataType::I16),
+        "INTEGER_I32" | "INT32" => Ok(DataType::I32),
+        "INTEGER_I64" | "INT64" | "INT" | "INTEGER" | "BIGINT" => Ok(DataType::I64),
+        "INTEGER_U8" | "UINT8" | "UNSIGNED TINYINT" => Ok(DataType::U8),
+        "INTEGER_U16" | "UINT16" | "UNSIGNED SMALLINT" => Ok(DataType::U16),
+        "INTEGER_U32" | "UINT32" | "UNSIGNED INT" | "UNSIGNED INTEGER" => Ok(DataType::U32),
+        "INTEGER_U64" | "UINT64" | "UNSIGNED BIGINT" | "UNSIGNED BIG INT" => Ok(DataType::U64),
+        "REAL_F32" | "F32" => Ok(DataType::F32),
+        "REAL_F64" | "F64" | "REAL" | "FLOAT" | "DOUBLE" | "DOUBLE PRECISION" => Ok(DataType::F64),
+        "BOOL" | "BOOLEAN" => Ok(DataType::Bool),
+        "TEXT" | "STRING" | "VARCHAR" => Ok(DataType::String),
+        "BLOB" | "BYTES" => Ok(DataType::Bytes),
+        "UUID" => Ok(DataType::Uuid),
+        _ => Err(SqliteError::UnsupportedDeclaredType {
+            column: column.into(),
+            declared: declared.into(),
+        }),
+    }
+}
+
+fn quote_identifier(identifier: &str) -> String {
+    let mut quoted = String::with_capacity(identifier.len() + 2);
+    quoted.push('"');
+    for character in identifier.chars() {
+        quoted.push(character);
+        if character == '"' {
+            quoted.push('"');
+        }
+    }
+    quoted.push('"');
+    quoted
 }
 
 // Explicit floating schemas request SQLite-style numeric coercion. Integer-to-float

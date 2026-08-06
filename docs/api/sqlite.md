@@ -99,6 +99,38 @@ Boolean columns accept only 0 or 1; integer results may become floats; UUID colu
 accept either a 16-byte blob or parseable UUID text. Result width, storage class,
 UTF-8, UUID, range, and nullability mismatches are errors.
 
+## Load a declared SQLite table
+
+`schema_for_table` reads column names, declared types, order, and nullability through
+SQLite's `pragma_table_info`. `load_table` uses that schema to materialize `SELECT *`
+without buffering the complete result as dynamic values:
+
+```rust
+use gd::{DataType, SqliteDatabase};
+
+let database = SqliteDatabase::open_in_memory().unwrap();
+database
+    .execute_batch(
+        "create table metric(\
+             sample INTEGER_U16 not null,\
+             reading REAL_F32 not null);\
+         insert into metric values (7, 1.25), (8, 2.5);",
+    )
+    .unwrap();
+
+let schema = database.schema_for_table("metric").unwrap();
+assert_eq!(schema.column(0).unwrap().data_type(), DataType::U16);
+
+let table = database.load_table("metric").unwrap();
+assert_eq!(table.row_count(), 2);
+```
+
+SQLite's native declarations map `INTEGER`, `REAL`, `TEXT`, and `BLOB` to `I64`,
+`F64`, `String`, and `Bytes`. Exact numeric widths use `INTEGER_I8`, `INTEGER_I16`,
+`INTEGER_I32`, `INTEGER_I64`, `INTEGER_U8`, `INTEGER_U16`, `INTEGER_U32`,
+`INTEGER_U64`, `REAL_F32`, and `REAL_F64`. Unsupported declarations are reported
+instead of guessed.
+
 ## Connection access
 
 `connection` and `connection_mut` expose `rusqlite::Connection` for transactions,

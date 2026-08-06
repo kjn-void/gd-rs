@@ -204,6 +204,56 @@ fn caller_can_use_native_transactions() {
     assert!(table.is_empty());
 }
 
+#[test]
+fn declared_table_schema_and_rows_are_materialized() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    database
+        .execute_batch(
+            "CREATE TABLE \"metric table\"(\
+                 small INTEGER_I8 NOT NULL,\
+                 count INTEGER_U16,\
+                 ratio REAL_F32 NOT NULL,\
+                 total INTEGER_U64 NOT NULL);\
+             INSERT INTO \"metric table\" VALUES (-7, 42, 1.25, 9000);\
+             INSERT INTO \"metric table\" VALUES (8, NULL, 2.5, 10000);",
+        )
+        .unwrap();
+
+    let schema = database.schema_for_table("metric table").unwrap();
+    assert_eq!(schema.len(), 4);
+    assert_eq!(schema.column(0).unwrap().data_type(), DataType::I8);
+    assert!(!schema.column(0).unwrap().is_nullable());
+    assert_eq!(schema.column(1).unwrap().data_type(), DataType::U16);
+    assert!(schema.column(1).unwrap().is_nullable());
+    assert_eq!(schema.column(2).unwrap().data_type(), DataType::F32);
+    assert_eq!(schema.column(3).unwrap().data_type(), DataType::U64);
+
+    let table = database.load_table("metric table").unwrap();
+    assert_eq!(table.row_count(), 2);
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::I8(-7)));
+    assert_eq!(table.cell(0, 1), Ok(ValueRef::U16(42)));
+    assert_eq!(table.cell(0, 2), Ok(ValueRef::F32(1.25)));
+    assert_eq!(table.cell(1, 1), Ok(ValueRef::Null));
+    assert_eq!(table.cell(1, 3), Ok(ValueRef::U64(10_000)));
+}
+
+#[test]
+fn schema_discovery_reports_missing_and_unsupported_tables() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    assert!(matches!(
+        database.schema_for_table("missing"),
+        Err(SqliteError::TableNotFound(_))
+    ));
+
+    database
+        .execute_batch("CREATE TABLE unsupported(value GEOGRAPHY)")
+        .unwrap();
+    assert!(matches!(
+        database.schema_for_table("unsupported"),
+        Err(SqliteError::UnsupportedDeclaredType { .. })
+    ));
+}
+
 proptest! {
     #[test]
     fn integer_text_and_blob_round_trip(

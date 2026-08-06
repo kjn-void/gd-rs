@@ -79,6 +79,11 @@ harness = false
 required-features = ["sqlite"]
 
 [[bench]]
+name = "sqlite_to_table"
+harness = false
+required-features = ["sqlite"]
+
+[[bench]]
 name = "table_nightly_simd"
 harness = false
 
