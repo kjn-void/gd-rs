@@ -1055,6 +1055,253 @@ fn parallel_mutable_rows_transform_fixed_columns() {
     }
 }
 
+#[test]
+fn tombstoned_rows_retain_payload_and_physical_positions() {
+    let mut table = Table::new(people_schema());
+    for (id, name, score) in [
+        (1, "Ada", Value::I32(10)),
+        (2, "Grace", Value::I32(20)),
+        (3, "Linus", Value::I32(30)),
+    ] {
+        table
+            .push_row([Value::U64(id), Value::from(name), score])
+            .unwrap();
+    }
+
+    assert!(table.tombstone_row(1).unwrap());
+    assert!(!table.tombstone_row(1).unwrap());
+    assert_eq!(table.row_count(), 3);
+    assert_eq!(table.live_row_count(), 2);
+    assert_eq!(table.tombstone_count(), 1);
+    assert_eq!(table.is_tombstoned(1), Ok(true));
+    assert_eq!(table.tombstoned_rows().collect::<Vec<_>>(), [1]);
+
+    // Tombstoning is metadata only: the retained payload stays readable and
+    // writable at the same physical position.
+    assert_eq!(table.cell_named(1, "name"), Ok(ValueRef::String("Grace")));
+    table.set_cell(1, 2, Value::I32(21)).unwrap();
+    assert_eq!(table.cell(1, 2), Ok(ValueRef::I32(21)));
+
+    // Physical iteration includes the tombstone; live iteration skips it.
+    assert_eq!(table.rows().len(), 3);
+    assert_eq!(
+        table
+            .rows()
+            .map(|row| (row.position(), row.is_tombstoned()))
+            .collect::<Vec<_>>(),
+        [(0, false), (1, true), (2, false)]
+    );
+    assert_eq!(
+        table.live_rows().map(gd::Row::position).collect::<Vec<_>>(),
+        [0, 2]
+    );
+
+    assert!(table.restore_row(1).unwrap());
+    assert!(!table.restore_row(1).unwrap());
+    assert_eq!(table.live_row_count(), 3);
+    assert_eq!(table.tombstone_count(), 0);
+    assert_eq!(table.is_tombstoned(1), Ok(false));
+    assert_eq!(table.tombstoned_rows().next(), None);
+
+    assert_eq!(
+        table.tombstone_row(3),
+        Err(TableError::RowOutOfBounds {
+            row: 3,
+            row_count: 3
+        })
+    );
+    assert_eq!(
+        table.restore_row(3),
+        Err(TableError::RowOutOfBounds {
+            row: 3,
+            row_count: 3
+        })
+    );
+    assert_eq!(
+        table.is_tombstoned(3),
+        Err(TableError::RowOutOfBounds {
+            row: 3,
+            row_count: 3
+        })
+    );
+}
+
+#[test]
+fn restore_all_rows_clears_every_tombstone() {
+    let mut table = Table::new(people_schema());
+    for id in 0_u64..4 {
+        table
+            .push_row([Value::U64(id), Value::from("row"), Value::Null])
+            .unwrap();
+    }
+    table.tombstone_row(0).unwrap();
+    table.tombstone_row(2).unwrap();
+    assert_eq!(table.tombstone_count(), 2);
+    assert_eq!(table.restore_all_rows(), 2);
+    assert_eq!(table.tombstone_count(), 0);
+    assert_eq!(table.live_row_count(), 4);
+    assert_eq!(table.restore_all_rows(), 0);
+}
+
+#[test]
+fn tombstone_flags_travel_with_copied_rows() {
+    let mut table = Table::new(people_schema());
+    for id in 0_u64..4 {
+        table
+            .push_row([Value::U64(id), Value::from("row"), Value::Null])
+            .unwrap();
+    }
+    table.tombstone_row(1).unwrap();
+    table.tombstone_row(3).unwrap();
+
+    let range = table.copy_range(1..4).unwrap();
+    assert_eq!(range.row_count(), 3);
+    assert_eq!(
+        range.is_tombstoned(0),
+        Ok(true),
+        "range copies the following row's tombstone"
+    );
+    assert_eq!(range.is_tombstoned(1), Ok(false));
+    assert_eq!(range.is_tombstoned(2), Ok(true));
+    assert_eq!(range.tombstone_count(), 2);
+
+    let selected = table.copy_rows(&[3, 1]).unwrap();
+    assert_eq!(selected.is_tombstoned(0), Ok(true));
+    assert_eq!(selected.is_tombstoned(1), Ok(true));
+    assert_eq!(selected.tombstone_count(), 2);
+
+    let live = table.copy_rows(&[0, 2]).unwrap();
+    assert_eq!(live.tombstone_count(), 0);
+    assert_eq!(live.tombstoned_rows().next(), None);
+}
+
+#[test]
+fn popping_a_tombstoned_row_releases_its_flag() {
+    let mut table = Table::new(people_schema());
+    for id in 0_u64..3 {
+        table
+            .push_row([Value::U64(id), Value::from("row"), Value::Null])
+            .unwrap();
+    }
+    table.tombstone_row(2).unwrap();
+    table.tombstone_row(0).unwrap();
+    assert_eq!(table.tombstone_count(), 2);
+
+    assert!(table.pop_row());
+    assert_eq!(table.row_count(), 2);
+    assert_eq!(table.tombstone_count(), 1);
+    assert_eq!(table.live_row_count(), 1);
+}
+
+#[test]
+fn indexes_and_live_ordering_skip_tombstoned_rows() {
+    let mut table = Table::new(people_schema());
+    for (id, name, score) in [
+        (1, "Ada", Value::I32(10)),
+        (2, "Grace", Value::Null),
+        (3, "Ada", Value::I32(30)),
+        (4, "Linus", Value::Null),
+    ] {
+        table
+            .push_row([Value::U64(id), Value::from(name), score])
+            .unwrap();
+    }
+    table.tombstone_row(1).unwrap();
+
+    let names = table.index(1).unwrap();
+    assert_eq!(names.rows(IndexKeyRef::from("Ada")), &[0, 2]);
+    assert_eq!(names.tombstoned_rows(), &[1]);
+    assert_eq!(names.distinct_key_count(), 2);
+
+    let scores = table.index(2).unwrap();
+    assert_eq!(scores.null_rows(), &[3]);
+    assert_eq!(scores.tombstoned_rows(), &[1]);
+
+    let order = table
+        .row_order_named("id", SortDirection::Ascending, NullOrder::Last)
+        .unwrap();
+    assert_eq!(order.positions(), &[0, 1, 2, 3]);
+    assert_eq!(
+        order.live_rows().map(gd::Row::position).collect::<Vec<_>>(),
+        [0, 2, 3]
+    );
+}
+
+#[test]
+fn mutable_row_views_report_tombstoned_status() {
+    let mut table = Table::new(people_schema());
+    for id in 0_u64..3 {
+        table
+            .push_row([Value::U64(id), Value::from("row"), Value::Null])
+            .unwrap();
+    }
+    table.tombstone_row(1).unwrap();
+
+    assert!(!table.row_mut(0).unwrap().is_tombstoned());
+    assert!(table.row_mut(1).unwrap().is_tombstoned());
+
+    let mut tombstoned_positions = Vec::new();
+    table.rows_mut().for_each(|row| {
+        if row.is_tombstoned() {
+            tombstoned_positions.push(row.position());
+        }
+    });
+    assert_eq!(tombstoned_positions, [1]);
+}
+
+#[test]
+fn concurrent_appends_are_live_after_existing_tombstones() {
+    let schema = Schema::new([
+        ColumnSpec::new("arg", DataType::U32),
+        ColumnSpec::new("result", DataType::U64),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    table.push_row([Value::U32(0), Value::U64(0)]).unwrap();
+    table.push_row([Value::U32(1), Value::U64(1)]).unwrap();
+    table.tombstone_row(0).unwrap();
+
+    let builder = ConcurrentTableBuilder::new(table.schema_arc());
+    builder.push_row([Value::U32(2), Value::U64(4)]).unwrap();
+    builder.push_row([Value::U32(3), Value::U64(9)]).unwrap();
+
+    assert_eq!(builder.append_to(&mut table), Ok(2..4));
+    assert_eq!(table.row_count(), 4);
+    assert_eq!(table.tombstone_count(), 1);
+    assert_eq!(table.live_row_count(), 3);
+    assert_eq!(table.is_tombstoned(1), Ok(false));
+    assert_eq!(table.is_tombstoned(2), Ok(false));
+    assert_eq!(table.is_tombstoned(3), Ok(false));
+    assert_eq!(
+        table.live_rows().map(gd::Row::position).collect::<Vec<_>>(),
+        [1, 2, 3]
+    );
+}
+
+#[cfg(feature = "rayon")]
+#[test]
+fn parallel_copies_preserve_tombstone_flags() {
+    let mut table = Table::new(people_schema());
+    for id in 0_u64..6 {
+        table
+            .push_row([Value::U64(id), Value::from("row"), Value::Null])
+            .unwrap();
+    }
+    table.tombstone_row(1).unwrap();
+    table.tombstone_row(5).unwrap();
+
+    let range = table.par_copy_range(1..6).unwrap();
+    assert_eq!(range.is_tombstoned(0), Ok(true));
+    assert_eq!(range.is_tombstoned(1), Ok(false));
+    assert_eq!(range.is_tombstoned(4), Ok(true));
+
+    let selected = table.par_copy_rows(&[5, 4, 1]).unwrap();
+    assert_eq!(selected.is_tombstoned(0), Ok(true));
+    assert_eq!(selected.is_tombstoned(1), Ok(false));
+    assert_eq!(selected.is_tombstoned(2), Ok(true));
+    assert_eq!(selected.tombstone_count(), 2);
+}
+
 proptest! {
     #[test]
     fn typed_column_round_trips(values in prop::collection::vec(any::<i64>(), 0..512)) {

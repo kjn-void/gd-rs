@@ -82,6 +82,40 @@ fn ordered_json_uses_the_borrowed_permutation() {
 }
 
 #[test]
+fn interchange_formats_exclude_tombstoned_rows() {
+    let mut table = table();
+    table.tombstone_row(0).unwrap();
+
+    let json: serde_json::Value = serde_json::from_str(&table_to_json(&table).unwrap()).unwrap();
+    assert_eq!(json.as_array().unwrap().len(), 1);
+    assert_eq!(json[0]["id"], 1);
+
+    assert_eq!(
+        table_to_csv(&table, true).unwrap(),
+        "id,name,note\n1,\"quote \"\"\",\"line\n2\"\n"
+    );
+
+    let order = table
+        .row_order_named("id", SortDirection::Ascending, NullOrder::Last)
+        .unwrap();
+    assert_eq!(order.positions(), &[1, 0]);
+    let ordered: serde_json::Value =
+        serde_json::from_str(&row_order_to_json(&order).unwrap()).unwrap();
+    assert_eq!(ordered.as_array().unwrap().len(), 1);
+    assert_eq!(ordered[0]["id"], 1);
+
+    table.restore_row(0).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&table_to_json(&table).unwrap())
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+
+#[test]
 fn json_rejects_non_finite_numbers() {
     let schema = Schema::new([ColumnSpec::new("value", DataType::F64)]).unwrap();
     let mut table = Table::new(schema);

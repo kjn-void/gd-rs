@@ -2,11 +2,12 @@
 
 use crate::{Table, ValueRef, encode_hex};
 
-/// Prints every fixed-schema row in insertion order.
+/// Prints every physical fixed-schema row in insertion order.
 ///
 /// Cells are separated by `", "`, nulls are written as `"null"`, and every
 /// row ends with a newline. Row-local extra fields are not included because
-/// they are not schema columns.
+/// they are not schema columns. Tombstoned rows are included because this is the
+/// physical diagnostic view.
 #[must_use]
 pub fn print(table: &Table) -> String {
     print_rows(table, table.row_count())

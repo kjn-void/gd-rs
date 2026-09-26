@@ -7,6 +7,7 @@ mod ordering;
 mod row_mut;
 mod schema;
 mod storage;
+mod tombstones;
 mod views;
 
 pub use concurrent::ConcurrentTableBuilder;
@@ -23,6 +24,7 @@ use std::sync::Arc;
 use storage::ColumnData;
 use storage::{ColumnStorage, ExtrasStorage, RowExtras};
 use thiserror::Error;
+use tombstones::Tombstones;
 
 use crate::{Arguments, DataType, Value, ValueRef};
 
@@ -138,11 +140,19 @@ pub enum ColumnSelectionError {
 /// `Option<T>` to represent null cells. Schemas that reject unknown fields do not
 /// allocate per-row extras storage. The immutable schema is shared through
 /// [`Arc`], so tables with the same layout do not duplicate schema metadata.
+///
+/// A row can additionally be *tombstoned*: logically deleted while its payload
+/// and physical position are retained. Tombstone metadata is allocated lazily on
+/// the first deletion and released when no tombstoned row remains. Use
+/// [`Table::live_rows`], [`Table::live_row_count`], and the index and formatting
+/// APIs to work with the live view, or the physical row APIs to inspect retained
+/// data.
 #[derive(Clone, Debug)]
 pub struct Table {
     schema: Arc<Schema>,
     columns: Vec<ColumnStorage>,
     extras: ExtrasStorage,
+    tombstones: Tombstones,
     properties: Arguments,
     row_count: usize,
 }
@@ -168,6 +178,7 @@ impl Table {
             schema,
             columns,
             extras,
+            tombstones: Tombstones::default(),
             properties: Arguments::new(),
             row_count: 0,
         }
@@ -259,17 +270,98 @@ impl Table {
         self.schema.len()
     }
 
-    /// Returns whether the table has no rows.
+    /// Returns whether the table has no physical rows.
+    ///
+    /// Tombstoned rows are retained physical rows, so a table whose rows are all
+    /// tombstoned is not empty. Use [`Table::live_row_count`] for the live count.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.row_count == 0
+    }
+
+    /// Marks one physical row as tombstoned without removing its data.
+    ///
+    /// A tombstoned row keeps its payload and physical position, and ordinary
+    /// cell access still works. It is excluded from [`Table::live_rows`],
+    /// [`ColumnIndex`] keys and null rows, [`RowOrder::live_rows`], and JSON/CSV
+    /// output. Deletion and restoration are O(1); the flag vector is allocated on
+    /// the first tombstone and released when no tombstoned row remains.
+    ///
+    /// Returns `true` when the row changed from live to tombstoned and `false`
+    /// when it was already tombstoned.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for a row outside the table.
+    pub fn tombstone_row(&mut self, row: usize) -> Result<bool, TableError> {
+        self.validate_row_position(row)?;
+        Ok(self.tombstones.set(row, true, self.row_count))
+    }
+
+    /// Restores one tombstoned row to the live set without moving it.
+    ///
+    /// Returns `true` when the row changed from tombstoned to live and `false`
+    /// when it was already live.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for a row outside the table.
+    pub fn restore_row(&mut self, row: usize) -> Result<bool, TableError> {
+        self.validate_row_position(row)?;
+        Ok(self.tombstones.set(row, false, self.row_count))
+    }
+
+    /// Restores every tombstoned row and returns how many rows were restored.
+    pub fn restore_all_rows(&mut self) -> usize {
+        self.tombstones.clear()
+    }
+
+    /// Returns whether one physical row is tombstoned.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for a row outside the table.
+    pub fn is_tombstoned(&self, row: usize) -> Result<bool, TableError> {
+        self.validate_row_position(row)?;
+        Ok(self.row_is_tombstoned(row))
+    }
+
+    /// Returns the number of tombstoned rows.
+    #[must_use]
+    pub const fn tombstone_count(&self) -> usize {
+        self.tombstones.count()
+    }
+
+    /// Returns the number of rows that are not tombstoned.
+    #[must_use]
+    pub const fn live_row_count(&self) -> usize {
+        self.row_count - self.tombstones.count()
+    }
+
+    /// Iterates over live rows in physical order.
+    ///
+    /// Tombstoned rows are skipped without moving or copying any payload.
+    pub fn live_rows(&self) -> impl Iterator<Item = Row<'_>> + '_ {
+        (0..self.row_count)
+            .filter(|&row| !self.row_is_tombstoned(row))
+            .map(|row| Row { table: self, row })
+    }
+
+    /// Iterates over tombstoned physical row positions in ascending order.
+    pub fn tombstoned_rows(&self) -> impl Iterator<Item = usize> + '_ {
+        self.tombstones.iter_tombstoned()
+    }
+
+    pub(crate) fn row_is_tombstoned(&self, row: usize) -> bool {
+        self.tombstones.is_tombstoned(row)
     }
 
     /// Copies one contiguous range into a new table with the same shared schema.
     ///
     /// Each column copies one contiguous storage slice. Required fixed-width
     /// columns therefore use one bulk allocation and copy per column rather than
-    /// materializing dynamic row values.
+    /// materializing dynamic row values. Tombstone flags travel with the copied
+    /// rows.
     ///
     /// # Errors
     ///
@@ -286,6 +378,7 @@ impl Table {
         let row_count = rows.len();
         Ok(self.copy_with(
             row_count,
+            self.tombstones.copy_range(rows.clone()),
             |column| column.copy_range(rows.clone()),
             |extras| extras.copy_range(rows.clone()),
         ))
@@ -295,6 +388,7 @@ impl Table {
     ///
     /// Selection order and duplicates are preserved. Storage is gathered one
     /// column at a time, and the immutable schema is shared with the source.
+    /// Tombstone flags travel with the selected rows in selection order.
     ///
     /// # Errors
     ///
@@ -308,6 +402,7 @@ impl Table {
         }
         Ok(self.copy_with(
             rows.len(),
+            self.tombstones.copy_rows(rows),
             |column| column.copy_rows(rows),
             |extras| extras.copy_rows(rows),
         ))
@@ -346,6 +441,7 @@ impl Table {
                 .map(|column| column.copy_range(rows.clone()))
                 .collect(),
             extras: self.extras.copy_range(rows.clone()),
+            tombstones: self.tombstones.copy_range(rows.clone()),
             properties: self.properties.clone(),
             row_count: rows.len(),
         })
@@ -383,6 +479,7 @@ impl Table {
                 .map(|column| column.copy_rows(rows))
                 .collect(),
             extras: self.extras.copy_rows(rows),
+            tombstones: self.tombstones.copy_rows(rows),
             properties: self.properties.clone(),
             row_count: rows.len(),
         })
@@ -391,6 +488,7 @@ impl Table {
     fn copy_with(
         &self,
         row_count: usize,
+        tombstones: Tombstones,
         mut copy_column: impl FnMut(&ColumnStorage) -> ColumnStorage,
         copy_extras: impl FnOnce(&ExtrasStorage) -> ExtrasStorage,
     ) -> Self {
@@ -398,6 +496,7 @@ impl Table {
             schema: Arc::clone(&self.schema),
             columns: self.columns.iter().map(&mut copy_column).collect(),
             extras: copy_extras(&self.extras),
+            tombstones,
             properties: self.properties.clone(),
             row_count,
         }
@@ -472,6 +571,7 @@ impl Table {
             storage.push_validated(value);
         }
         self.extras.push_empty();
+        self.tombstones.push_live();
         self.row_count += 1;
         debug_assert!(
             self.columns
@@ -482,7 +582,9 @@ impl Table {
         row
     }
 
-    /// Removes and discards the last row, returning whether a row existed.
+    /// Removes and discards the last physical row, returning whether a row existed.
+    ///
+    /// The last row is removed whether or not it is tombstoned.
     pub fn pop_row(&mut self) -> bool {
         if self.row_count == 0 {
             return false;
@@ -491,6 +593,7 @@ impl Table {
             column.pop();
         }
         self.extras.pop();
+        self.tombstones.pop();
         self.row_count -= 1;
         true
     }

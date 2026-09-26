@@ -92,14 +92,17 @@ impl_index_integer!(signed: i8, i16, i32, i64; unsigned: u8, u16, u32, u64);
 
 /// An immutable hash index borrowing keys from one table column.
 ///
-/// Null rows are tracked separately. Floating-point columns are rejected
-/// because NaN and signed-zero equality need an explicit application policy.
+/// Null rows and tombstoned rows are tracked separately. Tombstoned rows are
+/// excluded from the key map and from [`ColumnIndex::null_rows`]. Floating-point
+/// columns are rejected because NaN and signed-zero equality need an explicit
+/// application policy.
 #[derive(Clone, Debug)]
 pub struct ColumnIndex<'a> {
     table: &'a Table,
     column: usize,
     by_key: IndexStorage<'a>,
     null_rows: SmallVec<[usize; 1]>,
+    tombstoned_rows: SmallVec<[usize; 1]>,
 }
 
 #[derive(Clone, Debug)]
@@ -190,7 +193,12 @@ impl<'a> ColumnIndex<'a> {
         }
         let mut by_key = IndexStorage::new(spec.data_type(), table.row_count());
         let mut null_rows = SmallVec::new();
+        let mut tombstoned_rows = SmallVec::new();
         for row in 0..table.row_count() {
+            if table.tombstones.is_tombstoned(row) {
+                tombstoned_rows.push(row);
+                continue;
+            }
             let value = table.columns[column]
                 .get(row)
                 .expect("column lengths match row count");
@@ -205,6 +213,7 @@ impl<'a> ColumnIndex<'a> {
             column,
             by_key,
             null_rows,
+            tombstoned_rows,
         })
     }
 
@@ -226,10 +235,16 @@ impl<'a> ColumnIndex<'a> {
         self.by_key.rows(key)
     }
 
-    /// Returns all rows whose indexed cell is null.
+    /// Returns all live rows whose indexed cell is null.
     #[must_use]
     pub fn null_rows(&self) -> &[usize] {
         &self.null_rows
+    }
+
+    /// Returns the tombstoned rows excluded from this index.
+    #[must_use]
+    pub fn tombstoned_rows(&self) -> &[usize] {
+        &self.tombstoned_rows
     }
 
     /// Returns the number of distinct non-null keys.

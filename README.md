@@ -19,6 +19,7 @@ The implemented core currently provides:
 - reusable lifetime-bound `ahash` indexes;
 - validated schemas and typed column storage;
 - borrowing row and column views;
+- lazily allocated row tombstones with stable positions and live-row views;
 - stable, lifetime-bound row ordering without moving table payloads;
 - bounds-checked binary cursors, hex conversion, and byte search;
 - UTF boundaries plus JSON, URI-component, and XML text conversion;

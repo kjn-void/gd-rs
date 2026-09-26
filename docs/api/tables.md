@@ -545,6 +545,62 @@ assert!(table.pop_row());
 assert!(table.is_empty());
 ```
 
+### Tombstoning rows
+
+A tombstone logically deletes a row while retaining its payload and physical position.
+Tombstone metadata is allocated on the first deletion and released when no tombstoned
+row remains, so tables that never delete a row pay nothing:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U64),
+    ColumnSpec::new("name", DataType::String),
+])
+.unwrap();
+let mut table = Table::new(schema);
+for (id, name) in [(1_u64, "Ada"), (2, "Grace"), (3, "Linus")] {
+    table.push_row([Value::U64(id), Value::from(name)]).unwrap();
+}
+
+assert!(table.tombstone_row(1).unwrap());
+assert!(!table.tombstone_row(1).unwrap()); // already tombstoned
+assert_eq!(table.row_count(), 3);
+assert_eq!(table.live_row_count(), 2);
+assert_eq!(table.tombstone_count(), 1);
+assert_eq!(table.tombstoned_rows().collect::<Vec<_>>(), [1]);
+
+// The retained row is still readable and writable at its physical position.
+assert_eq!(table.cell_named(1, "name"), Ok(ValueRef::String("Grace")));
+let live: Vec<_> = table
+    .live_rows()
+    .map(|row| row.position())
+    .collect();
+assert_eq!(live, [0, 2]);
+
+assert!(table.restore_row(1).unwrap());
+assert_eq!(table.live_row_count(), 3);
+assert_eq!(table.restore_all_rows(), 0);
+```
+
+`row_count`, `is_empty`, `rows`, `cell`, `set_cell`, and `row_mut` remain physical;
+`live_row_count`, `live_rows`, indexes, and JSON/CSV output use the live view.
+`Row::is_tombstoned` reports the flag through a row view, and `RowMut::is_tombstoned`
+does the same for mutable row processing. `is_tombstoned`, `tombstone_row`, and
+`restore_row` return `TableError::RowOutOfBounds` for an invalid position.
+
+Tombstone flags travel with copied rows. `copy_range`, `copy_rows`,
+`par_copy_range`, and `par_copy_rows` preserve the logical state of every copied
+position, including selection order and duplicates. `pop_row` removes the last
+physical row whether or not it is tombstoned. `ConcurrentTableBuilder` always
+publishes live rows, and `append_to` leaves the destination's existing tombstones
+untouched.
+
+`table_to_json`, `table_to_csv`, and `row_order_to_json` omit tombstoned rows.
+`table_debug::print` and related helpers remain physical so retained data stays
+inspectable.
+
 `row_mut` provides the same checked mutation through one borrowing row view. This is
 useful when one operation reads or changes several differently typed fields:
 

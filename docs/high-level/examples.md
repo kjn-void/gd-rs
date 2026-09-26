@@ -566,6 +566,54 @@ fn rust_table_order() -> Result<(), TableError> {
 Constructing `RowOrder` takes O(rows log rows) time and O(rows) additional positions.
 Iteration is O(rows) and does not move unrelated column payloads.
 
+### Tombstoning rows
+
+C++ enables row status at construction and then manages per-row state words by hand.
+Clearing the use flag makes searches that request `tag_meta` skip the row, while the
+payload stays in the packed buffer:
+
+```cpp
+gd::table::table_column_buffer table(10, gd::table::eTableFlagRowStatus);
+table.column_add("uint64", 0, "id");
+table.prepare();
+table.row_add({std::uint64_t{1}});
+table.row_add({std::uint64_t{2}});
+
+table.row_set_state(1, gd::table::eRowStateDeleted, gd::table::eRowStateUse);
+assert(table.row_is_use(0) == true);
+assert(table.row_is_use(1) == false);
+assert(table.count_used_rows() == 1);
+assert(table.cell_get_variant_view(1, "id").as_uint64() == 2); // payload retained
+```
+
+Rust expresses the same retention as tombstoning. Flags allocate lazily, `live_rows`
+and tombstone-aware `ColumnIndex` values exclude the row, and ordinary cell access
+still reaches the retained payload:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, TableError, Value, ValueRef};
+
+fn rust_tombstone_table() -> Result<(), TableError> {
+    let schema = Schema::new([ColumnSpec::new("id", DataType::U64)])?;
+    let mut table = Table::new(schema);
+    table.push_row([Value::U64(1)])?;
+    table.push_row([Value::U64(2)])?;
+
+    assert!(table.tombstone_row(1)?);
+    assert_eq!(table.live_row_count(), 1);
+    assert_eq!(table.cell(1, 0)?, ValueRef::U64(2)); // payload retained
+
+    assert!(table.restore_row(1)?);
+    assert_eq!(table.live_row_count(), 2);
+    Ok(())
+}
+```
+
+The C++ state word is a general-purpose flag with no ownership of null or payload
+storage. Rust keeps only the tombstone contract: one logical deletion per row, stable
+positions, and an explicit live view for iteration, indexes, ordering, and interchange
+formats.
+
 ## Common call-site translations
 
 | C++ call | Rust call |
@@ -582,6 +630,7 @@ Iteration is O(rows) and does not move unrelated column payloads.
 | `table.row_add({...})` | `table.push_row([...])?` |
 | `table.cell_get_variant_view(row, name)` | `table.cell_named(row, name)?` |
 | destructive `table.sort(...)` | borrowing `table.row_order_named(...)` |
+| `table.row_set_state(row, eRowStateDeleted, eRowStateUse)` | `table.tombstone_row(row)?` |
 
 See [dynamic values](value.md), [arguments](arguments.md), and [tables](table.md) for
 the complete contracts and complexity notes. Intentional behavior differences are

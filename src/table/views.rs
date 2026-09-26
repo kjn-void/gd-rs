@@ -321,6 +321,12 @@ impl<'a> Row<'a> {
         self.row
     }
 
+    /// Returns whether this physical row is tombstoned.
+    #[must_use]
+    pub fn is_tombstoned(self) -> bool {
+        self.table.row_is_tombstoned(self.row)
+    }
+
     /// Returns the number of cells.
     #[must_use]
     pub fn len(self) -> usize {

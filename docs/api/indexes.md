@@ -34,6 +34,8 @@ assert_eq!(index.distinct_key_count(), 2);
 
 `rows` returns every matching original row position in insertion order; duplicate
 keys are not collapsed. Null rows have their own accessor rather than a lookup key.
+Tombstoned rows are excluded from keys, null rows, and `distinct_key_count`; their
+positions are reported by `tombstoned_rows`.
 
 The supported column types are `Bool`, all signed and unsigned integer widths,
 `String`, `Bytes`, and `Uuid`. Signed and unsigned keys remain separate domains.
@@ -75,6 +77,8 @@ assert_eq!(names, ["Ada", "Linus", "Edsger", "Grace"]);
 Equal values retain their original order. Null placement is independent of ascending
 or descending direction. Floating-point columns are sortable and use Rust's total
 ordering, so every NaN and signed-zero representation has a deterministic position.
+`positions` covers every physical row; `live_rows` skips tombstoned rows while keeping
+the same key order.
 
 Building a `RowOrder` takes O(r log r) time and O(r) space for its positions. It does
 not copy cells or change the table; iteration after construction performs no further

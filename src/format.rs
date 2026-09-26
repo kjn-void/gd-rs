@@ -96,34 +96,50 @@ pub fn arguments_to_uri(arguments: &Arguments) -> Result<String, FormatError> {
     Ok(output)
 }
 
-/// Serializes table rows as a JSON array of objects keyed by primary column name.
+/// Serializes live table rows as a JSON array of objects keyed by primary column
+/// name.
 ///
 /// Aliases are lookup conveniences and are not emitted. Byte values are lowercase
-/// hex strings and UUIDs are canonical strings.
+/// hex strings and UUIDs are canonical strings. Tombstoned rows are excluded
+/// because they are logically deleted.
 ///
 /// # Errors
 ///
 /// Returns [`FormatError::NonFiniteFloat`] for NaN or infinity, or a JSON writer
 /// error.
 pub fn table_to_json(table: &Table) -> Result<String, FormatError> {
-    rows_to_json(table, 0..table.row_count())
+    rows_to_json(
+        table,
+        (0..table.row_count()).filter(|&row| !table.row_is_tombstoned(row)),
+    )
 }
 
-/// Serializes rows in a [`RowOrder`] as a JSON array of objects.
+/// Serializes live rows in a [`RowOrder`] as a JSON array of objects.
+///
+/// Tombstoned rows are excluded because they are logically deleted.
 ///
 /// # Errors
 ///
 /// Returns [`FormatError::NonFiniteFloat`] for NaN or infinity, or a JSON writer
 /// error.
 pub fn row_order_to_json(order: &RowOrder<'_>) -> Result<String, FormatError> {
-    rows_to_json(order.table(), order.positions().iter().copied())
+    let table = order.table();
+    rows_to_json(
+        table,
+        order
+            .positions()
+            .iter()
+            .copied()
+            .filter(|&row| !table.row_is_tombstoned(row)),
+    )
 }
 
-/// Serializes a table as RFC 4180-style CSV.
+/// Serializes a table's live rows as RFC 4180-style CSV.
 ///
 /// When `headers` is true, primary column names form the first record. Nulls are
 /// empty fields. Strings are quoted by the `csv` crate when required; bytes are
-/// lowercase hex and UUIDs use canonical text.
+/// lowercase hex and UUIDs use canonical text. Tombstoned rows are excluded
+/// because they are logically deleted.
 ///
 /// # Errors
 ///
@@ -135,7 +151,7 @@ pub fn table_to_csv(table: &Table, headers: bool) -> Result<String, FormatError>
     if headers {
         writer.write_record(table.schema().iter().map(crate::ColumnSpec::name))?;
     }
-    for row in table.rows() {
+    for row in table.live_rows() {
         for value in row.iter() {
             write_csv_value(&mut writer, value)?;
         }

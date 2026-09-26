@@ -28,6 +28,9 @@ Several apparent omissions are instead folded into a smaller Rust API:
   opts a schema into safe row-local dynamic values. See [Tables](tables.md).
 - C++ table indexes map to an equality `ColumnIndex` and stable `RowOrder`, described
   in [Indexes and row ordering](indexes.md).
+- C++ row state words and `tag_meta` scans map to lazily allocated tombstones plus
+  `live_rows`, `RowOrder::live_rows`, and tombstone-aware `ColumnIndex`, described in
+  [Tables and schemas](tables.md) and [Indexes and row ordering](indexes.md).
 - The custom expression compiler maps to bounded Rhai programs in
   [Expressions](expressions.md).
 

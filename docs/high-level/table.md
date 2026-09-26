@@ -12,6 +12,7 @@ flowchart TD
     Table --> C1["nullable: Vec&lt;Option&lt;T1&gt;&gt;"]
     Table --> CN["required or nullable typed column"]
     Table --> Extras["optional Box&lt;RowExtras&gt; per row"]
+    Table --> Tombstones["optional tombstone flags\nallocated on first deletion"]
     Table --> Properties["table-wide Arguments properties"]
     Table -->|"immutable borrow"| Index["ColumnIndex\ntyped AHashMap&lt;key, rows&gt;"]
     Table -->|"immutable borrow"| Order["RowOrder\nstable Vec&lt;row position&gt;"]
@@ -231,6 +232,35 @@ validation guarantee that every committed row contains a value. Nullable columns
 A separate validity bitmap could reduce nullable-column memory, but would add another
 allocation and more indexing logic. The public API exposes dense required values as a
 slice, not the internal storage enum, so nullable representation can still change.
+
+## Tombstoned rows
+
+A row can be logically deleted without being removed. `tombstone_row` records one
+flag at the row's physical position, so the payload, the schema, and every other row
+position stay unchanged. `restore_row` clears one flag and `restore_all_rows` clears
+every flag at once. The flag vector is allocated on the first tombstone and released
+when no tombstoned row remains, so tables that never delete a row pay no metadata
+cost. Deletion and restoration are O(1).
+
+Physical and live views are deliberately separate:
+
+- `row_count`, `rows`, `cell`, `set_cell`, `row_mut`, and the debug helpers remain
+  physical; a tombstoned row keeps its payload and can still be read, written, or
+  inspected;
+- `live_row_count` and `live_rows` exclude tombstoned rows; `Row::is_tombstoned` and
+  `tombstoned_rows` expose the metadata directly;
+- `ColumnIndex` excludes tombstoned rows from keys, null rows, and distinct-key counts,
+  and reports their positions through `ColumnIndex::tombstoned_rows`;
+- `RowOrder::positions` covers every physical row while `RowOrder::live_rows` skips
+  tombstoned rows;
+- `table_to_json`, `table_to_csv`, and `row_order_to_json` omit tombstoned rows because
+  they serialize logical content.
+
+Row-selection copies carry flags with the selected positions: `copy_range` and
+`copy_rows`, including their parallel variants, keep copied rows in their original
+logical state while sharing the immutable schema. `pop_row` removes the last physical
+row whether or not it is tombstoned. `ConcurrentTableBuilder` publishes live rows, and
+`append_to` preserves the destination table's existing tombstones.
 
 ## Typed bulk column operations
 
@@ -461,6 +491,8 @@ comparisons and may move complete rows after comparisons.
 | unknown row-field lookup | O(name length + extras) through four fields; expected O(name length) after promotion | none per lookup |
 | append complete row | O(columns) | payload ownership only |
 | append row with extras | expected O(columns + extras) | owned extra names and values |
+| tombstone or restore one row | O(1) | flag vector allocation on first tombstone only |
+| iterate live rows | O(rows) | none |
 | pop last row | O(columns) | none |
 | column scan | O(rows) | none |
 | build column index | O(rows) | O(rows) |

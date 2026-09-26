@@ -14,6 +14,7 @@ contract.
 | Table input conversion | call-site `tag_convert` attempts broad runtime coercion | strict by default; named per-column converters opt in at schema boundaries | intentional API difference; implemented |
 | Table properties | mutable argument-backed property bag | uniquely named insertion-ordered `Arguments` owned by each table | implemented |
 | Unknown table fields | argument-backed tables redirect unknown names to per-row dynamic storage | strict by default; `UnknownFields::Store` enables lazy owned row extras | implemented |
+| Row status | packed per-row state words with caller-managed use/deleted flags and optional `tag_meta` scanning | lazily allocated tombstone flags at stable physical positions; live views, indexes, ordering, and formatting exclude them, while cell access and diagnostics stay physical | intentional API difference; implemented |
 | Empty null-enabled row | cells marked non-null with uninitialized fixed payloads | null must be explicit; non-null columns reject null | intentionally rejected |
 | Column name lengths | unaligned `uint16_t` pointer casts | normal string containers | C++ defect retained; Rust avoids it |
 | Table index miss | lower-bound result accepted without equality | exact equality required | C++ defect characterized; Rust exact |

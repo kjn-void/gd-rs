@@ -352,6 +352,7 @@ pub struct RowMut<'a> {
     cells: SmallVec<[CellMut<'a>; 8]>,
     extras: RowExtrasMut<'a>,
     position: usize,
+    tombstoned: bool,
 }
 
 impl fmt::Debug for RowMut<'_> {
@@ -360,6 +361,7 @@ impl fmt::Debug for RowMut<'_> {
             .debug_struct("RowMut")
             .field("position", &self.position)
             .field("len", &self.cells.len())
+            .field("tombstoned", &self.tombstoned)
             .finish_non_exhaustive()
     }
 }
@@ -369,6 +371,15 @@ impl RowMut<'_> {
     #[must_use]
     pub const fn position(&self) -> usize {
         self.position
+    }
+
+    /// Returns whether this physical row is tombstoned.
+    ///
+    /// Tombstoning is metadata and does not lock cell writes; structural changes
+    /// such as [`Table::tombstone_row`] require the table itself.
+    #[must_use]
+    pub const fn is_tombstoned(&self) -> bool {
+        self.tombstoned
     }
 
     /// Returns the number of fixed-schema cells.
@@ -449,6 +460,7 @@ pub struct RowsMut<'a> {
     schema: &'a Schema,
     columns: Vec<ColumnRangeMut<'a>>,
     extras: ExtrasRangeMut<'a>,
+    tombstones: Option<&'a [bool]>,
     start: usize,
     len: usize,
 }
@@ -495,11 +507,17 @@ impl RowsMut<'_> {
             .map(|column| column.cell_mut(row))
             .collect();
         let extras = self.extras.row_mut(row)?;
+        let tombstoned = self
+            .tombstones
+            .and_then(|flags| flags.get(row))
+            .copied()
+            .unwrap_or(false);
         Some(RowMut {
             schema: self.schema,
             cells: cells?,
             extras,
             position: self.start + row,
+            tombstoned,
         })
     }
 
@@ -519,11 +537,19 @@ impl RowsMut<'_> {
             right_columns.push(right);
         }
         let (left_extras, right_extras) = self.extras.split_at(mid);
+        let (left_tombstones, right_tombstones) = match self.tombstones {
+            Some(flags) => {
+                let (left, right) = flags.split_at(mid);
+                (Some(left), Some(right))
+            }
+            None => (None, None),
+        };
         (
             Self {
                 schema: self.schema,
                 columns: left_columns,
                 extras: left_extras,
+                tombstones: left_tombstones,
                 start: self.start,
                 len: mid,
             },
@@ -531,6 +557,7 @@ impl RowsMut<'_> {
                 schema: self.schema,
                 columns: right_columns,
                 extras: right_extras,
+                tombstones: right_tombstones,
                 start: self.start + mid,
                 len: self.len - mid,
             },
@@ -605,14 +632,16 @@ impl Table {
             cells: cells?,
             extras,
             position: row,
+            tombstoned: self.tombstones.is_tombstoned(row),
         })
     }
 
     /// Borrows all rows mutably as a safely splittable range.
     ///
-    /// [`RowsMut::split_at`] partitions every column and the optional open-schema
-    /// sidecar at the same row boundary, so the resulting ranges can be sent to
-    /// separate scoped threads without locks or overlapping mutable references.
+    /// [`RowsMut::split_at`] partitions every column, the optional open-schema
+    /// sidecar, and the tombstone flags at the same row boundary, so the
+    /// resulting ranges can be sent to separate scoped threads without locks or
+    /// overlapping mutable references.
     #[must_use]
     pub fn rows_mut(&mut self) -> RowsMut<'_> {
         RowsMut {
@@ -623,6 +652,7 @@ impl Table {
                 .map(ColumnStorage::row_range_mut)
                 .collect(),
             extras: self.extras.row_range_mut(),
+            tombstones: self.tombstones.flags(),
             start: 0,
             len: self.row_count,
         }

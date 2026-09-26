@@ -74,7 +74,9 @@ assert_eq!(
 
 Each row becomes an object whose keys are primary schema names, in schema order.
 `row_order_to_json` emits the same representation while following a `RowOrder` rather
-than physical insertion order.
+than physical insertion order. Tombstoned rows are logically deleted and are therefore
+omitted from both functions. Use `table_debug::print` or the physical row APIs when
+retained tombstoned data must be inspected.
 
 ## Tables as CSV
 
@@ -100,7 +102,8 @@ assert_eq!(
 
 The Boolean parameter controls whether primary column names are written as a header.
 The `csv` crate handles quoting and line endings. Null is an empty field, bytes are
-lower-case hexadecimal, and UUIDs use canonical text.
+lower-case hexadecimal, and UUIDs use canonical text. Tombstoned rows are omitted
+because they are logically deleted.
 
 These functions serialize complete in-memory values. Streaming output, parsing CSV,
 custom callback formatting, SQL literals, and a CLI renderer are not current public

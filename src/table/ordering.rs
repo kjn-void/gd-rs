@@ -102,7 +102,8 @@ fn compare_optional<T>(
 ///
 /// The borrow prevents mutation from invalidating positions while the order is
 /// used. Creating the view allocates one `usize` per row; iterating it does not
-/// allocate.
+/// allocate. The permutation covers every physical row, including tombstoned
+/// rows; use [`RowOrder::live_rows`] for the live ordered view.
 #[derive(Clone, Debug)]
 pub struct RowOrder<'a> {
     pub(super) table: &'a Table,
@@ -135,11 +136,25 @@ impl<'a> RowOrder<'a> {
     }
 
     /// Iterates over borrowing row views in key order.
+    ///
+    /// Every physical row is yielded, including tombstoned rows.
     #[must_use]
     pub fn rows(&self) -> impl ExactSizeIterator<Item = Row<'a>> + DoubleEndedIterator + '_ {
         self.positions.iter().copied().map(|row| Row {
             table: self.table,
             row,
         })
+    }
+
+    /// Iterates over live rows in key order, skipping tombstoned rows.
+    pub fn live_rows(&self) -> impl Iterator<Item = Row<'a>> + '_ {
+        self.positions
+            .iter()
+            .copied()
+            .filter(|&row| !self.table.row_is_tombstoned(row))
+            .map(|row| Row {
+                table: self.table,
+                row,
+            })
     }
 }
