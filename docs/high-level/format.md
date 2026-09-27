@@ -1,7 +1,7 @@
 # Interchange formats
 
 The `format` module serializes arguments and tables without exposing their storage
-layouts. JSON uses `serde_json`; CSV record rules use `csv`; URI components reuse the
+layouts, and `format_import` reads the table formats back into a `Table`. JSON uses `serde_json`; CSV record rules use `csv`; URI components reuse the
 text module's percent encoder.
 
 ## Representability
@@ -45,6 +45,24 @@ buffers, avoiding one heap allocation per numeric cell.
 
 Both table writers stream directly into one output buffer and use **O(output size)**
 space. They do not build an intermediate JSON tree or a vector of fields per row.
+
+## Table input
+
+`table_from_json(schema, json)` and `table_from_csv(schema, csv, headers)` rebuild a
+table from those representations. The formats carry no types, so the caller supplies
+the schema; the reader decodes each field as its column type and then appends the row
+through the same validation, conversion, and extras rules as `push_row`.
+
+The JSON reader walks the input with a `serde` visitor instead of building a
+`serde_json::Value` tree. Each field is taken as a borrowed raw JSON slice and parsed
+from its text, so `u64::MAX` and every finite `f32`/`f64` round-trip exactly and
+repeated keys are detected rather than silently collapsed. The CSV reader uses the
+`csv` crate's record parser. Both readers keep only the current row outside the
+table, so extra space is **O(row width)** beyond the table itself.
+
+Round trips are exact except where CSV is ambiguous: an empty field is both null and
+the empty string or byte sequence, and it reads as the empty value only in a required
+column of those types. Tombstones and table properties are not part of either format.
 
 ## Value mapping
 

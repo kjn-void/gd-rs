@@ -16,7 +16,7 @@ than being assigned fictional Rust equivalents.
 - [Arguments](arguments.md)
 - [Tables and schemas](tables.md)
 - [Table indexes and row ordering](indexes.md)
-- [JSON, URI, and CSV formatting](formatting.md)
+- [JSON, URI, and CSV formatting and table import](formatting.md)
 - [UTF and text boundaries](text.md)
 - [Expressions and scripts](expressions.md)
 - [SQLite integration](sqlite.md)
@@ -40,7 +40,7 @@ with `use gd::{...}` rather than naming private implementation modules.
 | per-row argument table | [tables](tables.md) | opt-in open schemas store unknown names in safe row-local extras |
 | row status and deleted rows | [tables](tables.md) | lazily allocated tombstones retain rows at stable positions; live views, indexes, ordering, and formatting exclude them; `compact` removes them |
 | table index | [indexes](indexes.md) | `ColumnIndex` uses hashing rather than sorted vectors |
-| table I/O | [formatting](formatting.md) | JSON and CSV retained; unsupported formats documented |
+| table I/O | [formatting](formatting.md) | JSON and CSV output and schema-driven import; unsupported formats documented |
 | UTF-8 utilities | [text](text.md) | standard Rust text operations plus GD-specific boundaries |
 | expression runtime | [expressions](expressions.md) | Rhai-backed compiler and evaluator |
 | SQLite database wrapper | [SQLite](sqlite.md) | narrow `rusqlite` adapter |

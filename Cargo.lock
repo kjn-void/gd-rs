@@ -377,6 +377,7 @@ dependencies = [
  "rhai",
  "rusqlite",
  "ryu",
+ "serde",
  "serde_json",
  "smallvec",
  "thiserror",

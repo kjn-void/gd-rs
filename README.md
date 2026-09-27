@@ -25,7 +25,8 @@ The implemented core currently provides:
 - bounds-checked binary cursors, hex conversion, and byte search;
 - UTF boundaries plus JSON, URI-component, and XML text conversion;
 - compile-once expressions and scripts with bounded execution;
-- loss-aware argument and table JSON, URI, and CSV formatting;
+- loss-aware argument and table JSON, URI, and CSV formatting, with schema-driven
+  table import from JSON and CSV;
 - checked SQLite parameter binding and typed-table materialization;
 - checked-in C++ Google Benchmark references built against the sibling GD tree;
 - Rust integration/property tests and Criterion benchmarks.

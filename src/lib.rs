@@ -12,6 +12,7 @@ mod arguments;
 mod binary;
 mod expression;
 mod format;
+mod format_import;
 #[cfg(feature = "sqlite")]
 mod sqlite;
 mod table;
@@ -28,6 +29,7 @@ pub use format::{
     FormatError, arguments_to_json, arguments_to_uri, row_order_to_json, table_to_csv,
     table_to_json,
 };
+pub use format_import::{ImportError, table_from_csv, table_from_json};
 #[cfg(feature = "sqlite")]
 pub use sqlite::{
     SqliteConnection, SqliteDatabase, SqliteEngineError, SqliteError, SqliteStorageClass,

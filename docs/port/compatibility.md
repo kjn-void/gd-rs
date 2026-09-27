@@ -33,6 +33,7 @@ contract.
 | Argument URI | stale escape buffer corrupts fields | independent percent-encoded pairs; duplicates preserved | C++ defect characterized; Rust implemented |
 | Table JSON | alternating columns skipped; no outer array | complete array of objects | C++ defect characterized; Rust implemented |
 | Table CSV | comma inserted between records | `csv` crate record semantics | C++ defect characterized; Rust implemented |
+| Table import | CSV `read_g` into a prepared table; no JSON table reader; binary dump restores raw buffers | `table_from_json` and `table_from_csv` with a caller-supplied schema, exact numeric round trips, and full row validation | intentional API difference; implemented |
 | Expression representation | token vectors, postfix stack, and manually tagged values | Rhai AST plus `Value` boundary | intentional API difference; implemented |
 | Formula syntax | project tokenizer with keyword aliases and postfix helpers | Rhai expression grammar and precedence | intentional language difference |
 | Script syntax | custom `begin`/`end` and partial Lua translation | brace-delimited Rhai control flow | intentional language difference |

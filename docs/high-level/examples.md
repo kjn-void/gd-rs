@@ -632,6 +632,7 @@ formats.
 | destructive `table.sort(...)` | borrowing `table.row_order_named(...)` |
 | `table.row_set_state(row, eRowStateDeleted, eRowStateUse)` | `table.tombstone_row(row)?` |
 | `table.find_first_free_row()` followed by overwriting that row | `table.compact()` then `table.push_row([...])?`; slots are not reused |
+| `gd::table::read_g(table, csv, ',', '\n', tag_io_csv)` into a prepared table | `table_from_csv(schema, csv, headers)?` |
 
 See [dynamic values](value.md), [arguments](arguments.md), and [tables](table.md) for
 the complete contracts and complexity notes. Intentional behavior differences are

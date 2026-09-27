@@ -621,6 +621,25 @@ impl Table {
         Ok(self.push_validated_row(values))
     }
 
+    /// Appends one runtime-width row with owned row-local extras.
+    ///
+    /// Validation matches [`Table::push_row_with_extras`]; no column changes when
+    /// any value or extra is rejected.
+    pub(crate) fn push_row_vec_with_extras(
+        &mut self,
+        mut values: Vec<Value>,
+        extras: Vec<(CompactString, Value)>,
+    ) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
+        if extras.is_empty() {
+            return Ok(self.push_validated_row(values));
+        }
+        let extras = collect_extras(self.schema(), extras)?;
+        let row = self.push_validated_row(values);
+        self.extras.set(row, extras);
+        Ok(row)
+    }
+
     fn push_validated_row(&mut self, values: impl IntoIterator<Item = Value>) -> usize {
         let row = self.row_count;
         for (storage, value) in self.columns.iter_mut().zip(values) {
