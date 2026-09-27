@@ -38,7 +38,7 @@ with `use gd::{...}` rather than naming private implementation modules.
 | member table | [tables](tables.md) | consolidated into `Table` |
 | DTO table | [tables](tables.md) | consolidated into `Table` |
 | per-row argument table | [tables](tables.md) | opt-in open schemas store unknown names in safe row-local extras |
-| row status and deleted rows | [tables](tables.md) | lazily allocated tombstones retain rows at stable positions; live views, indexes, ordering, and formatting exclude them |
+| row status and deleted rows | [tables](tables.md) | lazily allocated tombstones retain rows at stable positions; live views, indexes, ordering, and formatting exclude them; `compact` removes them |
 | table index | [indexes](indexes.md) | `ColumnIndex` uses hashing rather than sorted vectors |
 | table I/O | [formatting](formatting.md) | JSON and CSV retained; unsupported formats documented |
 | UTF-8 utilities | [text](text.md) | standard Rust text operations plus GD-specific boundaries |

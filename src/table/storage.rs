@@ -135,6 +135,12 @@ impl ExtrasStorage {
         }
     }
 
+    pub(super) fn retain_live(&mut self, tombstoned: &[bool]) {
+        if let Self::Enabled(rows) = self {
+            retain_live(rows, tombstoned);
+        }
+    }
+
     pub(super) fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
         match self {
             Self::Disabled => Self::Disabled,
@@ -232,6 +238,21 @@ impl<T> ColumnData<T> {
             Self::Nullable(values) => drop(values.pop()),
         }
     }
+
+    fn retain_live(&mut self, tombstoned: &[bool]) {
+        match self {
+            Self::Required(values) => retain_live(values, tombstoned),
+            Self::Nullable(values) => retain_live(values, tombstoned),
+        }
+    }
+}
+
+/// Keeps the elements whose position is not flagged, preserving order and capacity.
+fn retain_live<T>(values: &mut Vec<T>, tombstoned: &[bool]) {
+    debug_assert_eq!(values.len(), tombstoned.len());
+    let mut flags = tombstoned.iter();
+    // `Vec::retain` visits every element exactly once in original order.
+    values.retain(|_| !flags.next().copied().unwrap_or(false));
 }
 
 impl<T: Clone> ColumnData<T> {
@@ -444,6 +465,26 @@ impl ColumnStorage {
             Self::String(values) => values.pop(),
             Self::Bytes(values) => values.pop(),
             Self::Uuid(values) => values.pop(),
+        }
+    }
+
+    pub(super) fn retain_live(&mut self, tombstoned: &[bool], removed_count: usize) {
+        match self {
+            Self::Null(len) => *len -= removed_count,
+            Self::Bool(values) => values.retain_live(tombstoned),
+            Self::I8(values) => values.retain_live(tombstoned),
+            Self::I16(values) => values.retain_live(tombstoned),
+            Self::I32(values) => values.retain_live(tombstoned),
+            Self::I64(values) => values.retain_live(tombstoned),
+            Self::U8(values) => values.retain_live(tombstoned),
+            Self::U16(values) => values.retain_live(tombstoned),
+            Self::U32(values) => values.retain_live(tombstoned),
+            Self::U64(values) => values.retain_live(tombstoned),
+            Self::F32(values) => values.retain_live(tombstoned),
+            Self::F64(values) => values.retain_live(tombstoned),
+            Self::String(values) => values.retain_live(tombstoned),
+            Self::Bytes(values) => values.retain_live(tombstoned),
+            Self::Uuid(values) => values.retain_live(tombstoned),
         }
     }
 

@@ -601,6 +601,45 @@ untouched.
 `table_debug::print` and related helpers remain physical so retained data stays
 inspectable.
 
+### Compacting tombstoned rows
+
+`compact` physically removes every tombstoned row. Surviving rows keep their relative
+order and move down to close the gaps, so positions after the first removed row
+change. The returned `RowCompaction` translates positions recorded before the call:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([ColumnSpec::new("id", DataType::U64)]).unwrap();
+let mut table = Table::new(schema);
+for id in 0_u64..5 {
+    table.push_row([Value::U64(id)]).unwrap();
+}
+table.tombstone_row(1).unwrap();
+table.tombstone_row(3).unwrap();
+
+let compaction = table.compact();
+assert_eq!(compaction.removed_rows(), &[1, 3]);
+assert_eq!(compaction.new_position(0), Some(0));
+assert_eq!(compaction.new_position(1), None); // removed
+assert_eq!(compaction.new_position(4), Some(2));
+
+assert_eq!(table.row_count(), 3);
+assert_eq!(table.tombstone_count(), 0);
+assert_eq!(table.cell(2, 0), Ok(ValueRef::U64(4)));
+```
+
+Compaction is final: removed rows cannot be restored. Row-local extras move with their
+rows, table properties are unchanged, and column capacity is retained. Without
+tombstones, `compact` returns an empty mapping without touching column storage.
+`ColumnIndex` and `RowOrder` borrow the table, so none can survive compaction; rebuild
+them afterwards. `RowCompaction::new_position` is a binary search over the removed
+positions, and `previous_row_count` reports the physical row count before the call.
+
+gd-rs deliberately provides compaction instead of reusing tombstoned slots. Reusing a
+slot would silently give an old position a different row and would end restorability
+implicitly; compaction makes both changes explicit in one call and keeps columns dense.
+
 `row_mut` provides the same checked mutation through one borrowing row view. This is
 useful when one operation reads or changes several differently typed fields:
 

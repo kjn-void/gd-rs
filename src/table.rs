@@ -1,5 +1,6 @@
 //! Schema-driven typed column storage.
 
+mod compaction;
 mod concurrent;
 pub mod debug;
 mod index;
@@ -10,6 +11,7 @@ mod storage;
 mod tombstones;
 mod views;
 
+pub use compaction::RowCompaction;
 pub use concurrent::ConcurrentTableBuilder;
 pub use index::{ColumnIndex, IndexKeyRef};
 pub use ordering::{NullOrder, RowOrder, SortDirection};
@@ -146,7 +148,7 @@ pub enum ColumnSelectionError {
 /// the first deletion and released when no tombstoned row remains. Use
 /// [`Table::live_rows`], [`Table::live_row_count`], and the index and formatting
 /// APIs to work with the live view, or the physical row APIs to inspect retained
-/// data.
+/// data. [`Table::compact`] physically removes tombstoned rows.
 #[derive(Clone, Debug)]
 pub struct Table {
     schema: Arc<Schema>,
@@ -350,6 +352,60 @@ impl Table {
     /// Iterates over tombstoned physical row positions in ascending order.
     pub fn tombstoned_rows(&self) -> impl Iterator<Item = usize> + '_ {
         self.tombstones.iter_tombstoned()
+    }
+
+    /// Physically removes every tombstoned row and returns the position mapping.
+    ///
+    /// Surviving rows keep their relative order and shift down to close the gaps,
+    /// so later positions change; use [`RowCompaction::new_position`] to translate
+    /// positions recorded before compaction. Removed rows cannot be restored
+    /// afterwards. Column capacity is retained, and table properties are
+    /// unchanged. Indexes and row orders built earlier cannot exist across this
+    /// call because they borrow the table; rebuild them afterwards.
+    ///
+    /// Without tombstones this returns an empty mapping without touching column
+    /// storage. Otherwise it is O(rows × columns) and moves each surviving value
+    /// at most once.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+    ///
+    /// let schema = Schema::new([ColumnSpec::new("id", DataType::U64)]).unwrap();
+    /// let mut table = Table::new(schema);
+    /// for id in 0_u64..5 {
+    ///     table.push_row([Value::U64(id)]).unwrap();
+    /// }
+    /// table.tombstone_row(1).unwrap();
+    /// table.tombstone_row(3).unwrap();
+    ///
+    /// let compaction = table.compact();
+    /// assert_eq!(compaction.removed_rows(), &[1, 3]);
+    /// assert_eq!(compaction.new_position(1), None);
+    /// assert_eq!(compaction.new_position(4), Some(2));
+    /// assert_eq!(table.row_count(), 3);
+    /// assert_eq!(table.cell(2, 0), Ok(ValueRef::U64(4)));
+    /// ```
+    pub fn compact(&mut self) -> RowCompaction {
+        let previous_row_count = self.row_count;
+        let removed = std::mem::take(&mut self.tombstones);
+        let Some(flags) = removed.flags() else {
+            return RowCompaction::new(Vec::new(), previous_row_count);
+        };
+        let removed_count = removed.count();
+        for column in &mut self.columns {
+            column.retain_live(flags, removed_count);
+        }
+        self.extras.retain_live(flags);
+        self.row_count -= removed_count;
+        debug_assert!(
+            self.columns
+                .iter()
+                .all(|column| column.len() == self.row_count)
+        );
+        debug_assert!(self.extras.len_matches(self.row_count));
+        RowCompaction::new(removed.iter_tombstoned().collect(), previous_row_count)
     }
 
     pub(crate) fn row_is_tombstoned(&self, row: usize) -> bool {

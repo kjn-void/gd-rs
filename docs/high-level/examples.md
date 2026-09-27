@@ -631,6 +631,7 @@ formats.
 | `table.cell_get_variant_view(row, name)` | `table.cell_named(row, name)?` |
 | destructive `table.sort(...)` | borrowing `table.row_order_named(...)` |
 | `table.row_set_state(row, eRowStateDeleted, eRowStateUse)` | `table.tombstone_row(row)?` |
+| `table.find_first_free_row()` followed by overwriting that row | `table.compact()` then `table.push_row([...])?`; slots are not reused |
 
 See [dynamic values](value.md), [arguments](arguments.md), and [tables](table.md) for
 the complete contracts and complexity notes. Intentional behavior differences are

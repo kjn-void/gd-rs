@@ -1228,6 +1228,121 @@ fn indexes_and_live_ordering_skip_tombstoned_rows() {
 }
 
 #[test]
+fn compact_removes_tombstoned_rows_and_maps_positions() {
+    let mut table = Table::new(people_schema().with_unknown_fields(UnknownFields::Store));
+    for (id, name, score) in [
+        (0, "Ada", Value::I32(10)),
+        (1, "Grace", Value::Null),
+        (2, "Linus", Value::I32(30)),
+        (3, "Barbara", Value::Null),
+        (4, "Edsger", Value::I32(50)),
+    ] {
+        table
+            .push_row([Value::U64(id), Value::from(name), score])
+            .unwrap();
+    }
+    table.set_named(2, "note", "moves with row 2").unwrap();
+    table.set_named(3, "note", "removed with row 3").unwrap();
+    assert_eq!(table.set_property("source", "test"), None);
+    table.tombstone_row(1).unwrap();
+    table.tombstone_row(3).unwrap();
+
+    let compaction = table.compact();
+    assert_eq!(compaction.removed_rows(), &[1, 3]);
+    assert_eq!(compaction.removed_count(), 2);
+    assert!(!compaction.is_empty());
+    assert_eq!(compaction.previous_row_count(), 5);
+    let mapped: Vec<_> = (0..6).map(|row| compaction.new_position(row)).collect();
+    assert_eq!(mapped, [Some(0), None, Some(1), None, Some(2), None]);
+
+    assert_eq!(table.row_count(), 3);
+    assert_eq!(table.live_row_count(), 3);
+    assert_eq!(table.tombstone_count(), 0);
+    assert_eq!(table.tombstoned_rows().next(), None);
+    assert_eq!(
+        table.column(0).unwrap().as_slice::<u64>().unwrap(),
+        &[0, 2, 4]
+    );
+    assert_eq!(table.cell_named(1, "name"), Ok(ValueRef::String("Linus")));
+    assert_eq!(table.cell(1, 2), Ok(ValueRef::I32(30)));
+    assert_eq!(
+        table.cell_named(1, "note"),
+        Ok(ValueRef::String("moves with row 2"))
+    );
+    assert_eq!(
+        table.cell_named(2, "note"),
+        Err(TableError::ColumnNotFound("note".into()))
+    );
+    assert_eq!(table.property("source"), Some(ValueRef::String("test")));
+
+    // The compacted table keeps working as an ordinary table.
+    let row = table
+        .push_row([Value::U64(5), Value::from("Frances"), Value::Null])
+        .unwrap();
+    assert_eq!(row, 3);
+    assert!(table.tombstone_row(0).unwrap());
+    assert_eq!(table.compact().removed_rows(), &[0]);
+    assert_eq!(
+        table.column(0).unwrap().as_slice::<u64>().unwrap(),
+        &[2, 4, 5]
+    );
+}
+
+#[test]
+fn compact_without_tombstones_changes_nothing() {
+    let mut table = Table::new(people_schema());
+    for id in 0_u64..3 {
+        table
+            .push_row([Value::U64(id), Value::from("row"), Value::Null])
+            .unwrap();
+    }
+    table.tombstone_row(1).unwrap();
+    table.restore_row(1).unwrap();
+
+    let compaction = table.compact();
+    assert!(compaction.is_empty());
+    assert_eq!(compaction.removed_rows(), &[] as &[usize]);
+    assert_eq!(compaction.previous_row_count(), 3);
+    assert_eq!(compaction.new_position(2), Some(2));
+    assert_eq!(compaction.new_position(3), None);
+    assert_eq!(table.row_count(), 3);
+    assert_eq!(
+        table.column(0).unwrap().as_slice::<u64>().unwrap(),
+        &[0, 1, 2]
+    );
+
+    let mut empty = Table::new(people_schema());
+    assert!(empty.compact().is_empty());
+    assert!(empty.is_empty());
+}
+
+#[test]
+fn compacting_every_row_leaves_an_empty_table() {
+    let schema = Schema::new([
+        ColumnSpec::new("nothing", DataType::Null),
+        ColumnSpec::new("id", DataType::U64),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    for id in 0_u64..4 {
+        table.push_row([Value::Null, Value::U64(id)]).unwrap();
+    }
+    for row in 0..4 {
+        table.tombstone_row(row).unwrap();
+    }
+
+    let compaction = table.compact();
+    assert_eq!(compaction.removed_rows(), &[0, 1, 2, 3]);
+    assert!(table.is_empty());
+    assert_eq!(table.column(0).unwrap().len(), 0);
+    assert_eq!(table.column(1).unwrap().len(), 0);
+
+    table.push_row([Value::Null, Value::U64(9)]).unwrap();
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::Null));
+    assert_eq!(table.cell(0, 1), Ok(ValueRef::U64(9)));
+}
+
+#[test]
 fn mutable_row_views_report_tombstoned_status() {
     let mut table = Table::new(people_schema());
     for id in 0_u64..3 {
@@ -1303,6 +1418,47 @@ fn parallel_copies_preserve_tombstone_flags() {
 }
 
 proptest! {
+    #[test]
+    fn compact_keeps_exactly_the_live_rows(
+        rows in prop::collection::vec((any::<i64>(), any::<bool>()), 0..256)
+    ) {
+        let schema = Schema::new([
+            ColumnSpec::new("value", DataType::I64),
+            ColumnSpec::new("maybe", DataType::I64).nullable(true),
+        ])
+        .unwrap();
+        let mut table = Table::new(schema);
+        for (row, (value, _)) in rows.iter().enumerate() {
+            let maybe = if row % 3 == 0 { Value::Null } else { Value::I64(*value) };
+            table.push_row([Value::I64(*value), maybe]).unwrap();
+        }
+        for (row, (_, tombstoned)) in rows.iter().enumerate() {
+            if *tombstoned {
+                table.tombstone_row(row).unwrap();
+            }
+        }
+        let before: Vec<_> = table
+            .live_rows()
+            .map(|row| (row.position(), row.get(0).unwrap(), row.get(1).unwrap()))
+            .map(|(position, value, maybe)| (position, value.to_owned(), maybe.to_owned()))
+            .collect();
+
+        let compaction = table.compact();
+
+        prop_assert_eq!(table.row_count(), before.len());
+        prop_assert_eq!(table.tombstone_count(), 0);
+        prop_assert_eq!(compaction.removed_count(), rows.len() - before.len());
+        for (new_position, (old_position, value, maybe)) in before.iter().enumerate() {
+            prop_assert_eq!(compaction.new_position(*old_position), Some(new_position));
+            prop_assert_eq!(table.cell(new_position, 0).unwrap().to_owned(), value.clone());
+            prop_assert_eq!(table.cell(new_position, 1).unwrap().to_owned(), maybe.clone());
+        }
+        for &removed in compaction.removed_rows() {
+            prop_assert!(rows[removed].1);
+            prop_assert_eq!(compaction.new_position(removed), None);
+        }
+    }
+
     #[test]
     fn typed_column_round_trips(values in prop::collection::vec(any::<i64>(), 0..512)) {
         let schema = Schema::new([ColumnSpec::new("value", DataType::I64)]).unwrap();

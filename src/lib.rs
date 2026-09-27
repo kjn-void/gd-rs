@@ -36,8 +36,8 @@ pub use table::debug as table_debug;
 pub use table::{
     Column, ColumnConversionError, ColumnConverter, ColumnElement, ColumnIndex, ColumnMut,
     ColumnSelectionError, ColumnSliceError, ColumnSpec, ConcurrentTableBuilder, IndexKeyRef,
-    NullOrder, Row, RowMut, RowOrder, RowsMut, Schema, SortDirection, Table, TableError,
-    UnknownFields,
+    NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut, Schema, SortDirection, Table,
+    TableError, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

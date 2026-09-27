@@ -262,6 +262,13 @@ logical state while sharing the immutable schema. `pop_row` removes the last phy
 row whether or not it is tombstoned. `ConcurrentTableBuilder` publishes live rows, and
 `append_to` preserves the destination table's existing tombstones.
 
+`compact` is the only way to reclaim tombstoned rows. It removes them from every
+column and from the extras sidecar in one order-preserving pass, clears the tombstone
+metadata, and returns a `RowCompaction` that maps pre-compaction positions to their new
+positions. Tombstoned slots are never reused by appends: a reused slot would make a
+position recorded earlier silently name another row, and it would discard a restorable
+row without an explicit request.
+
 ## Typed bulk column operations
 
 `Column::as_slice::<T>` checks the runtime schema type and nullability once, then
@@ -493,6 +500,7 @@ comparisons and may move complete rows after comparisons.
 | append row with extras | expected O(columns + extras) | owned extra names and values |
 | tombstone or restore one row | O(1) | flag vector allocation on first tombstone only |
 | iterate live rows | O(rows) | none |
+| compact tombstoned rows | O(rows × columns); O(1) without tombstones | removed-position list; column capacity retained |
 | pop last row | O(columns) | none |
 | column scan | O(rows) | none |
 | build column index | O(rows) | O(rows) |
