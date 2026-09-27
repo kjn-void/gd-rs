@@ -28,7 +28,8 @@ unchecked indexing, shifts, or typed pointer dereferences. Several hazards do
 not require exotic use: selecting a missing column by name, requesting the
 wrong template type, using a 64-bit value at a four-byte-aligned row offset,
 using more columns than the selected null bitmap supports, keeping a borrowed
-view across growth, or copying `gd::table::table` can result in UB.
+view across growth, copying `gd::table::table`, or copying an
+`arguments::table` that holds row-local extras can result in UB.
 
 | Area | Rust `Table` | C++ table family |
 | --- | --- | --- |
@@ -39,7 +40,7 @@ view across growth, or copying `gd::table::table` can result in UB.
 | Null state | `Option<T>` per nullable column | Fixed 32/64-bit masks; unchecked shift count |
 | View lifetime | Encoded in Rust lifetimes | Raw pointers and non-owning views can outlive or be invalidated by storage |
 | Schema ownership | Private, immutable, shared by `Arc` | Public/mutable metadata and manual, non-atomic reference counting |
-| Copying | Derived deep value copy plus safe `Arc` clone | `gd::table::table` omits a reference-count increment in its normal copy path |
+| Copying | Derived deep value copy plus safe `Arc` clone | `gd::table::table` omits a reference-count increment in its normal copy path; `arguments::table` also `memcpy`s row-extras handles without adding references |
 | Concurrent access | Rust `Send`/`Sync` and borrowing rules gate access | Public mutable state and non-atomic reference count require caller discipline |
 | Remaining crash surface | Documented panics, allocation failure, or user callback panic | Assertions, allocation failure, plus numerous UB paths |
 
@@ -275,6 +276,56 @@ order, this can also become a double release. The same omission exists in
 This issue does not apply to `table_column_buffer`, which owns its column vector
 directly; it is specific to the related internal table types and is one reason
 the C++ type family must not be treated as interchangeable.
+
+### 8. Copying row-local extras in `gd::table::arguments::table`
+
+Rust row-local extras are owned per row
+([`ExtrasStorage::Enabled`](../../src/table/storage.rs#L81) holds
+`Option<Box<RowExtras>>`), so a cloned or row-copied table receives an
+independent deep copy:
+
+```rust
+let mut second = first.clone();
+second.set_named(0, "note", "changed")?;
+drop(first);
+assert_eq!(second.cell_named(0, "note")?, ValueRef::String("changed"));
+```
+
+When `eTableFlagArguments` is set, the C++ arguments table stores a
+`gd::argument::shared::arguments` handle *in place* inside each row's metadata
+block. That handle is a single pointer to a manually reference-counted buffer.
+The full copy path duplicates the whole data-plus-metadata allocation with
+`memcpy` and never adds a reference for the copied handles:
+
+```cpp
+gd::table::arguments::table second;
+{
+    gd::table::arguments::table first( 10, gd::table::arguments::table::eTableFlagAll );
+    // ... add columns, prepare, add a row ...
+    first.cell_set_argument( 0, "note", "value" ); // row 0 gets a shared buffer
+    second = first;                                 // handle bytes copied, count unchanged
+} // first's destructor releases row 0's buffer
+
+auto args = second.row_get_arguments( 0 ); // dangling buffer: use-after-free UB
+```
+
+[`common_construct(const table&)`](../../../gd/source/gd_table_arguments.cpp#L276)
+and the `tag_body` copy
+([line 332](../../../gd/source/gd_table_arguments.cpp#L332)) `memcpy` the
+buffer returned by `size_reserved_total()`, which includes the per-row metadata
+where [`row_get_arguments_meta`](../../../gd/source/gd_table_arguments.h#L1310)
+places the handle. The copy constructor and copy assignment both reach this path
+([header](../../../gd/source/gd_table_arguments.h#L342)). Each table's
+[destructor](../../../gd/source/gd_table_arguments.cpp#L226) then calls
+[`erase_arguments_s`](../../../gd/source/gd_table_arguments.cpp#L4502), which
+runs [`buffer_delete`](../../../gd/source/gd_arguments_shared.h#L1693) and
+releases every row buffer. Every buffer is released once per table, even though
+it was referenced only once, so destroying the second table is a double
+release. This is separate from the missing `m_pcolumns` increment in section 7:
+fixing only the column reference count still leaves the rows unsafe to copy.
+
+This finding comes from reading the source; it has not been reproduced under a
+sanitizer.
 
 ## Other safety-relevant differences
 
@@ -532,7 +583,9 @@ crash after an otherwise ordinary `SELECT text_column ...` to table import.
    mutable buffer pointers or row counts from the general table API.
 7. Fix the missing reference-count increments and replace the manual count with
    `std::shared_ptr<const columns>` (or value ownership). Do not copy
-   `gd::table::table` until this is corrected.
+   `gd::table::table` until this is corrected. Copy row-local extras in
+   `arguments::table` by adding a reference (or deep-copying) for each row
+   handle instead of duplicating the metadata bytes with `memcpy`.
 8. Give indexes ownership of string keys or explicit invalidation/version
    checks. Document all other view invalidation rules.
 9. Replace pointer-only deserialization with a bounded byte span and validate
