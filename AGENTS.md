@@ -5,7 +5,7 @@ The linked guidance is mandatory.
 
 Hard requirements:
 
-- Never commit or push from `../gd`.
+- Never commit or push from `external/gd`.
 - Do not commit or push unless the user explicitly requests it.
 - Before every commit, complete
   [`docs/ai/pre-commit.md`](docs/ai/pre-commit.md).

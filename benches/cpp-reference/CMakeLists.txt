@@ -6,7 +6,7 @@ include(FetchContent)
 
 get_filename_component(
     GD_SOURCE_DIR_DEFAULT
-    "${CMAKE_CURRENT_LIST_DIR}/../../../gd"
+    "${CMAKE_CURRENT_LIST_DIR}/../../external/gd"
     ABSOLUTE
 )
 set(GD_SOURCE_DIR "${GD_SOURCE_DIR_DEFAULT}" CACHE PATH
@@ -54,6 +54,33 @@ target_link_libraries(gd_cpp_reference_benchmarks
         gd::core
         benchmark::benchmark_main
 )
+
+# gd_table_simd.h currently contains one literal placeholder in pack_set_values.
+# Generate a benchmark-only corrected copy without modifying the C++ reference tree.
+set(GD_SIMD_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/gd-simd-generated")
+file(MAKE_DIRECTORY "${GD_SIMD_GENERATED_DIR}")
+file(READ "${GD_SOURCE_DIR}/source/gd_table_simd.h" GD_SIMD_HEADER)
+string(FIND "${GD_SIMD_HEADER}" "noexcept { ..." GD_SIMD_PLACEHOLDER)
+if(GD_SIMD_PLACEHOLDER EQUAL -1)
+    message(FATAL_ERROR "Expected gd_table_simd.h placeholder was not found")
+endif()
+string(REPLACE "noexcept { ..." "noexcept {" GD_SIMD_HEADER "${GD_SIMD_HEADER}")
+file(WRITE "${GD_SIMD_GENERATED_DIR}/gd_table_simd.h" "${GD_SIMD_HEADER}")
+configure_file(
+    "${GD_SOURCE_DIR}/source/gd_table_simd.cpp"
+    "${GD_SIMD_GENERATED_DIR}/gd_table_simd.cpp"
+    COPYONLY
+)
+
+add_executable(gd_cpp_reference_simd_comments
+    simd_comments_benchmark.cpp
+    "${GD_SIMD_GENERATED_DIR}/gd_table_simd.cpp"
+)
+target_compile_features(gd_cpp_reference_simd_comments PRIVATE cxx_std_20)
+target_include_directories(gd_cpp_reference_simd_comments BEFORE PRIVATE
+    "${GD_SIMD_GENERATED_DIR}"
+)
+target_link_libraries(gd_cpp_reference_simd_comments PRIVATE gd::core)
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_program(BREW_EXECUTABLE brew)

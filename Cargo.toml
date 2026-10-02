@@ -104,6 +104,10 @@ harness = false
 name = "par_benchmark"
 harness = false
 
+[[bench]]
+name = "simd_comments"
+harness = false
+
 [profile.release]
 codegen-units = 1
 lto = "thin"

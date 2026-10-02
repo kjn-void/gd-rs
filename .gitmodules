@@ -1,0 +1,3 @@
+[submodule "external/gd"]
+	path = external/gd
+	url = https://github.com/codemopper/gd

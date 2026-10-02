@@ -177,9 +177,9 @@ Rhai is MIT or Apache-2.0 and covers both expressions and scripts.
 
 ## Baseline and comparison method
 
-The sibling C++ project has a root CMake build with pinned GoogleTest and Google
+The `external/gd` submodule has a root CMake build with pinned GoogleTest and Google
 Benchmark revisions. Only its test and benchmark infrastructure is changed; product
-files below `../gd/source` remain untouched. Debug and sanitizer presets characterize
+files below `external/gd/source` remain untouched. Debug and sanitizer presets characterize
 what can be exercised safely. Benchmarks use narrow adapters around testable behavior
 when a product defect would make the existing wrapper unsafe or unreliable. Rust uses
 unit, integration, property, and negative tests plus Criterion.

@@ -1,6 +1,6 @@
 # Rust API guides
 
-These guides adapt the useful material in `../gd/documentation` to the public
+These guides adapt the useful material in `external/gd/documentation` to the public
 `gd-rs` API. They are not mechanical translations of C++ headers. Examples use
 Rust ownership, standard containers, typed errors, and the behavior implemented by
 this crate.

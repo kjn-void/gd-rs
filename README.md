@@ -12,6 +12,11 @@ Command-line parsing, filesystem policy, console behavior, logging sinks, COM-li
 application routing, and SQL construction remain at application boundaries and are
 not reimplemented by this crate.
 
+The C++ reference source is the [`external/gd`](https://github.com/codemopper/gd) git
+submodule. Clone with `--recurse-submodules`, or run
+`git submodule update --init external/gd`, when working on the C++ audit links or the
+reference benchmarks.
+
 The implemented core currently provides:
 
 - owned `Value` and borrowed `ValueRef` sum types;
@@ -28,7 +33,7 @@ The implemented core currently provides:
 - loss-aware argument and table JSON, URI, and CSV formatting, with schema-driven
   table import from JSON and CSV;
 - checked SQLite parameter binding and typed-table materialization;
-- checked-in C++ Google Benchmark references built against the sibling GD tree;
+- checked-in C++ Google Benchmark references built against the `external/gd` submodule;
 - Rust integration/property tests and Criterion benchmarks.
 
 ## Documentation
@@ -66,12 +71,19 @@ The implemented core currently provides:
 - [C++ issues and audit](docs/port/cpp-gd-issues.md)
 - [Source size and complexity](docs/port/source-stats.md)
 
-Run the Rust checks with:
+Run the full check suite (the same one CI runs):
+
+```sh
+./scripts/ci.sh
+```
+
+The script runs:
 
 ```sh
 cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 cargo test --lib --tests --no-default-features
-cargo clippy --all-targets --all-features -- -D warnings
-cargo bench
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+cargo +1.86.0 check --lib --no-default-features
 ```

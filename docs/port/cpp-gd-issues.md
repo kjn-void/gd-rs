@@ -8,7 +8,7 @@ by accident.
 Port scope, design choices, crate selection, sequencing, and acceptance gates live in
 [`porting-plan.md`](porting-plan.md).
 
-The current audit covers the C++ sources in `../gd`. Tests and benchmarks are kept
+The current audit covers the C++ sources in the `external/gd` submodule. Tests and benchmarks are kept
 separate from product code in the reproducible counts in
 [`source-stats.md`](source-stats.md).
 
@@ -126,7 +126,7 @@ test records the unobservable failure; the product source remains unchanged.
 ### Type identity is manually encoded and duplicated
 
 The type system in
-[`gd_types.h`](../../../gd/source/gd_types.h) combines a type number, group flags,
+[`gd_types.h`](../../external/gd/source/gd_types.h) combines a type number, group flags,
 width flags, and reference flags in integers. `variant`, `arguments`, and table code
 then partially duplicate those definitions. This creates several risks:
 
@@ -146,7 +146,7 @@ an ordinary value access into a leak, double free, or dangling read.
 ### The `string_view` constructor can read past its input
 
 The `std::string_view` constructor in
-[`gd_variant.h`](../../../gd/source/gd_variant.h) copies
+[`gd_variant.h`](../../external/gd/source/gd_variant.h) copies
 `length + 1` bytes from `string_view::data()` before writing the terminator. A view
 only guarantees `length` readable bytes, so this can read beyond the view. A view
 ending at an allocation or protected-page boundary can therefore trigger an
@@ -179,7 +179,7 @@ mutation, and conversion logic. The packed representation mixes storage, indexin
 ownership, iteration, and serialization in one abstraction.
 
 Named lookup scans the encoded entries sequentially in
-[`gd_arguments.cpp`](../../../gd/source/gd_arguments.cpp). For `n` entries:
+[`gd_arguments.cpp`](../../external/gd/source/gd_arguments.cpp). For `n` entries:
 
 - lookup by name is **O(n)** time and **O(1)** extra space;
 - looking up `k` different names independently is **O(k n)**;
@@ -204,7 +204,7 @@ alignment, integer overflow, duplicate names, and hostile input.
 decrement, deletion, and copy-on-write checks are not atomic or protected by a lock.
 Concurrent copying or dropping of instances sharing a buffer is a data race and can
 lead to a leak, double delete, or use-after-free. See
-[`gd_arguments_shared.h`](../../../gd/source/gd_arguments_shared.h).
+[`gd_arguments_shared.h`](../../external/gd/source/gd_arguments_shared.h).
 
 Rust should use `Arc<[Entry]>` or another standard ownership primitive if sharing is
 needed. Mutable sharing should require synchronization or copy-on-write through
@@ -235,7 +235,7 @@ remains unchanged.
 The table family is the largest subsystem and has three heavily duplicated
 implementations: `table_column_buffer`, `table`, and `arguments::table`. They rely on
 matching member offsets and casts between implementations. For example,
-[`gd_table_table.cpp`](../../../gd/source/gd_table_table.cpp) asserts compatible
+[`gd_table_table.cpp`](../../external/gd/source/gd_table_table.cpp) asserts compatible
 member offsets with `table_column_buffer`. Rust must have one table implementation
 with optional capabilities rather than layout-compatible sibling classes.
 
@@ -243,7 +243,7 @@ with optional capabilities rather than layout-compatible sibling classes.
 
 Documentation repeatedly calls the DTO table columnar, but row lookup is implemented
 as `data + row * row_size` in
-[`gd_table_column-buffer.h`](../../../gd/source/gd_table_column-buffer.h). Values for
+[`gd_table_column-buffer.h`](../../external/gd/source/gd_table_column-buffer.h). Values for
 one row are adjacent; values for one column are separated by the entire row width.
 This is a packed row store with separate storage for variable-sized references.
 
@@ -266,7 +266,7 @@ between the representations.
 ### Repeated linear schema lookup
 
 Column name and alias lookup linearly scan all columns in
-[`gd_table_column-buffer.cpp`](../../../gd/source/gd_table_column-buffer.cpp). With
+[`gd_table_column-buffer.cpp`](../../external/gd/source/gd_table_column-buffer.cpp). With
 `c` columns, name resolution is **O(c)**. A named operation performed for every cell
 can therefore become **O(r c)** before doing useful cell work. Rust should build a
 name/alias map when a schema is finalized, using **O(c)** extra space for expected
@@ -275,7 +275,7 @@ name/alias map when a schema is finalized, using **O(c)** extra space for expect
 ### Quadratic sorting
 
 The table exposes selection sort and bubble sort implementations in
-[`gd_table_column-buffer.cpp`](../../../gd/source/gd_table_column-buffer.cpp). Both
+[`gd_table_column-buffer.cpp`](../../external/gd/source/gd_table_column-buffer.cpp). Both
 take **O(r²)** comparisons and **O(1)** auxiliary space. Because swapping rows copies
 or moves a complete row, the practical upper bound includes row width:
 **O(r² + swaps × w)**, commonly described here as **O(r² w)** byte movement in the
@@ -297,7 +297,7 @@ test.
 Both index implementations call `lower_bound` and report success whenever the
 iterator is not `end`; neither verifies that the returned key equals the requested
 key. A search for a missing value can therefore return the next greater value as a
-match. See [`gd_table_index.cpp`](../../../gd/source/gd_table_index.cpp).
+match. See [`gd_table_index.cpp`](../../external/gd/source/gd_table_index.cpp).
 
 Index construction is otherwise **O(r log r)** time and **O(r)** space, with intended
 **O(log r)** lookup. GoogleTest must capture the current bug as a regression test;
@@ -312,7 +312,7 @@ with a table generation.
 ### Data race: shared column metadata
 
 `detail::columns::m_iReference` is an ordinary `int` modified without atomics or a
-mutex in [`gd_table_column.h`](../../../gd/source/gd_table_column.h). Documentation
+mutex in [`gd_table_column.h`](../../external/gd/source/gd_table_column.h). Documentation
 describes shared columns as suitable for threaded use, but concurrent copy/drop can
 race exactly like the shared argument counter. Rust uses `Arc<Schema>` and makes the
 schema immutable after construction.
@@ -335,8 +335,8 @@ This appears to be an omission rather than an alternative ownership convention:
 `common_construct(detail::columns*)` both increment the reference count immediately
 after assigning `m_pcolumns`. The corresponding ordinary copy path in
 `arguments::table` has the same discrepancy. See
-[`gd_table_table.cpp`](../../../gd/source/gd_table_table.cpp) and
-[`gd_table_arguments.cpp`](../../../gd/source/gd_table_arguments.cpp).
+[`gd_table_table.cpp`](../../external/gd/source/gd_table_table.cpp) and
+[`gd_table_arguments.cpp`](../../external/gd/source/gd_table_arguments.cpp).
 
 Rust represents shared immutable schemas with `Arc<Schema>`. Cloning retains the
 schema atomically, and safe code cannot release it while a table still owns a clone.

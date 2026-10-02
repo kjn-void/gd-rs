@@ -4,8 +4,12 @@ This directory contains the Google Benchmark fixtures used as the C++ GD referen
 for the Criterion benchmarks in the parent directory. Keeping the comparison sources
 here makes the benchmark methodology reviewable from the Rust repository.
 
-The build expects the C++ GD repository at `../gd` relative to the `gd-rs` repository.
-Override that default with `-DGD_SOURCE_DIR=/absolute/path/to/gd` when configuring.
+The build expects the C++ GD git submodule at `external/gd` relative to the `gd-rs`
+repository. Initialize it with `git submodule update --init external/gd` after cloning.
+Override that default with `-DGD_SOURCE_DIR=/absolute/path/to/gd` when configuring
+against another checkout. The pinned upstream revision does not track its CMake build,
+so configure with `-DGD_SOURCE_DIR` pointing at a checkout that contains
+`CMakeLists.txt` when building the reference.
 Google Benchmark is pinned to v1.9.5, matching the GD build configuration.
 
 From this directory, build and run the optimized assertions-off reference:
@@ -41,6 +45,7 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 | `table_column_buffer_benchmark.cpp`, `table_index_benchmark.cpp` | `../table.rs` |
 | `utf8_benchmark.cpp` | `../text.rs` |
 | `variant_benchmark.cpp` | `../value.rs` |
+| `simd_comments_benchmark.cpp` | `../simd_comments.rs` |
 
 These files are comparison fixtures owned by `gd-rs`; update them alongside changes
 to the corresponding Rust benchmark or the C++ API being measured.
@@ -52,6 +57,29 @@ formulas. `GD_SQLITE_TO_TABLE_ROWS` defaults to `1000000` rows per table;
 `GD_SQLITE_TO_TABLE_SEED` defaults to `0x6a09e667f3bcc909`. Fixture construction is
 outside timing; schema discovery, query preparation, conversion, allocation, and
 population are timed.
+
+Run `../run_table_copy.sh` for the matched table-copy comparison. Both executables
+read `GD_TABLE_COPY_SOURCE_ROWS` (default `1000000`) and
+`GD_TABLE_COPY_PERCENT` (default `25`). Destination construction and destruction are
+timed. The logical throughput is the selected row count multiplied by the 15 bytes in
+the `u8`, `u64`, `f32`, and `u16` schema; the C++ benchmark additionally reports GD's
+padded physical row size.
+
+The Rust suite additionally compares sequential column copying with Rayon-backed
+parallel column copying. It creates a persistent worker pool outside the timed loop,
+limited to half the fixed-column count rounded down. Each column remains an independent
+task so the workers can dynamically balance columns of different widths.
+
+The SIMD comment benchmark has its own executable because `gd_table_simd.cpp` is not
+part of `gd::core`. CMake generates a corrected build-tree copy of
+`gd_table_simd.h`, replacing the literal `...` placeholder in `pack_set_values`; the
+`external/gd` submodule remains unchanged.
+
+Run `../run_simd_comments.sh` for the matched comparison. The Rust executable measures
+the 64-byte pack hybrid, a direct scan of a normal typed `U8` SoA column, and a
+line-oriented standard-library implementation. The C++ executable measures the GD
+pack hybrid, its scalar table-access counterpart, and a `std::string_view::find`
+implementation. All variants validate identical output before timing.
 
 `stream_benchmark.cpp` is a standalone POSIX array-loop diagnostic retained for
 experimentation. It deliberately has no Rust counterpart, does not use Google

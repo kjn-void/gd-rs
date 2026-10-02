@@ -6,7 +6,7 @@ complete the pre-commit checklist before creating a commit.
 
 - [`pre-commit.md`](pre-commit.md): mandatory checklist before every commit.
 - [`repository-boundaries.md`](repository-boundaries.md): permitted work in this
-  repository and the sibling C++ reference.
+  repository and the `external/gd` C++ reference submodule.
 - [`validation.md`](validation.md): Rust 1.86 compatibility and required static checks.
 - [`commits.md`](commits.md): change isolation, working-tree care, commits, and pushes.
 - [`unsafe-code.md`](unsafe-code.md): requirements for introducing unsafe Rust.

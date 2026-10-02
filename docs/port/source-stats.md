@@ -1,12 +1,12 @@
 # Source size and complexity
 
-This is a snapshot of the current `gd-rs` worktree and sibling `gd` baseline measured
-on 2026-09-27. It measures source shape, not
+This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
+baseline measured on 2026-10-02. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes add characterization tests
-and maintained benchmarks when present; the current sibling tree contains no
-`../gd/tests` directory, so its test-inclusive scope equals the product scope.
+and maintained benchmarks when present; the pinned submodule revision contains no
+`external/gd/tests` directory, so its test-inclusive scope equals the product scope.
 
 ## Results
 
@@ -18,15 +18,15 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 23 | 6,208 | 212 | 501 | 2.36 |
 | Rust product + tests (`src`, `tests`) | 31 | 8,734 | 319 | 693 | 2.17 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 46 | 11,353 | 423 | 995 | 2.35 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 47 | 11,575 | 432 | 1,024 | 2.37 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 155 | 66,859 | 8,771 | 20,330 | 2.32 |
+| C++ product + tests + maintained benchmarks | 156 | 67,104 | 8,780 | 20,397 | 2.32 |
 
 The requested Rust totals are therefore **6,208 SLOC without test/benchmark code**
-and **11,353 SLOC with both**. Tests account for 2,526 SLOC and benchmarks for 2,619
-SLOC. In the C++ scopes, the current baseline has no test directory and the maintained
-benchmark references add 2,272 SLOC.
+and **11,575 SLOC with both**. Tests account for 2,526 SLOC and benchmarks for 2,841
+SLOC. In the C++ scopes, the pinned baseline has no test directory and the maintained
+benchmark references add 2,517 SLOC.
 
 These totals should not be read as a claim that Rust needs 9.6% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
@@ -39,8 +39,8 @@ comparison is required before attributing a size difference to language or desig
 The measurement uses Lizard 1.17.31 for both languages. The selected files are:
 
 - Rust: `*.rs` below `src`, optionally adding `tests` and `benches`;
-- C++: `*.h`, `*.hpp`, `*.c`, `*.cc`, `*.cpp`, and `*.cxx` below the sibling
-  `../gd/source`, optionally adding `../gd/tests` and the matched references in
+- C++: `*.h`, `*.hpp`, `*.c`, `*.cc`, `*.cpp`, and `*.cxx` below the
+  `external/gd/source`, optionally adding `external/gd/tests` and the matched references in
   `benches/cpp-reference`;
 - excluded from both: documentation, manifests, build scripts, generated build
   output, vendored dependencies, and every directory not named above.
@@ -55,7 +55,7 @@ PYTHONPATH=/tmp/gd-code-metrics python3 -m lizard \
 ```
 
 Add `tests` and `benches` to the `find` roots for the inclusive Rust result. For
-C++, run from `gd-rs`, replace the roots with `../gd/source ../gd/tests
+C++, run from `gd-rs`, replace the roots with `external/gd/source external/gd/tests
 benches/cpp-reference`, select the C/C++ suffixes listed above, and use
 `--languages cpp`. The maintained C++ benchmark scope includes matched GD references
 and standalone host fixtures; reports identify fixtures that have no Rust counterpart.

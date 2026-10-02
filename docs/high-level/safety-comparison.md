@@ -1,7 +1,7 @@
 # Table API safety comparison: `gd-rs` and `gd`
 
 This audit compares the Rust table API in this repository with the C++ table
-family in `../gd`, with emphasis on mistakes that can cause undefined behavior
+family in the `external/gd` submodule, with emphasis on mistakes that can cause undefined behavior
 (UB), memory corruption, or a process crash. It is a source audit of
 `gd-rs` commit `cc0ed9ea5b4c3849fa8709186399abed1e9fbfcc` and `gd` commit
 `cb11cff90d05260a88d59a30c9da421cd4e19c34`.
@@ -69,7 +69,7 @@ C++ converts the failed lookup into an unsigned index:
 auto value = table.cell_get_variant_view(0, "naem");
 ```
 
-[`column_get_index`](../../../gd/source/gd_table_column-buffer.cpp#L1002) asserts
+[`column_get_index`](../../external/gd/source/gd_table_column-buffer.cpp#L1002) asserts
 that the signed result is not `-1`, then casts it to `unsigned`. In a debug build
 this normally aborts. With assertions disabled, the index becomes `UINT_MAX`
 and is subsequently used to access column metadata and row storage. That is an
@@ -97,7 +97,7 @@ uint64_t value = table.cell_get<uint64_t>(0, 0);
 ```
 
 The template implementation is a direct
-[`*(TYPE*)cell_get(...)`](../../../gd/source/gd_table_column-buffer.h#L1632).
+[`*(TYPE*)cell_get(...)`](../../external/gd/source/gd_table_column-buffer.h#L1632).
 There is no check that `TYPE` matches the column. In this example it reads an
 eight-byte `uint64_t` object from four-byte storage. The read can extend outside
 the cell or allocation and does not point at a live `uint64_t` object: UB.
@@ -122,7 +122,7 @@ at byte offset 4. The typed getter then dereferences a `uint64_t*` at that
 address. A pointer not aligned for `uint64_t` makes the dereference UB even on a
 processor that happens to tolerate unaligned loads. The ordinary variant-view
 read has the same issue when it dereferences
-[`uint64_t*`](../../../gd/source/gd_table_table.cpp#L1766).
+[`uint64_t*`](../../external/gd/source/gd_table_table.cpp#L1766).
 
 Rust uses a separate typed allocation for each column. The equivalent read is
 aligned by construction:
@@ -152,7 +152,7 @@ table.row_add(gd::table::tag_null{});
 table.cell_set_null(0, 32);
 ```
 
-[`cell_set_null`](../../../gd/source/gd_table_column-buffer.h#L1663) evaluates
+[`cell_set_null`](../../external/gd/source/gd_table_column-buffer.h#L1663) evaluates
 `(uint32_t{1} << uColumn)`. Shifting a 32-bit value by 32 is UB. The 64-bit mode
 has the analogous failure at column 64. Debug assertions check the row and the
 presence of *a* null flag, but not the column against the mask width.
@@ -198,11 +198,11 @@ auto score = table.cell_get<uint64_t>(0, 1);
 ```
 
 The overload checks only `values.size() <= column_count`, calls plain
-[`row_add()`](../../../gd/source/gd_table_column-buffer.cpp#L1333), and writes
+[`row_add()`](../../external/gd/source/gd_table_column-buffer.cpp#L1333), and writes
 the supplied prefix. Plain row addition is documented not to mark new cells
-null ([header](../../../gd/source/gd_table_column-buffer.h#L1377)). In release
+null ([header](../../external/gd/source/gd_table_column-buffer.h#L1377)). In release
 builds `prepare()` does not initialize the payload bytes; only debug builds
-`memset` them ([allocation](../../../gd/source/gd_table_column-buffer.cpp#L1305)).
+`memset` them ([allocation](../../external/gd/source/gd_table_column-buffer.cpp#L1305)).
 The omitted cell is therefore marked non-null but has an indeterminate payload.
 Reading it as `uint64_t` is UB under the language rules applicable to the
 project, in addition to producing unpredictable data on implementations where
@@ -236,7 +236,7 @@ use(name);                // may now read dangling storage
 
 Growth or destruction can invalidate the view, and subsequent use is
 use-after-free UB. The same problem applies to string indexes because
-[`index_string`](../../../gd/source/gd_table_index.h#L153) stores
+[`index_string`](../../external/gd/source/gd_table_index.h#L153) stores
 `std::string_view` keys borrowed from table storage. Rust's
 [`ColumnIndex`](../../src/table/index.rs#L98) borrows the table, so mutation and
 destruction are statically excluded while the index is usable.
@@ -265,11 +265,11 @@ gd::table::table second;
 auto count = second.get_column_count(); // dangling m_pcolumns: use-after-free UB
 ```
 
-[`common_construct(const table&)`](../../../gd/source/gd_table_table.cpp#L270)
+[`common_construct(const table&)`](../../external/gd/source/gd_table_table.cpp#L270)
 assigns `m_pcolumns` without calling `add_reference`. The column-only copy path
 immediately below it *does* call `add_reference`, making the omission in the
 normal path clear. The destructor releases the pointer
-([header](../../../gd/source/gd_table_table.h#L1364)). Depending on destruction
+([header](../../external/gd/source/gd_table_table.h#L1364)). Depending on destruction
 order, this can also become a double release. The same omission exists in
 `gd::table::arguments::table`.
 
@@ -309,16 +309,16 @@ gd::table::arguments::table second;
 auto args = second.row_get_arguments( 0 ); // dangling buffer: use-after-free UB
 ```
 
-[`common_construct(const table&)`](../../../gd/source/gd_table_arguments.cpp#L276)
+[`common_construct(const table&)`](../../external/gd/source/gd_table_arguments.cpp#L276)
 and the `tag_body` copy
-([line 332](../../../gd/source/gd_table_arguments.cpp#L332)) `memcpy` the
+([line 332](../../external/gd/source/gd_table_arguments.cpp#L332)) `memcpy` the
 buffer returned by `size_reserved_total()`, which includes the per-row metadata
-where [`row_get_arguments_meta`](../../../gd/source/gd_table_arguments.h#L1310)
+where [`row_get_arguments_meta`](../../external/gd/source/gd_table_arguments.h#L1310)
 places the handle. The copy constructor and copy assignment both reach this path
-([header](../../../gd/source/gd_table_arguments.h#L342)). Each table's
-[destructor](../../../gd/source/gd_table_arguments.cpp#L226) then calls
-[`erase_arguments_s`](../../../gd/source/gd_table_arguments.cpp#L4502), which
-runs [`buffer_delete`](../../../gd/source/gd_arguments_shared.h#L1693) and
+([header](../../external/gd/source/gd_table_arguments.h#L342)). Each table's
+[destructor](../../external/gd/source/gd_table_arguments.cpp#L226) then calls
+[`erase_arguments_s`](../../external/gd/source/gd_table_arguments.cpp#L4502), which
+runs [`buffer_delete`](../../external/gd/source/gd_arguments_shared.h#L1693) and
 releases every row buffer. Every buffer is released once per table, even though
 it was referenced only once, so destroying the second table is a double
 release. This is separate from the missing `m_pcolumns` increment in section 7:
@@ -339,7 +339,7 @@ The schema cannot change behind existing rows.
 The C++ API uses a two-phase `column_add` then `prepare` lifecycle. It also
 publishes the raw data pointers, sizes, counts, flags, references, names, and
 column vector as public members
-([`table_column_buffer` fields](../../../gd/source/gd_table_column-buffer.h#L1264)).
+([`table_column_buffer` fields](../../external/gd/source/gd_table_column-buffer.h#L1264)).
 Column fields and the shared column vector/reference count are public too.
 Changing any of these after preparation can make the schema disagree with the
 packed allocation. Later otherwise-normal cell access then performs invalid
@@ -359,7 +359,7 @@ splitting similarly creates disjoint borrows.
 C++ exposes mutable raw pointers from table storage and mutable metadata. Its
 shared-column reference count is a plain `int`, with unsynchronized increment
 and decrement
-([implementation](../../../gd/source/gd_table_column.h#L307)). Concurrent
+([implementation](../../external/gd/source/gd_table_column.h#L307)). Concurrent
 copy/drop is a data race, which is itself UB, and public mutation allows data
 races or aliasing violations without a narrow unsafe boundary.
 
@@ -500,7 +500,7 @@ returns `SqliteError::MixedColumnType` instead of guessing a common type.
 
 The C++ database adapter reads cursor values and calls table row insertion with
 `tag_convert`
-([`database::to_table`](../../../gd/source/database/gd_database_io.cpp#L33)).
+([`database::to_table`](../../external/gd/source/database/gd_database_io.cpp#L33)).
 For a predeclared destination with a `uint32` column named `count`, the data flow
 for the same SQLite rows is effectively:
 
@@ -523,7 +523,7 @@ converted.assign(v_);
 ```
 
 This is the actual pattern in
-[`variant::convert_to_s`](../../../gd/source/gd_variant.cpp#L1222). `"1234"`
+[`variant::convert_to_s`](../../external/gd/source/gd_variant.cpp#L1222). `"1234"`
 normally succeeds, but `"not-a-number"`, an empty string, or an out-of-range
 decimal leaves `v_` uninitialized. Reading it in `assign` is UB. A partially
 numeric string such as `"1234x"` can be accepted as `1234` because the returned
@@ -536,10 +536,10 @@ C++ for the unsigned target, but are silent data corruption from the perspective
 of a range-constrained column.
 
 Even when `convert_to` returns `false`, C++
-[`cell_set(..., tag_convert)`](../../../gd/source/gd_table_column-buffer.cpp#L2398)
+[`cell_set(..., tag_convert)`](../../external/gd/source/gd_table_column-buffer.cpp#L2398)
 returns `void` and does not report the failure. Row insertion has already
 published the row and converts cells one at a time
-([selected-column path](../../../gd/source/gd_table_column-buffer.cpp#L1385)).
+([selected-column path](../../external/gd/source/gd_table_column-buffer.cpp#L1385)).
 Earlier cells may contain converted values while a failed cell remains null, or
 remains uninitialized when null metadata is disabled. Nevertheless,
 `database::to_table` reaches its unconditional success return. The operation is
@@ -549,8 +549,8 @@ There is an additional UB independent of conversion success when importing
 SQLite `TEXT` or `BLOB`. The C++ cursor record allocates variable-sized buffers
 with `new uint8_t[]` but stores them in `std::unique_ptr<uint8_t>` rather than
 `std::unique_ptr<uint8_t[]>`
-([allocation](../../../gd/source/gd_database_record.cpp#L108),
-[member type](../../../gd/source/gd_database_record.h#L137)). Destroying or
+([allocation](../../external/gd/source/gd_database_record.cpp#L108),
+[member type](../../external/gd/source/gd_database_record.h#L137)). Destroying or
 resizing the cursor record uses scalar `delete` for an array allocation. That
 allocation/deallocation mismatch is UB and can surface as heap corruption or a
 crash after an otherwise ordinary `SELECT text_column ...` to table import.
