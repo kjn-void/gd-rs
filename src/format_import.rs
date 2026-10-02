@@ -74,6 +74,12 @@ pub enum ImportError {
         /// The field name.
         name: CompactString,
     },
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
+    },
 }
 
 struct Location(Option<usize>);
@@ -217,7 +223,7 @@ pub fn table_from_csv(
         for (target, field) in layout.iter().zip(record.iter()) {
             match target {
                 CsvTarget::Column(column) => {
-                    values[*column] = csv_cell(field, schema_column(&schema, *column));
+                    values[*column] = csv_cell(field, schema_column(&schema, *column)?);
                 }
                 CsvTarget::Extra(name) if !field.is_empty() => {
                     extras.push((name.clone(), Value::from(field)));
@@ -232,10 +238,10 @@ pub fn table_from_csv(
     Ok(table)
 }
 
-fn schema_column(schema: &Schema, column: usize) -> &ColumnSpec {
-    schema
-        .column(column)
-        .expect("column position comes from the same schema")
+fn schema_column(schema: &Schema, column: usize) -> Result<&ColumnSpec, ImportError> {
+    schema.column(column).ok_or(ImportError::InternalInvariant {
+        detail: "column position came from a different schema",
+    })
 }
 
 enum CsvTarget {
@@ -395,7 +401,8 @@ impl<'de> Visitor<'de> for RowSeed<'_> {
                     row: Some(row),
                     name,
                 }),
-                Some(column) => json_cell(raw, schema_column(&schema, column), row, &name)
+                Some(column) => schema_column(&schema, column)
+                    .and_then(|spec| json_cell(raw, spec, row, &name))
                     .map(|value| values[column] = Some(value)),
                 None if schema.unknown_fields() == UnknownFields::Reject => {
                     Err(ImportError::UnknownField {

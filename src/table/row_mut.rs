@@ -67,12 +67,21 @@ impl<T> CellSlotMut<'_, T> {
         }
     }
 
-    fn set(&mut self, value: Option<T>) {
+    fn set(&mut self, value: Option<T>) -> Result<(), TableError> {
         match self {
             Self::Required(current) => {
-                **current = value.expect("required row values were validated");
+                let Some(value) = value else {
+                    return Err(TableError::InternalInvariant {
+                        detail: "null was assigned to a required cell",
+                    });
+                };
+                **current = value;
+                Ok(())
             }
-            Self::Nullable(current) => **current = value,
+            Self::Nullable(current) => {
+                **current = value;
+                Ok(())
+            }
         }
     }
 }
@@ -127,18 +136,29 @@ impl CellMut<'_> {
         }
     }
 
-    fn set_validated(&mut self, value: Value) {
+    fn set_validated(&mut self, value: Value) -> Result<(), TableError> {
         macro_rules! set {
             ($slot:expr, $variant:ident) => {
                 $slot.set(match value {
                     Value::Null => None,
                     Value::$variant(value) => Some(value),
-                    _ => unreachable!("value was validated against its column"),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "value type did not match its column",
+                        });
+                    }
                 })
             };
         }
         match self {
-            Self::Null => debug_assert_eq!(value, Value::Null),
+            Self::Null => {
+                if value != Value::Null {
+                    return Err(TableError::InternalInvariant {
+                        detail: "non-null value was assigned to a null cell",
+                    });
+                }
+                Ok(())
+            }
             Self::Bool(slot) => set!(slot, Bool),
             Self::I8(slot) => set!(slot, I8),
             Self::I16(slot) => set!(slot, I16),
@@ -317,12 +337,17 @@ impl RowExtrasMut<'_> {
         }
     }
 
-    fn set(&mut self, name: CompactString, value: Value) {
+    fn set(&mut self, name: CompactString, value: Value) -> Result<(), TableError> {
         match self {
-            Self::Disabled => unreachable!("closed schemas cannot store extra fields"),
-            Self::Enabled(extras) => extras
-                .get_or_insert_with(|| Box::new(RowExtras::default()))
-                .set(name, value),
+            Self::Disabled => Err(TableError::InternalInvariant {
+                detail: "row extras were stored in a closed schema",
+            }),
+            Self::Enabled(extras) => {
+                extras
+                    .get_or_insert_with(|| Box::new(RowExtras::default()))
+                    .set(name, value);
+                Ok(())
+            }
         }
     }
 }
@@ -424,8 +449,13 @@ impl RowMut<'_> {
                 column_count: self.cells.len(),
             })?;
         prepare_cell(spec, &mut value, column)?;
-        self.cells[column].set_validated(value);
-        Ok(())
+        let Some(cell) = self.cells.get_mut(column) else {
+            return Err(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.cells.len(),
+            });
+        };
+        cell.set_validated(value)
     }
 
     /// Replaces a fixed cell or stores an unknown name as a row-local value.
@@ -446,7 +476,7 @@ impl RowMut<'_> {
         if self.schema.unknown_fields() == UnknownFields::Reject {
             return Err(TableError::ColumnNotFound(name_or_alias.into()));
         }
-        self.extras.set(name_or_alias.into(), value);
+        self.extras.set(name_or_alias.into(), value)?;
         Ok(())
     }
 }

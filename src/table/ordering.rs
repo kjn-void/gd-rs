@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 
 use super::storage::ColumnStorage;
-use super::{Row, Table};
+use super::{Row, Table, TableError};
 
 /// Direction used when ordering table rows.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -30,19 +30,19 @@ impl ColumnStorage {
         right: usize,
         direction: SortDirection,
         null_order: NullOrder,
-    ) -> Ordering {
+    ) -> Result<Ordering, TableError> {
         macro_rules! ordered {
             ($values:expr) => {
                 compare_optional(
-                    $values.value(left),
-                    $values.value(right),
+                    $values.value(left)?,
+                    $values.value(right)?,
                     direction,
                     null_order,
                     Ord::cmp,
                 )
             };
         }
-        match self {
+        Ok(match self {
             Self::Null(_) => Ordering::Equal,
             Self::Bool(values) => ordered!(values),
             Self::I8(values) => ordered!(values),
@@ -54,15 +54,15 @@ impl ColumnStorage {
             Self::U32(values) => ordered!(values),
             Self::U64(values) => ordered!(values),
             Self::F32(values) => compare_optional(
-                values.value(left),
-                values.value(right),
+                values.value(left)?,
+                values.value(right)?,
                 direction,
                 null_order,
                 f32::total_cmp,
             ),
             Self::F64(values) => compare_optional(
-                values.value(left),
-                values.value(right),
+                values.value(left)?,
+                values.value(right)?,
                 direction,
                 null_order,
                 f64::total_cmp,
@@ -70,7 +70,7 @@ impl ColumnStorage {
             Self::String(values) => ordered!(values),
             Self::Bytes(values) => ordered!(values),
             Self::Uuid(values) => ordered!(values),
-        }
+        })
     }
 }
 

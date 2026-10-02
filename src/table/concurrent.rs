@@ -207,7 +207,7 @@ impl ConcurrentTableBuilder {
         if self.schema.as_ref() != table.schema() {
             return Err(TableError::SchemaMismatch);
         }
-        Ok(append_rows(self.rows, table))
+        append_rows(self.rows, table)
     }
 
     /// Consumes the builder and transposes all rows into dense typed columns.
@@ -220,13 +220,16 @@ impl ConcurrentTableBuilder {
     }
 }
 
-fn append_rows(rows: ConcurrentVec<PendingRow>, table: &mut Table) -> Range<usize> {
+fn append_rows(
+    rows: ConcurrentVec<PendingRow>,
+    table: &mut Table,
+) -> Result<Range<usize>, TableError> {
     let begin = table.row_count();
     for pending in rows {
-        let row = table.push_validated_row(pending.values);
+        let row = table.push_validated_row(pending.values)?;
         if let Some(extras) = pending.extras {
-            table.extras.set_box(row, extras);
+            table.extras.set_box(row, extras)?;
         }
     }
-    begin..table.row_count()
+    Ok(begin..table.row_count())
 }

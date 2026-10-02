@@ -20,6 +20,7 @@ pub use schema::{ColumnConversionError, ColumnConverter, ColumnSpec, Schema, Unk
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;
+use std::cmp::Ordering;
 use std::ops::Range;
 use std::sync::Arc;
 #[cfg(test)]
@@ -108,6 +109,15 @@ pub enum TableError {
     /// A concurrent builder and its destination table use different schemas.
     #[error("concurrent builder schema does not match destination table schema")]
     SchemaMismatch,
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    ///
+    /// The operation is rejected instead of panicking so callers can report or
+    /// recover from the failure.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
+    },
 }
 
 /// Error returned when selecting typed input and output columns together.
@@ -132,6 +142,12 @@ pub enum ColumnSelectionError {
     DuplicateOutput {
         /// Repeated output column position.
         column: usize,
+    },
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
     },
 }
 
@@ -573,7 +589,7 @@ impl Table {
         mut values: [Value; N],
     ) -> Result<usize, TableError> {
         prepare_row(self.schema(), &mut values)?;
-        Ok(self.push_validated_row(values))
+        self.push_validated_row(values)
     }
 
     /// Appends one complete fixed row together with row-local extra fields.
@@ -599,9 +615,9 @@ impl Table {
     {
         prepare_row(self.schema(), &mut values)?;
         let extras = collect_extras(self.schema(), extras)?;
-        let row = self.push_validated_row(values);
+        let row = self.push_validated_row(values)?;
         if !extras.is_empty() {
-            self.extras.set(row, extras);
+            self.extras.set(row, extras)?;
         }
         Ok(row)
     }
@@ -618,7 +634,7 @@ impl Table {
     /// [`TableError::NullNotAllowed`] when the row does not match the schema.
     pub fn push_row_vec(&mut self, mut values: Vec<Value>) -> Result<usize, TableError> {
         prepare_row(self.schema(), &mut values)?;
-        Ok(self.push_validated_row(values))
+        self.push_validated_row(values)
     }
 
     /// Appends one runtime-width row with owned row-local extras.
@@ -632,18 +648,48 @@ impl Table {
     ) -> Result<usize, TableError> {
         prepare_row(self.schema(), &mut values)?;
         if extras.is_empty() {
-            return Ok(self.push_validated_row(values));
+            return self.push_validated_row(values);
         }
         let extras = collect_extras(self.schema(), extras)?;
-        let row = self.push_validated_row(values);
-        self.extras.set(row, extras);
+        let row = self.push_validated_row(values)?;
+        self.extras.set(row, extras)?;
         Ok(row)
     }
 
-    fn push_validated_row(&mut self, values: impl IntoIterator<Item = Value>) -> usize {
+    fn push_validated_row(
+        &mut self,
+        values: impl IntoIterator<Item = Value>,
+    ) -> Result<usize, TableError> {
         let row = self.row_count;
-        for (storage, value) in self.columns.iter_mut().zip(values) {
-            storage.push_validated(value);
+        let mut values = values.into_iter();
+        let mut pushed = 0;
+        for storage in &mut self.columns {
+            let Some(value) = values.next() else {
+                for column in &mut self.columns[..pushed] {
+                    column.pop();
+                }
+                return Err(TableError::RowWidth {
+                    expected: self.columns.len(),
+                    actual: pushed,
+                });
+            };
+            if let Err(error) = storage.push_validated(value) {
+                for column in &mut self.columns[..pushed] {
+                    column.pop();
+                }
+                return Err(error);
+            }
+            pushed += 1;
+        }
+        let extra = values.count();
+        if extra > 0 {
+            for column in &mut self.columns[..pushed] {
+                column.pop();
+            }
+            return Err(TableError::RowWidth {
+                expected: self.columns.len(),
+                actual: pushed + extra,
+            });
         }
         self.extras.push_empty();
         self.tombstones.push_live();
@@ -654,7 +700,7 @@ impl Table {
                 .all(|column| column.len() == self.row_count)
         );
         debug_assert!(self.extras.len_matches(self.row_count));
-        row
+        Ok(row)
     }
 
     /// Removes and discards the last physical row, returning whether a row existed.
@@ -730,8 +776,13 @@ impl Table {
                 column_count: self.column_count(),
             })?;
         prepare_cell(spec, &mut value, column)?;
-        self.columns[column].set_validated(row, value);
-        Ok(())
+        let Some(storage) = self.columns.get_mut(column) else {
+            return Err(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            });
+        };
+        storage.set_validated(row, value)
     }
 
     /// Replaces a fixed cell or stores an unknown name as a row-local value.
@@ -759,7 +810,7 @@ impl Table {
         }
         self.validate_row_position(row)?;
         self.extras
-            .get_or_insert(row)
+            .get_or_insert(row)?
             .set(name_or_alias.into(), value);
         Ok(())
     }
@@ -885,7 +936,21 @@ impl Table {
                 column_count: self.column_count(),
             })?;
         let mut positions: Vec<_> = (0..self.row_count).collect();
-        positions.sort_by(|left, right| storage.compare_rows(*left, *right, direction, null_order));
+        let mut failure: Option<TableError> = None;
+        positions.sort_by(|left, right| {
+            match storage.compare_rows(*left, *right, direction, null_order) {
+                Ok(ordering) => ordering,
+                Err(error) => {
+                    if failure.is_none() {
+                        failure = Some(error);
+                    }
+                    Ordering::Equal
+                }
+            }
+        });
+        if let Some(error) = failure {
+            return Err(error);
+        }
         Ok(RowOrder {
             table: self,
             positions,
@@ -940,23 +1005,51 @@ fn select_column_views<'a, const I: usize, const O: usize>(
 ) -> Result<([Column<'a>; I], [ColumnMut<'a>; O]), ColumnSelectionError> {
     let (input_storage, output_storage) = select_column_storage(columns, inputs, outputs)?;
     let mut input_storage = input_storage.into_iter();
-    let input_views = std::array::from_fn(|index| Column {
-        spec: schema
-            .column(inputs[index])
-            .expect("column positions were validated before borrowing storage"),
-        storage: input_storage
+    let mut input_views = Vec::with_capacity(I);
+    for &position in &inputs {
+        let spec = schema
+            .column(position)
+            .ok_or(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count: schema.len(),
+            })?;
+        let storage = input_storage
             .next()
-            .expect("input storage count matches the const-generic input count"),
-    });
+            .ok_or(ColumnSelectionError::InternalInvariant {
+                detail: "input storage count did not match the const-generic input count",
+            })?;
+        input_views.push(Column { spec, storage });
+    }
+    let input_views: [Column<'a>; I] =
+        input_views
+            .try_into()
+            .map_err(|_| ColumnSelectionError::InternalInvariant {
+                detail: "input view count did not match the const-generic input count",
+            })?;
+
     let mut output_storage = output_storage.into_iter();
-    let output_views = std::array::from_fn(|index| ColumnMut {
-        spec: schema
-            .column(outputs[index])
-            .expect("column positions were validated before borrowing storage"),
-        storage: output_storage
+    let mut output_views = Vec::with_capacity(O);
+    for &position in &outputs {
+        let spec = schema
+            .column(position)
+            .ok_or(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count: schema.len(),
+            })?;
+        let storage = output_storage
             .next()
-            .expect("output storage count matches the const-generic output count"),
-    });
+            .ok_or(ColumnSelectionError::InternalInvariant {
+                detail: "output storage count did not match the const-generic output count",
+            })?;
+        output_views.push(ColumnMut { spec, storage });
+    }
+    let output_views: [ColumnMut<'a>; O] =
+        output_views
+            .try_into()
+            .map_err(|_| ColumnSelectionError::InternalInvariant {
+                detail: "output view count did not match the const-generic output count",
+            })?;
+
     Ok((input_views, output_views))
 }
 
@@ -1017,11 +1110,21 @@ fn select_column_storage<const I: usize, const O: usize>(
     let mut remaining_start = 0;
     let mut request_index = 0;
     while let Some(request) = requests.get(request_index).copied() {
-        let relative_position = request.position - remaining_start;
-        let (_, selected_and_after) = remaining.split_at_mut(relative_position);
-        let (selected, after) = selected_and_after
-            .split_first_mut()
-            .expect("validated column position must exist in the remaining slice");
+        let Some(relative_position) = request.position.checked_sub(remaining_start) else {
+            return Err(ColumnSelectionError::InternalInvariant {
+                detail: "validated column positions were not monotonic",
+            });
+        };
+        let Some(selected_and_after) = remaining.get_mut(relative_position..) else {
+            return Err(ColumnSelectionError::InternalInvariant {
+                detail: "validated column position was missing from the remaining slice",
+            });
+        };
+        let Some((selected, after)) = selected_and_after.split_first_mut() else {
+            return Err(ColumnSelectionError::InternalInvariant {
+                detail: "validated column position was missing from the remaining slice",
+            });
+        };
         remaining = after;
         remaining_start = request.position + 1;
 
@@ -1048,13 +1151,28 @@ fn select_column_storage<const I: usize, const O: usize>(
     }
 
     Ok((
-        input_storage.map(|storage| {
-            storage.expect("every validated input position received one storage borrow")
-        }),
-        output_storage.map(|storage| {
-            storage.expect("every validated output position received one storage borrow")
-        }),
+        into_storage_array(
+            input_storage,
+            "every validated input position must receive one storage borrow",
+        )?,
+        into_storage_array(
+            output_storage,
+            "every validated output position must receive one storage borrow",
+        )?,
     ))
+}
+
+fn into_storage_array<T, const N: usize>(
+    storage: [Option<T>; N],
+    detail: &'static str,
+) -> Result<[T; N], ColumnSelectionError> {
+    let mut views = Vec::with_capacity(N);
+    for item in storage {
+        views.push(item.ok_or(ColumnSelectionError::InternalInvariant { detail })?);
+    }
+    views
+        .try_into()
+        .map_err(|_| ColumnSelectionError::InternalInvariant { detail })
 }
 
 fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), TableError> {

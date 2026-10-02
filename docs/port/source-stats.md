@@ -16,19 +16,19 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 23 | 6,208 | 212 | 501 | 2.36 |
-| Rust product + tests (`src`, `tests`) | 31 | 8,734 | 319 | 693 | 2.17 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 47 | 11,575 | 432 | 1,024 | 2.37 |
+| Rust product (`src`) | 23 | 6,352 | 210 | 547 | 2.60 |
+| Rust product + tests (`src`, `tests`) | 31 | 8,878 | 317 | 739 | 2.33 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 47 | 11,719 | 430 | 1,070 | 2.49 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests + maintained benchmarks | 156 | 67,104 | 8,780 | 20,397 | 2.32 |
 
-The requested Rust totals are therefore **6,208 SLOC without test/benchmark code**
-and **11,575 SLOC with both**. Tests account for 2,526 SLOC and benchmarks for 2,841
+The requested Rust totals are therefore **6,352 SLOC without test/benchmark code**
+and **11,719 SLOC with both**. Tests account for 2,526 SLOC and benchmarks for 2,841
 SLOC. In the C++ scopes, the pinned baseline has no test directory and the maintained
 benchmark references add 2,517 SLOC.
 
-These totals should not be read as a claim that Rust needs 9.6% of the code for an
+These totals should not be read as a claim that Rust needs 9.8% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
 the C++ measurement includes unrelated and excluded subsystems. The figures are
 useful as repository baselines and for tracking growth, but a subsystem-by-subsystem

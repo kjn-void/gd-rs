@@ -47,6 +47,12 @@ pub enum BinaryError {
     /// A length-prefixed string is not valid UTF-8.
     #[error(transparent)]
     InvalidUtf8(#[from] Utf8Error),
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
+    },
 }
 
 impl From<HexError> for BinaryError {
@@ -219,13 +225,13 @@ impl<'a> BinaryReader<'a> {
     ///
     /// Returns [`BinaryError::UnexpectedEof`] when fewer than two bytes remain.
     pub fn read_u16(&mut self, endian: Endian) -> Result<u16, BinaryError> {
-        Ok(read_array(
+        read_array(
             self.read_exact(2)?,
             endian,
             u16::from_be_bytes,
             u16::from_le_bytes,
             u16::from_ne_bytes,
-        ))
+        )
     }
 
     /// Reads an `i16`.
@@ -243,13 +249,13 @@ impl<'a> BinaryReader<'a> {
     ///
     /// Returns [`BinaryError::UnexpectedEof`] when fewer than four bytes remain.
     pub fn read_u32(&mut self, endian: Endian) -> Result<u32, BinaryError> {
-        Ok(read_array(
+        read_array(
             self.read_exact(4)?,
             endian,
             u32::from_be_bytes,
             u32::from_le_bytes,
             u32::from_ne_bytes,
-        ))
+        )
     }
 
     /// Reads an `i32`.
@@ -267,13 +273,13 @@ impl<'a> BinaryReader<'a> {
     ///
     /// Returns [`BinaryError::UnexpectedEof`] when fewer than eight bytes remain.
     pub fn read_u64(&mut self, endian: Endian) -> Result<u64, BinaryError> {
-        Ok(read_array(
+        read_array(
             self.read_exact(8)?,
             endian,
             u64::from_be_bytes,
             u64::from_le_bytes,
             u64::from_ne_bytes,
-        ))
+        )
     }
 
     /// Reads an `i64`.
@@ -353,13 +359,17 @@ fn read_array<T, const N: usize>(
     big_endian: fn([u8; N]) -> T,
     little_endian: fn([u8; N]) -> T,
     native_endian: fn([u8; N]) -> T,
-) -> T {
-    let array: [u8; N] = bytes.try_into().expect("caller provided N bytes");
-    match endian {
+) -> Result<T, BinaryError> {
+    let array: [u8; N] = bytes
+        .try_into()
+        .map_err(|_| BinaryError::InternalInvariant {
+            detail: "read_array received a slice whose length differs from N",
+        })?;
+    Ok(match endian {
         Endian::Big => big_endian(array),
         Endian::Little => little_endian(array),
         Endian::Native => native_endian(array),
-    }
+    })
 }
 
 macro_rules! endian_bytes {

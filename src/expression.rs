@@ -80,6 +80,12 @@ pub enum ExpressionError {
         /// Rhai's stable display name for the returned type.
         type_name: String,
     },
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
+    },
 }
 
 /// Named variables used while evaluating a [`Program`].
@@ -335,27 +341,45 @@ fn value_to_dynamic(value: Value) -> Result<Dynamic, ExpressionError> {
     })
 }
 
+fn checked<T>(value: Result<T, &'static str>, detail: &'static str) -> Result<T, ExpressionError> {
+    value.map_err(|_| ExpressionError::InternalInvariant { detail })
+}
+
 fn dynamic_into_value(value: Dynamic) -> Result<Value, ExpressionError> {
     if value.is_unit() {
         Ok(Value::Null)
     } else if value.is_bool() {
-        Ok(Value::Bool(value.as_bool().expect("type checked")))
+        Ok(Value::Bool(checked(
+            value.as_bool(),
+            "Dynamic::is_bool disagreed with as_bool",
+        )?))
     } else if value.is_int() {
-        Ok(Value::I64(value.as_int().expect("type checked")))
+        Ok(Value::I64(checked(
+            value.as_int(),
+            "Dynamic::is_int disagreed with as_int",
+        )?))
     } else if value.is_float() {
-        Ok(Value::F64(value.as_float().expect("type checked")))
+        Ok(Value::F64(checked(
+            value.as_float(),
+            "Dynamic::is_float disagreed with as_float",
+        )?))
     } else if value.is_char() {
-        Ok(Value::String(CompactString::from(
-            value.as_char().expect("type checked").to_string(),
-        )))
+        let character = checked(value.as_char(), "Dynamic::is_char disagreed with as_char")?;
+        Ok(Value::String(CompactString::from(character.to_string())))
     } else if value.is_string() {
-        Ok(Value::String(
-            value.into_string().expect("type checked").into(),
-        ))
+        let string = value
+            .into_string()
+            .map_err(|_| ExpressionError::InternalInvariant {
+                detail: "Dynamic::is_string disagreed with into_string",
+            })?;
+        Ok(Value::String(string.into()))
     } else if value.is_blob() {
-        Ok(Value::Bytes(
-            value.into_blob().expect("type checked").into_boxed_slice(),
-        ))
+        let blob = value
+            .into_blob()
+            .map_err(|_| ExpressionError::InternalInvariant {
+                detail: "Dynamic::is_blob disagreed with into_blob",
+            })?;
+        Ok(Value::Bytes(blob.into_boxed_slice()))
     } else {
         Err(ExpressionError::UnsupportedOutput {
             type_name: value.type_name().to_owned(),
@@ -367,30 +391,35 @@ fn dynamic_to_value(value: &Dynamic) -> Result<Value, ExpressionError> {
     if value.is_unit() {
         Ok(Value::Null)
     } else if value.is_bool() {
-        Ok(Value::Bool(value.as_bool().expect("type checked")))
+        Ok(Value::Bool(checked(
+            value.as_bool(),
+            "Dynamic::is_bool disagreed with as_bool",
+        )?))
     } else if value.is_int() {
-        Ok(Value::I64(value.as_int().expect("type checked")))
+        Ok(Value::I64(checked(
+            value.as_int(),
+            "Dynamic::is_int disagreed with as_int",
+        )?))
     } else if value.is_float() {
-        Ok(Value::F64(value.as_float().expect("type checked")))
+        Ok(Value::F64(checked(
+            value.as_float(),
+            "Dynamic::is_float disagreed with as_float",
+        )?))
     } else if value.is_char() {
-        Ok(Value::String(CompactString::from(
-            value.as_char().expect("type checked").to_string(),
-        )))
+        let character = checked(value.as_char(), "Dynamic::is_char disagreed with as_char")?;
+        Ok(Value::String(CompactString::from(character.to_string())))
     } else if value.is_string() {
-        Ok(Value::String(CompactString::from(
-            value
-                .as_immutable_string_ref()
-                .expect("type checked")
-                .as_str(),
-        )))
+        let string = checked(
+            value.as_immutable_string_ref(),
+            "Dynamic::is_string disagreed with as_immutable_string_ref",
+        )?;
+        Ok(Value::String(CompactString::from(string.as_str())))
     } else if value.is_blob() {
-        Ok(Value::Bytes(
-            value
-                .as_blob_ref()
-                .expect("type checked")
-                .to_vec()
-                .into_boxed_slice(),
-        ))
+        let blob = checked(
+            value.as_blob_ref(),
+            "Dynamic::is_blob disagreed with as_blob_ref",
+        )?;
+        Ok(Value::Bytes(blob.to_vec().into_boxed_slice()))
     } else {
         Err(ExpressionError::UnsupportedOutput {
             type_name: value.type_name().to_owned(),

@@ -116,8 +116,8 @@ enum IndexStorage<'a> {
 }
 
 impl<'a> IndexStorage<'a> {
-    fn new(data_type: DataType, capacity: usize) -> Self {
-        match data_type {
+    fn new(data_type: DataType, capacity: usize) -> Result<Self, TableError> {
+        Ok(match data_type {
             DataType::Bool => Self::Bool(AHashMap::with_capacity(capacity)),
             DataType::I8 | DataType::I16 | DataType::I32 | DataType::I64 => {
                 Self::Signed(AHashMap::with_capacity(capacity))
@@ -129,12 +129,12 @@ impl<'a> IndexStorage<'a> {
             DataType::Bytes => Self::Bytes(AHashMap::with_capacity(capacity)),
             DataType::Uuid => Self::Uuid(AHashMap::with_capacity(capacity)),
             DataType::Null | DataType::F32 | DataType::F64 => {
-                unreachable!("unsupported index type was rejected")
+                return Err(TableError::UnsupportedIndexType(data_type));
             }
-        }
+        })
     }
 
-    fn insert(&mut self, value: ValueRef<'a>, row: usize) {
+    fn insert(&mut self, value: ValueRef<'a>, row: usize) -> Result<(), TableError> {
         macro_rules! insert {
             ($map:expr, $key:expr) => {
                 $map.entry($key).or_default().push(row)
@@ -147,8 +147,13 @@ impl<'a> IndexStorage<'a> {
             (Self::String(map), Some(IndexKeyRef::String(key))) => insert!(map, key),
             (Self::Bytes(map), Some(IndexKeyRef::Bytes(key))) => insert!(map, key),
             (Self::Uuid(map), Some(IndexKeyRef::Uuid(key))) => insert!(map, key),
-            _ => unreachable!("value type matches index storage"),
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "value type did not match index storage",
+                });
+            }
         }
+        Ok(())
     }
 
     fn rows(&self, key: IndexKeyRef<'_>) -> &[usize] {
@@ -191,21 +196,29 @@ impl<'a> ColumnIndex<'a> {
         ) {
             return Err(TableError::UnsupportedIndexType(spec.data_type()));
         }
-        let mut by_key = IndexStorage::new(spec.data_type(), table.row_count());
+        let mut by_key = IndexStorage::new(spec.data_type(), table.row_count())?;
         let mut null_rows = SmallVec::new();
         let mut tombstoned_rows = SmallVec::new();
+        let storage = table
+            .columns
+            .get(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count: table.column_count(),
+            })?;
         for row in 0..table.row_count() {
             if table.tombstones.is_tombstoned(row) {
                 tombstoned_rows.push(row);
                 continue;
             }
-            let value = table.columns[column]
-                .get(row)
-                .expect("column lengths match row count");
+            let value = storage.get(row).ok_or(TableError::RowOutOfBounds {
+                row,
+                row_count: table.row_count(),
+            })?;
             if value == ValueRef::Null {
                 null_rows.push(row);
             } else {
-                by_key.insert(value, row);
+                by_key.insert(value, row)?;
             }
         }
         Ok(Self {

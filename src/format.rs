@@ -7,7 +7,7 @@ use compact_str::CompactString;
 use thiserror::Error;
 
 use crate::text::push_percent_component;
-use crate::{Arguments, RowOrder, Table, ValueRef, encode_hex};
+use crate::{Arguments, RowOrder, Table, TableError, ValueRef, encode_hex};
 
 /// An interchange-format or representability error.
 #[derive(Debug, Error)]
@@ -36,6 +36,9 @@ pub enum FormatError {
     /// CSV output unexpectedly contained invalid UTF-8.
     #[error(transparent)]
     InvalidUtf8(#[from] FromUtf8Error),
+    /// The table rejected a row position while formatting.
+    #[error(transparent)]
+    Table(#[from] TableError),
 }
 
 /// Serializes named, uniquely keyed arguments as a JSON object.
@@ -201,9 +204,10 @@ fn rows_to_json(
         }
         first_row = false;
         output.push(b'{');
-        let row = table
-            .row(row)
-            .expect("row position belongs to the source table");
+        let row = table.row(row).ok_or(TableError::RowOutOfBounds {
+            row,
+            row_count: table.row_count(),
+        })?;
         for (column, (spec, value)) in table.schema().iter().zip(row.iter()).enumerate() {
             if column > 0 {
                 output.push(b',');

@@ -391,6 +391,12 @@ These are crash/availability risks, not UB through the safe API. Bounds checks
 and assertions execute in release builds unless a user deliberately selects an
 abort behavior; they do not disappear like C++ `assert`.
 
+Internal consistency checks in the table, index, column-selection, binary,
+expression, and import paths do not call `unwrap`, `expect`, `panic!`, or
+`unreachable!`; those paths return typed errors such as
+`TableError::InternalInvariant` instead. The list above is limited to documented
+public contracts, allocation failure, and user code.
+
 The most notable mistake-resistance trade-off is `UnknownFields::Store`: it
 intentionally turns an unknown name into a row-local extra, so a typo may be
 accepted. The default is `UnknownFields::Reject`. Custom `ColumnConverter`s can

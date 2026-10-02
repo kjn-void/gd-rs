@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{DataType, Value, ValueRef};
 
+use super::TableError;
 use super::UnknownFields;
 
 const ROW_EXTRAS_HASH_THRESHOLD: usize = 4;
@@ -95,14 +96,23 @@ impl ExtrasStorage {
         }
     }
 
-    pub(super) fn set(&mut self, row: usize, extras: RowExtras) {
-        self.set_box(row, Box::new(extras));
+    pub(super) fn set(&mut self, row: usize, extras: RowExtras) -> Result<(), TableError> {
+        self.set_box(row, Box::new(extras))
     }
 
-    pub(super) fn set_box(&mut self, row: usize, extras: Box<RowExtras>) {
+    pub(super) fn set_box(&mut self, row: usize, extras: Box<RowExtras>) -> Result<(), TableError> {
         match self {
-            Self::Enabled(rows) => rows[row] = Some(extras),
-            Self::Disabled => unreachable!("closed schemas cannot store extra fields"),
+            Self::Enabled(rows) => {
+                let row_count = rows.len();
+                let Some(slot) = rows.get_mut(row) else {
+                    return Err(TableError::RowOutOfBounds { row, row_count });
+                };
+                *slot = Some(extras);
+                Ok(())
+            }
+            Self::Disabled => Err(TableError::InternalInvariant {
+                detail: "row extras were stored in a closed schema",
+            }),
         }
     }
 
@@ -113,12 +123,20 @@ impl ExtrasStorage {
         }
     }
 
-    pub(super) fn get_or_insert(&mut self, row: usize) -> &mut RowExtras {
+    pub(super) fn get_or_insert(&mut self, row: usize) -> Result<&mut RowExtras, TableError> {
         match self {
-            Self::Enabled(rows) => rows[row]
-                .get_or_insert_with(|| Box::new(RowExtras::default()))
-                .as_mut(),
-            Self::Disabled => unreachable!("closed schemas cannot store extra fields"),
+            Self::Enabled(rows) => {
+                let row_count = rows.len();
+                let Some(slot) = rows.get_mut(row) else {
+                    return Err(TableError::RowOutOfBounds { row, row_count });
+                };
+                Ok(slot
+                    .get_or_insert_with(|| Box::new(RowExtras::default()))
+                    .as_mut())
+            }
+            Self::Disabled => Err(TableError::InternalInvariant {
+                detail: "row extras were requested from a closed schema",
+            }),
         }
     }
 
@@ -203,31 +221,64 @@ impl<T> ColumnData<T> {
     }
 
     #[inline]
-    pub(super) fn value(&self, row: usize) -> Option<&T> {
+    pub(super) fn value(&self, row: usize) -> Result<Option<&T>, TableError> {
         match self.get(row) {
-            CellValue::OutOfBounds => panic!("column lengths match row count"),
-            CellValue::Null => None,
-            CellValue::Value(value) => Some(value),
+            CellValue::OutOfBounds => Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.len(),
+            }),
+            CellValue::Null => Ok(None),
+            CellValue::Value(value) => Ok(Some(value)),
         }
     }
 
     #[inline]
-    fn push(&mut self, value: Option<T>) {
+    fn push(&mut self, value: Option<T>) -> Result<(), TableError> {
         match self {
             Self::Required(values) => {
-                values.push(value.expect("required column values were validated"));
+                let Some(value) = value else {
+                    return Err(TableError::InternalInvariant {
+                        detail: "null was pushed into a required column",
+                    });
+                };
+                values.push(value);
+                Ok(())
             }
-            Self::Nullable(values) => values.push(value),
+            Self::Nullable(values) => {
+                values.push(value);
+                Ok(())
+            }
         }
     }
 
     #[inline]
-    pub(super) fn set(&mut self, row: usize, value: Option<T>) {
+    pub(super) fn set(&mut self, row: usize, value: Option<T>) -> Result<(), TableError> {
         match self {
             Self::Required(values) => {
-                values[row] = value.expect("required column values were validated");
+                let Some(slot) = values.get_mut(row) else {
+                    return Err(TableError::RowOutOfBounds {
+                        row,
+                        row_count: values.len(),
+                    });
+                };
+                let Some(value) = value else {
+                    return Err(TableError::InternalInvariant {
+                        detail: "null was assigned to a required column",
+                    });
+                };
+                *slot = value;
+                Ok(())
             }
-            Self::Nullable(values) => values[row] = value,
+            Self::Nullable(values) => {
+                let Some(slot) = values.get_mut(row) else {
+                    return Err(TableError::RowOutOfBounds {
+                        row,
+                        row_count: values.len(),
+                    });
+                };
+                *slot = value;
+                Ok(())
+            }
         }
     }
 
@@ -382,20 +433,29 @@ impl ColumnStorage {
     }
 
     #[inline]
-    pub(super) fn push_validated(&mut self, value: Value) {
+    pub(super) fn push_validated(&mut self, value: Value) -> Result<(), TableError> {
         macro_rules! push {
             ($values:expr, $value:expr, $variant:ident) => {
                 $values.push(match $value {
                     Value::Null => None,
                     Value::$variant(value) => Some(value),
-                    _ => unreachable!("value was validated against its column"),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "value type did not match its column",
+                        });
+                    }
                 })
             };
         }
         match self {
             Self::Null(len) => {
-                debug_assert_eq!(value, Value::Null);
+                if value != Value::Null {
+                    return Err(TableError::InternalInvariant {
+                        detail: "non-null value was pushed into a null column",
+                    });
+                }
                 *len += 1;
+                Ok(())
             }
             Self::Bool(values) => push!(values, value, Bool),
             Self::I8(values) => push!(values, value, I8),
@@ -415,7 +475,7 @@ impl ColumnStorage {
     }
 
     #[inline]
-    pub(super) fn set_validated(&mut self, row: usize, value: Value) {
+    pub(super) fn set_validated(&mut self, row: usize, value: Value) -> Result<(), TableError> {
         macro_rules! set {
             ($values:expr, $value:expr, $variant:ident) => {
                 $values.set(
@@ -423,13 +483,24 @@ impl ColumnStorage {
                     match $value {
                         Value::Null => None,
                         Value::$variant(value) => Some(value),
-                        _ => unreachable!("value was validated against its column"),
+                        _ => {
+                            return Err(TableError::InternalInvariant {
+                                detail: "value type did not match its column",
+                            });
+                        }
                     },
                 )
             };
         }
         match self {
-            Self::Null(_) => debug_assert_eq!(value, Value::Null),
+            Self::Null(_) => {
+                if value != Value::Null {
+                    return Err(TableError::InternalInvariant {
+                        detail: "non-null value was assigned to a null column",
+                    });
+                }
+                Ok(())
+            }
             Self::Bool(values) => set!(values, value, Bool),
             Self::I8(values) => set!(values, value, I8),
             Self::I16(values) => set!(values, value, I16),
