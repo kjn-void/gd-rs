@@ -3,7 +3,8 @@
 From the repository root:
 
 ```sh
-./benches/run_order_workflow.sh --gd ../gd
+git submodule update --init external/gd
+./benches/run_order_workflow.sh
 ```
 
 The runner builds optimized Rust and C++ standalone programs, generates deterministic
@@ -21,9 +22,13 @@ python3 benches/order_workflow/summarize.py target/order-workflow/results.json
 
 `--skip-build` is for binaries already built with the runner's documented flags.
 It does not check that custom binaries use those flags. Raw results, build logs,
-and stripped copies stay under `target/order-workflow`. `../gd` is read-only: all
-C++ application code and build artifacts live in `gd-rs`. The runner fingerprints
-GD's source tree and build descriptions before and after running.
+and stripped copies stay under `target/order-workflow`. The default GD source is
+the pinned `external/gd` submodule; `--gd /path/to/gd` overrides it. CMake build
+files and application code are maintained in `benches/cpp-reference`, and generated
+forwarding headers stay in the build directory. The runner fingerprints the GD
+source tree before and after running and records hashes of the maintained build
+recipe. It builds Rust with `--locked` and rejects differing runtime SQLite
+versions before timing; both shipped builds use SQLite 3.53.2.
 
 To retain an inspectable fixture and run individual checks:
 

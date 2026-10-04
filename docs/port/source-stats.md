@@ -18,15 +18,15 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 24 | 6,463 | 215 | 563 | 2.62 |
 | Rust product + tests (`src`, `tests`) | 33 | 9,112 | 326 | 765 | 2.35 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 51 | 12,327 | 451 | 1,156 | 2.56 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 51 | 12,328 | 451 | 1,156 | 2.56 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 160 | 67,470 | 8,804 | 20,520 | 2.33 |
+| C++ product + tests + maintained benchmarks | 160 | 67,471 | 8,804 | 20,520 | 2.33 |
 
 The requested Rust totals are therefore **6,463 SLOC without test/benchmark code**
-and **12,327 SLOC with both**. Tests account for 2,649 SLOC and benchmarks for 3,215
+and **12,328 SLOC with both**. Tests account for 2,649 SLOC and benchmarks for 3,216
 SLOC. In the C++ scopes, the pinned baseline has no test directory and the maintained
-benchmark references add 2,883 SLOC.
+benchmark references add 2,884 SLOC.
 
 These totals should not be read as a claim that Rust needs 10.0% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while

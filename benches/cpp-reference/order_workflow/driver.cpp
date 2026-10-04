@@ -95,7 +95,8 @@ void Verify(Database& db, const std::vector<Parameters>& p, BatchPool& pool, uns
     }
     prepared.reset();
     for(std::size_t i = 1; i < outputs.size(); ++i) Require(Digest(outputs[i]) == hashes[i], "output did not own its cells");
-    std::cout << "{\"implementation\":\"cpp\",\"verified\":true,\"workers\":" << workers << ",\"counts\":";
+    std::cout << "{\"implementation\":\"cpp\",\"verified\":true,\"sqlite\":\"" << sqlite3_libversion()
+              << "\",\"workers\":" << workers << ",\"counts\":";
     PrintArray(counts); std::cout << ",\"digests\":"; PrintArray(hashes); std::cout << "}\n";
 }
 template<class T> void Escape(const T& value) {

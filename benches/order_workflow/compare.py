@@ -28,7 +28,7 @@ def text(args):
 
 
 def source_fingerprint(gd):
-    # Includes untracked build descriptions in this checkout; no writes to gd.
+    # Fingerprint the reference source and any optional upstream build descriptions.
     files = [*sorted((gd / 'source').rglob('*')), gd / 'CMakeLists.txt', gd / 'CMakePresets.json']
     digest = hashlib.sha256()
     for file in files:
@@ -52,7 +52,7 @@ def build(gd):
         env.pop('CARGO_ENCODED_RUSTFLAGS', None)
         env.update(RUSTFLAGS='-C target-cpu=native', CFLAGS='-march=native')
         command(['cargo', 'build', '--release', '--example', 'order_workflow', '--features', 'rayon',
-                 '--manifest-path', ROOT / 'Cargo.toml'], env=env, stdout=log, stderr=subprocess.STDOUT)
+                 '--locked', '--manifest-path', ROOT / 'Cargo.toml'], env=env, stdout=log, stderr=subprocess.STDOUT)
 
 
 def invoke(binary, db, workers, stage, samples, index):
@@ -77,7 +77,7 @@ def sizes(binaries):
     result = {}
     files = {
         'rust_application': ['benches/order_workflow/workload.rs'],
-        'rust_library_addition': ['src/table/selection.rs'],
+        'rust_selection_library': ['src/table/selection.rs'],
         'rust_driver': ['benches/order_workflow/driver.rs'],
         'cpp_application_and_adapters': ['benches/cpp-reference/order_workflow/workload.hpp'],
         'cpp_driver_and_pool': ['benches/cpp-reference/order_workflow/driver.cpp',
@@ -125,7 +125,7 @@ def check_rejections(binaries, hand, folder):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--gd', type=Path, default=ROOT.parent / 'gd')
+    parser.add_argument('--gd', type=Path, default=ROOT / 'external/gd')
     parser.add_argument('--rows', type=int, nargs='+', default=[10000, 100000, 1000000])
     parser.add_argument('--workers', type=int, nargs='+', default=[n for n in [1, 2, 4, 8] if n <= (os.cpu_count() or 1)])
     parser.add_argument('--samples', type=int, default=5)
@@ -157,6 +157,7 @@ def main():
         'invocation': sys.argv, 'fixture_sqlite': fixture.sqlite3.sqlite_version,
         'samples': args.samples, 'rounds': args.rounds,
     }, 'verification': [], 'measurements': []}
+    sqlite_version = None
     OUTPUT.mkdir(parents=True, exist_ok=True)
     # Regenerate under a unique directory: never silently reuse a stale fixture.
     import tempfile
@@ -175,6 +176,11 @@ def main():
             for workers in args.workers:
                 for language, binary in binaries.items():
                     result = invoke(binary, db, workers, 'verify', 1, 'native')
+                    if sqlite_version is None:
+                        sqlite_version = result['sqlite']
+                    if result['sqlite'] != sqlite_version:
+                        raise RuntimeError(f'SQLite versions differ: {sqlite_version} vs {result["sqlite"]}')
+                    report['metadata']['sqlite_version'] = sqlite_version
                     key = (result['counts'], result['digests'])
                     if baseline is None:
                         baseline = key
@@ -210,7 +216,9 @@ def main():
                     *sorted((ROOT / 'benches/order_workflow').glob('*.py')),
                     *sorted((ROOT / 'benches/cpp-reference/order_workflow').glob('*.cpp')),
                     *sorted((ROOT / 'benches/cpp-reference/order_workflow').glob('*.hpp')),
-                    ROOT / 'src/table/selection.rs', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock']
+                    ROOT / 'src/table/selection.rs', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock',
+                    ROOT / 'benches/cpp-reference/CMakeLists.txt',
+                    ROOT / 'benches/cpp-reference/cmake/GdCore.cmake']
     report['metadata']['source_sha256'] = {
         str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths}
     report['metadata']['gd_source_unchanged'] = source_fingerprint(gd) == before

@@ -7,10 +7,11 @@ here makes the benchmark methodology reviewable from the Rust repository.
 The build expects the C++ GD git submodule at `external/gd` relative to the `gd-rs`
 repository. Initialize it with `git submodule update --init external/gd` after cloning.
 Override that default with `-DGD_SOURCE_DIR=/absolute/path/to/gd` when configuring
-against another checkout. The pinned upstream revision does not track its CMake build,
-so configure with `-DGD_SOURCE_DIR` pointing at a checkout that contains
-`CMakeLists.txt` when building the reference.
-Google Benchmark is pinned to v1.9.5, matching the GD build configuration.
+against another checkout. The maintained [GD build recipe](cmake/GdCore.cmake)
+compiles the submodule sources and generates installed-layout forwarding headers
+in the build directory. No CMake files or header shims are needed inside GD.
+SQLite is pinned to 3.53.2 with a verified archive hash, matching the bundled engine
+in rusqlite 0.40.2. Google Benchmark is pinned to v1.9.5.
 
 From this directory, build and run the optimized assertions-off reference:
 
@@ -107,6 +108,6 @@ The standalone `gd_order_workflow` target implements the three-table validation,
 join, filtering, and parameterized-output workload described in the
 [order-workflow report](../../docs/high-level/order-workflow.md). Its maintained
 application and driver are in `order_workflow/`; it links GD from `GD_SOURCE_DIR`
-without editing that checkout. Run `../run_order_workflow.sh --gd /path/to/gd` for
+without editing that checkout. Run `../run_order_workflow.sh` for
 matched verification, staged timings, concurrent variants, memory, and program-size
 measurements. It deliberately does not link Google Benchmark into the executable.

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(gd_cpp_reference_benchmarks LANGUAGES C CXX)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(FetchContent)
 
@@ -12,16 +13,14 @@ get_filename_component(
 set(GD_SOURCE_DIR "${GD_SOURCE_DIR_DEFAULT}" CACHE PATH
     "Path to the C++ GD source tree")
 
-if(NOT EXISTS "${GD_SOURCE_DIR}/CMakeLists.txt")
+if(NOT EXISTS "${GD_SOURCE_DIR}/source/gd_table_column-buffer.cpp")
     message(FATAL_ERROR
-        "GD_SOURCE_DIR does not contain CMakeLists.txt: ${GD_SOURCE_DIR}")
+        "GD source is missing at ${GD_SOURCE_DIR}; run git submodule update --init external/gd")
 endif()
 
-set(GD_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GD_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
-add_subdirectory("${GD_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/gd" EXCLUDE_FROM_ALL)
+include(cmake/GdCore.cmake)
 
 set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)

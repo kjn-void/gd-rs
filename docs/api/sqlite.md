@@ -4,6 +4,11 @@ The default `sqlite` Cargo feature provides `SqliteDatabase`, a narrow adapter b
 `Arguments`, `Value`, typed `Table` storage, and `rusqlite`. It owns one connection and
 delegates SQL syntax, transactions, and connection behavior to SQLite.
 
+The checked-in lockfile resolves `rusqlite` 0.40.2 and `libsqlite3-sys` 0.38.2,
+bundling SQLite 3.53.2. `connection()` exposes a `rusqlite::Connection`; downstream
+code that names this type directly should use the same `rusqlite` 0.40 dependency
+series.
+
 Disable it with `default-features = false` when the crate is used without a database:
 
 ```toml

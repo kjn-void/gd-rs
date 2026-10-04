@@ -1,6 +1,7 @@
 # Order workflow: recorded measurements
 
-Sources: [Rust application](../../benches/order_workflow/workload.rs), [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp), [measurement runner](../../benches/order_workflow/compare.py). See the [analysis and limitations](order-workflow.md).
+Sources: [Rust application](../../benches/order_workflow/workload.rs), [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp), [measurement runner](../../benches/order_workflow/compare.py). See the [analysis and limitations](order-workflow.md), including the separately
+recorded [preparation repeat](order-workflow.md#preparation-timing-repeat).
 
 Times are median milliseconds across two alternating process rounds, five samples each, after one warmup per process. Ranges show minimum–maximum samples; they are not confidence intervals. C++/Rust is the elapsed-time ratio. Peak RSS is the largest whole-process high-water mark of the two rounds, including setup.
 
@@ -10,17 +11,17 @@ Sources: [Rust](../../benches/order_workflow/workload.rs), [C++](../../benches/c
 
 | Stage | Workers | Index | Rust ms (range) | C++ ms (range) | C++/Rust | Rust peak MiB | C++ peak MiB |
 |---|---:|---|---:|---:|---:|---:|---:|
-| import | 1 | native | 1.452 (1.434–1.477) | 2.110 (1.972–2.241) | 1.45× | 5.6 | 5.0 |
-| prepare | 1 | native | 1.209 (1.202–1.247) | 2.098 (2.029–2.157) | 1.74× | 8.5 | 8.3 |
-| prepare | 1 | sorted | 1.255 (1.237–1.288) | 1.994 (1.893–2.090) | 1.59× | 8.4 | 8.3 |
-| variants | 1 | native | 0.552 (0.528–0.588) | 1.606 (1.521–1.651) | 2.91× | 10.5 | 10.0 |
-| variants | 2 | native | 0.331 (0.321–0.347) | 1.291 (1.265–1.324) | 3.90× | 10.5 | 10.2 |
-| variants | 4 | native | 0.209 (0.195–0.234) | 0.742 (0.715–0.763) | 3.54× | 10.7 | 10.4 |
-| variants | 8 | native | 0.203 (0.171–0.271) | 0.719 (0.698–0.778) | 3.54× | 11.0 | 11.5 |
-| complete | 1 | native | 3.302 (3.256–3.377) | 5.707 (5.580–5.829) | 1.73× | 10.6 | 10.1 |
-| complete | 2 | native | 3.030 (2.935–3.095) | 5.480 (5.397–5.561) | 1.81× | 10.7 | 10.4 |
-| complete | 4 | native | 2.891 (2.851–3.009) | 4.888 (4.766–4.931) | 1.69× | 10.8 | 10.4 |
-| complete | 8 | native | 2.929 (2.875–3.050) | 4.957 (4.767–5.342) | 1.69× | 11.6 | 11.5 |
+| import | 1 | native | 1.560 (1.542–2.611) | 2.234 (2.141–2.813) | 1.43× | 6.6 | 6.5 |
+| prepare | 1 | native | 1.309 (1.290–1.447) | 2.248 (2.073–2.349) | 1.72× | 11.8 | 11.1 |
+| prepare | 1 | sorted | 1.343 (1.309–1.481) | 2.229 (2.159–2.327) | 1.66× | 11.7 | 11.0 |
+| variants | 1 | native | 0.617 (0.587–0.725) | 1.641 (1.486–1.787) | 2.66× | 11.9 | 11.7 |
+| variants | 2 | native | 0.331 (0.311–0.390) | 1.385 (1.193–1.454) | 4.19× | 11.3 | 11.3 |
+| variants | 4 | native | 0.213 (0.206–0.244) | 0.796 (0.759–0.953) | 3.73× | 11.4 | 11.2 |
+| variants | 8 | native | 0.214 (0.192–0.261) | 0.780 (0.723–0.897) | 3.64× | 12.2 | 11.5 |
+| complete | 1 | native | 6.160 (3.664–13.263) | 11.174 (7.649–19.448) | 1.81× | 17.7 | 15.0 |
+| complete | 2 | native | 3.256 (3.201–3.581) | 5.758 (5.606–5.919) | 1.77× | 16.2 | 10.2 |
+| complete | 4 | native | 3.094 (3.004–3.231) | 5.354 (5.223–5.668) | 1.73× | 11.2 | 12.3 |
+| complete | 8 | native | 3.178 (3.093–3.564) | 5.287 (5.031–5.797) | 1.66× | 14.8 | 14.0 |
 
 ## 100,000 order lines
 
@@ -28,17 +29,17 @@ Sources: [Rust](../../benches/order_workflow/workload.rs), [C++](../../benches/c
 
 | Stage | Workers | Index | Rust ms (range) | C++ ms (range) | C++/Rust | Rust peak MiB | C++ peak MiB |
 |---|---:|---|---:|---:|---:|---:|---:|
-| import | 1 | native | 15.001 (14.907–15.250) | 20.780 (20.509–21.942) | 1.39× | 21.3 | 21.7 |
-| prepare | 1 | native | 13.128 (12.998–13.333) | 24.231 (23.570–24.772) | 1.85× | 52.2 | 53.5 |
-| prepare | 1 | sorted | 14.067 (14.001–14.165) | 24.365 (24.021–25.295) | 1.73× | 52.2 | 53.5 |
-| variants | 1 | native | 5.685 (5.605–5.832) | 16.378 (16.127–17.075) | 2.88× | 69.2 | 72.5 |
-| variants | 2 | native | 3.005 (2.985–3.043) | 12.984 (12.694–13.196) | 4.32× | 69.8 | 69.5 |
-| variants | 4 | native | 1.849 (1.751–2.442) | 7.245 (7.140–7.332) | 3.92× | 80.6 | 74.0 |
-| variants | 8 | native | 1.378 (1.317–1.734) | 6.685 (6.546–6.894) | 4.85× | 80.0 | 75.9 |
-| complete | 1 | native | 34.344 (33.911–35.623) | 62.917 (61.664–64.063) | 1.83× | 77.8 | 68.3 |
-| complete | 2 | native | 31.504 (30.682–32.116) | 57.158 (56.780–57.850) | 1.81× | 71.5 | 69.5 |
-| complete | 4 | native | 29.991 (29.570–30.550) | 52.136 (51.156–52.507) | 1.74× | 71.6 | 71.7 |
-| complete | 8 | native | 31.499 (31.380–32.153) | 53.185 (52.558–56.663) | 1.69× | 82.2 | 76.8 |
+| import | 1 | native | 14.713 (14.651–14.892) | 21.078 (20.396–22.131) | 1.43× | 21.3 | 21.7 |
+| prepare | 1 | native | 12.957 (12.686–13.290) | 25.044 (24.662–25.176) | 1.93× | 52.2 | 53.5 |
+| prepare | 1 | sorted | 14.352 (14.091–14.747) | 24.344 (24.083–25.288) | 1.70× | 52.2 | 53.5 |
+| variants | 1 | native | 5.825 (5.606–6.028) | 16.820 (16.527–17.307) | 2.89× | 69.1 | 68.1 |
+| variants | 2 | native | 3.019 (2.964–3.149) | 13.170 (13.056–13.606) | 4.36× | 69.7 | 69.4 |
+| variants | 4 | native | 1.887 (1.804–2.010) | 7.303 (7.156–7.532) | 3.87× | 78.3 | 75.7 |
+| variants | 8 | native | 1.340 (1.304–1.942) | 7.338 (7.001–10.507) | 5.48× | 83.7 | 79.8 |
+| complete | 1 | native | 34.317 (33.959–34.763) | 60.864 (58.515–63.648) | 1.77× | 71.2 | 68.1 |
+| complete | 2 | native | 31.231 (30.650–31.603) | 59.850 (58.845–60.482) | 1.92× | 71.5 | 69.4 |
+| complete | 4 | native | 30.225 (29.654–31.896) | 55.711 (54.283–58.432) | 1.84× | 72.0 | 82.6 |
+| complete | 8 | native | 29.854 (29.307–30.907) | 53.830 (52.115–55.471) | 1.80× | 75.3 | 76.7 |
 
 ## 1,000,000 order lines
 
@@ -46,37 +47,37 @@ Sources: [Rust](../../benches/order_workflow/workload.rs), [C++](../../benches/c
 
 | Stage | Workers | Index | Rust ms (range) | C++ ms (range) | C++/Rust | Rust peak MiB | C++ peak MiB |
 |---|---:|---|---:|---:|---:|---:|---:|
-| import | 1 | native | 147.392 (146.734–149.987) | 202.315 (198.970–203.485) | 1.37× | 237.3 | 171.9 |
-| prepare | 1 | native | 160.330 (154.193–167.336) | 286.535 (282.679–312.164) | 1.79× | 476.2 | 473.1 |
-| prepare | 1 | sorted | 183.468 (178.622–190.128) | 281.811 (272.982–303.386) | 1.54× | 468.9 | 473.1 |
-| variants | 1 | native | 59.314 (58.461–59.988) | 170.076 (167.060–183.006) | 2.87× | 657.1 | 644.0 |
-| variants | 2 | native | 31.368 (30.812–31.688) | 128.037 (123.610–138.254) | 4.08× | 653.1 | 721.1 |
-| variants | 4 | native | 19.000 (18.221–19.326) | 70.832 (69.089–79.321) | 3.73× | 670.0 | 696.0 |
-| variants | 8 | native | 14.085 (13.680–14.565) | 71.745 (66.187–78.786) | 5.09× | 682.4 | 888.5 |
-| complete | 1 | native | 374.406 (369.245–383.823) | 670.622 (645.327–698.872) | 1.79× | 829.1 | 670.2 |
-| complete | 2 | native | 345.166 (339.786–351.664) | 646.154 (626.235–657.697) | 1.87× | 819.7 | 687.2 |
-| complete | 4 | native | 332.683 (328.615–340.270) | 573.952 (561.360–626.941) | 1.73× | 827.6 | 687.8 |
-| complete | 8 | native | 325.798 (323.762–336.699) | 570.669 (539.101–604.349) | 1.75× | 833.3 | 803.1 |
+| import | 1 | native | 149.757 (147.823–153.167) | 210.068 (203.358–218.408) | 1.40× | 253.2 | 166.3 |
+| prepare | 1 | native | 181.594 (157.768–222.868) | 310.762 (290.754–328.415) | 1.71× | 476.1 | 473.1 |
+| prepare | 1 | sorted | 209.954 (180.739–325.766) | 296.253 (279.023–312.187) | 1.41× | 470.9 | 473.1 |
+| variants | 1 | native | 63.714 (61.188–66.914) | 185.729 (172.803–206.798) | 2.92× | 690.2 | 649.7 |
+| variants | 2 | native | 34.069 (31.991–43.392) | 135.745 (130.876–141.717) | 3.98× | 681.6 | 670.9 |
+| variants | 4 | native | 19.524 (18.905–19.935) | 83.368 (74.490–96.165) | 4.27× | 682.1 | 775.7 |
+| variants | 8 | native | 14.971 (13.786–18.961) | 70.743 (68.228–79.748) | 4.73× | 682.0 | 722.8 |
+| complete | 1 | native | 373.798 (370.257–396.402) | 678.296 (660.787–743.817) | 1.81× | 823.7 | 670.2 |
+| complete | 2 | native | 347.624 (344.558–392.517) | 651.967 (609.915–713.815) | 1.88× | 813.8 | 686.8 |
+| complete | 4 | native | 354.633 (330.264–358.840) | 584.944 (558.914–629.665) | 1.65× | 850.1 | 688.2 |
+| complete | 8 | native | 327.818 (322.461–331.463) | 578.533 (557.497–616.726) | 1.76× | 837.2 | 720.2 |
 
 ## Source and executable sizes
 
-Sources: [Rust application](../../benches/order_workflow/workload.rs), [new Rust APIs](../../src/table/selection.rs), [C++ application and adapters](../../benches/cpp-reference/order_workflow/workload.hpp), [size measurement code](../../benches/order_workflow/compare.py).
+Sources: [Rust application](../../benches/order_workflow/workload.rs), [Rust selection APIs](../../src/table/selection.rs), [C++ application and adapters](../../benches/cpp-reference/order_workflow/workload.hpp), [size measurement code](../../benches/order_workflow/compare.py).
 
 | Component | Physical lines | Nonblank lines | Bytes |
 |---|---:|---:|---:|
 | rust_application | 175 | 164 | 5,862 |
-| rust_library_addition | 155 | 148 | 6,125 |
-| rust_driver | 219 | 213 | 7,637 |
+| rust_selection_library | 155 | 148 | 6,125 |
+| rust_driver | 220 | 214 | 7,675 |
 | cpp_application_and_adapters | 133 | 132 | 6,578 |
-| cpp_driver_and_pool | 214 | 211 | 10,995 |
-| shared_fixture_and_runner | 339 | 311 | 17,883 |
+| cpp_driver_and_pool | 215 | 212 | 11,055 |
+| shared_fixture_and_runner | 347 | 319 | 18,416 |
 | rust_api_tests | 128 | 124 | 4,603 |
 
-Lines include comments; formatting differs between languages. The new Rust APIs also require a module declaration and one visibility change in existing files. Existing library and dependency source is excluded.
+Lines include comments; formatting differs between languages. The Rust selection module is counted separately; other library and dependency source is excluded.
 
 | Standalone program | Unstripped bytes | Stripped bytes |
 |---|---:|---:|
-| rust | 2,614,720 | 2,351,088 |
+| rust | 2,649,392 | 2,384,272 |
 | cpp | 1,401,952 | 1,325,104 |
 
 Executables include the application, timing/correctness driver, retained library code, and SQLite. Rust also uses Rayon and serde_json; C++ uses the counted pool and a small JSON emitter. Both use system dynamic libraries, listed in the raw JSON. These are program footprints, not intrinsic table-library sizes.
@@ -93,7 +94,7 @@ Sources: [fixture and SQL oracle](../../benches/order_workflow/fixture.py), [Rus
 - 1,000,000 input lines → variant counts `[701831, 171703, 41146, 26177, 86358, 113317, 541638, 16323]`.
 
 ```text
-utc: 2026-10-04T12:37:41.965155+00:00
+utc: 2026-10-04T13:12:11.618920+00:00
 platform: macOS-27.0.1-arm64-arm-64bit-Mach-O
 logical_cpus: 16
 cpu: Apple M3 Max
@@ -113,16 +114,17 @@ Target: arm64-apple-darwin27.0.0
 Thread model: posix
 InstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
 gd_revision: cb11cff90d05260a88d59a30c9da421cd4e19c34
-gd_rs_revision: cab6dd670f7b6955cd221987db5c09f4b5cafbbf
-gd_source_sha256: c5ea0e43c4e31dd345c2311f82fdc8d0af5d53e9ed28fee8897f89dcbddfb2fd
+gd_rs_revision: 9bd95cd9be1c15ae7a759a75202a16ec41160c0a
+gd_source_sha256: a2261ae9166c0f372d98fd698d481dc76014bef2b7d9a6314d1e6d3282abaef6
 seed: 7640891576956012809
 rust_flags: release: opt-level=3, codegen-units=1, lto=thin; target-cpu=native; features sqlite,rayon; CFLAGS=-march=native
 cpp_flags: Release: -O3 -DNDEBUG -march=native; CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON; sanitizers OFF
 affinity: OS scheduling, no affinity; persistent pools; one process at a time
-invocation: ['/Users/kjn/repos/gd-rs/benches/order_workflow/compare.py']
+invocation: ['/Users/kjn/repos/gd-rs/benches/order_workflow/compare.py', '--skip-build', '--output', 'target/order-workflow/submodule-results.json']
 fixture_sqlite: 3.53.4
 samples: 5
 rounds: 2
-source_sha256: {'benches/order_workflow/driver.rs': '929e1dd7b8fcac426633fa9ce16a1814cc07eb8d44164c50573a9453bfeaec6d', 'benches/order_workflow/workload.rs': '42f76ae094e995e4ac07a9d047ab4605d3d1b7d7b78d3aee58270c7295e44801', 'benches/order_workflow/check_safety.py': 'edcb50df415c894a02e42e16dabb4388d6508dedb76eb168950016b29425d241', 'benches/order_workflow/compare.py': 'd08caea00b1e606e313ea19437ccbbcb6f41b644d944d6ab99e9f9619b376a4d', 'benches/order_workflow/fixture.py': 'c5d25592d2d5962e8747dab197a3fc6961601127cbac7ce8cb78d358b905ef50', 'benches/order_workflow/summarize.py': 'bc37e7b3b18282ce4c5c517760e162703fa4ebbd7c4c1b267fa64ea31f4ba336', 'benches/cpp-reference/order_workflow/driver.cpp': '1324296470a16a59c017bf7d41210cbbb070d7211134069e715e48006ac7cd74', 'benches/cpp-reference/order_workflow/probes.cpp': '49fdca83f5e0674cb029b9b72f24c5e5516261bf6b7dd60e8e0246e9e20a6326', 'benches/cpp-reference/order_workflow/pool.hpp': 'ce5c916ee51ac6228de37b3b05ffb7fa60d3c255cf2f69c7624518bddc0c79b3', 'benches/cpp-reference/order_workflow/workload.hpp': '8c3d2b7ecfab02af22df441fb7dfe64d26ab5a2f222d0e2db43f9e8308e44bb2', 'src/table/selection.rs': 'a559a62f8e3d91fd9328dd09d7526ec185551c35d9379023f2711fe5ea2f1138', 'Cargo.toml': 'fb48c158ad7b5b67adae210278838e872c55bf76dbe762a5babd028ffa998153', 'Cargo.lock': '4933cde8b8440649c2447025ba93ce15a7742500e11169e9f58928217ae7cc42'}
+sqlite_version: 3.53.2
+source_sha256: {'benches/order_workflow/driver.rs': 'f14adc2937b60a19e6154b88b881fbbe9722600297e9802b9c6c526b2352ceee', 'benches/order_workflow/workload.rs': '42f76ae094e995e4ac07a9d047ab4605d3d1b7d7b78d3aee58270c7295e44801', 'benches/order_workflow/check_safety.py': 'b7c37e33da6fb40e8b9ba86ca0d7a1211f0d023b48905645cc2381dd46b6daa2', 'benches/order_workflow/compare.py': '1b2742f87843c26c1a79010ceb0a5b3c8c60d0bb82d9c18386f8b0d801115a81', 'benches/order_workflow/fixture.py': 'c5d25592d2d5962e8747dab197a3fc6961601127cbac7ce8cb78d358b905ef50', 'benches/order_workflow/summarize.py': 'e16e6ac979ffdda9435efcc4c18c246d5df440de365196c6f7234541ecbe9c38', 'benches/cpp-reference/order_workflow/driver.cpp': '7e13146e56beb53a211d2d8acd1c684fef07d71db787292d11ff8d23a57ff5cd', 'benches/cpp-reference/order_workflow/probes.cpp': '49fdca83f5e0674cb029b9b72f24c5e5516261bf6b7dd60e8e0246e9e20a6326', 'benches/cpp-reference/order_workflow/pool.hpp': 'ce5c916ee51ac6228de37b3b05ffb7fa60d3c255cf2f69c7624518bddc0c79b3', 'benches/cpp-reference/order_workflow/workload.hpp': '8c3d2b7ecfab02af22df441fb7dfe64d26ab5a2f222d0e2db43f9e8308e44bb2', 'src/table/selection.rs': 'a559a62f8e3d91fd9328dd09d7526ec185551c35d9379023f2711fe5ea2f1138', 'Cargo.toml': 'c309db897991a0e949393de568cc0d8f17713190025f0be87d10de6243842167', 'Cargo.lock': 'b9da6e1deb720058fa9f399811aa1c9fb28206c7b2370197b400473b56e7a6fb', 'benches/cpp-reference/CMakeLists.txt': '1627977c3d2c4677f11205392312ca7d45241c0ba25831f388379caa259aab27', 'benches/cpp-reference/cmake/GdCore.cmake': 'ed1a10df89727379366cc9aa45449b37c13c6ed7b2cbc725c6f4616fd48e29b8'}
 gd_source_unchanged: True
 ```

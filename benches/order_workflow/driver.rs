@@ -131,7 +131,8 @@ fn verify(db: &SqliteDatabase, p: &[Parameters], pool: &rayon::ThreadPool, sorte
     println!(
         "{}",
         serde_json::json!({"implementation":"rust", "verified":true,
-        "workers":pool.current_num_threads(), "sorted":sorted, "counts":counts, "digests":hashes})
+        "workers":pool.current_num_threads(), "sorted":sorted, "counts":counts, "digests":hashes,
+        "sqlite":rusqlite::version()})
     );
 }
 

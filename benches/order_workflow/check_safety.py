@@ -17,7 +17,7 @@ OUT = ROOT / 'target/order-workflow'
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--gd', type=Path, default=ROOT.parent / 'gd')
+    parser.add_argument('--gd', type=Path, default=ROOT / 'external/gd')
     args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     records = []

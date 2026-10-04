@@ -41,16 +41,15 @@ def main(path):
         print()
     print('## Source and executable sizes\n')
     print('Sources: [Rust application](../../benches/order_workflow/workload.rs), '
-          '[new Rust APIs](../../src/table/selection.rs), '
+          '[Rust selection APIs](../../src/table/selection.rs), '
           '[C++ application and adapters](../../benches/cpp-reference/order_workflow/workload.hpp), '
           '[size measurement code](../../benches/order_workflow/compare.py).\n')
     print('| Component | Physical lines | Nonblank lines | Bytes |\n|---|---:|---:|---:|')
     for key, size in data['sizes'].items():
         if 'lines' in size:
             print(f'| {key} | {size["lines"]} | {size["nonblank_lines"]} | {size["bytes"]:,} |')
-    print('\nLines include comments; formatting differs between languages. The new Rust APIs '
-          'also require a module declaration and one visibility change in existing files. '
-          'Existing library and dependency source is excluded.\n')
+    print('\nLines include comments; formatting differs between languages. The Rust selection '
+          'module is counted separately; other library and dependency source is excluded.\n')
     print('| Standalone program | Unstripped bytes | Stripped bytes |\n|---|---:|---:|')
     for lang in ['rust', 'cpp']:
         size = data['sizes'][lang + '_executable']
