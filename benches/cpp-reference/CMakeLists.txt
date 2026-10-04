@@ -118,3 +118,13 @@ if(TARGET gd_openmp)
 else()
     message(WARNING "OpenMP was not found; skipping gd_cpp_reference_par_benchmark")
 endif()
+
+# Standalone application for size and end-to-end comparisons (no benchmark framework).
+find_package(Threads REQUIRED)
+add_executable(gd_order_workflow order_workflow/driver.cpp)
+target_compile_features(gd_order_workflow PRIVATE cxx_std_20)
+target_link_libraries(gd_order_workflow PRIVATE gd::core Threads::Threads)
+
+add_executable(gd_order_workflow_probes order_workflow/probes.cpp)
+target_compile_features(gd_order_workflow_probes PRIVATE cxx_std_20)
+target_link_libraries(gd_order_workflow_probes PRIVATE gd::core)

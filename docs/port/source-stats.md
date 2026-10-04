@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured on 2026-10-02. It measures source shape, not
+baseline measured on 2026-10-04. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes add characterization tests
@@ -16,19 +16,19 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 23 | 6,352 | 210 | 547 | 2.60 |
-| Rust product + tests (`src`, `tests`) | 31 | 8,878 | 317 | 739 | 2.33 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 47 | 11,719 | 430 | 1,070 | 2.49 |
+| Rust product (`src`) | 24 | 6,463 | 215 | 563 | 2.62 |
+| Rust product + tests (`src`, `tests`) | 33 | 9,112 | 326 | 765 | 2.35 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 51 | 12,327 | 451 | 1,156 | 2.56 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 156 | 67,104 | 8,780 | 20,397 | 2.32 |
+| C++ product + tests + maintained benchmarks | 160 | 67,470 | 8,804 | 20,520 | 2.33 |
 
-The requested Rust totals are therefore **6,352 SLOC without test/benchmark code**
-and **11,719 SLOC with both**. Tests account for 2,526 SLOC and benchmarks for 2,841
+The requested Rust totals are therefore **6,463 SLOC without test/benchmark code**
+and **12,327 SLOC with both**. Tests account for 2,649 SLOC and benchmarks for 3,215
 SLOC. In the C++ scopes, the pinned baseline has no test directory and the maintained
-benchmark references add 2,517 SLOC.
+benchmark references add 2,883 SLOC.
 
-These totals should not be read as a claim that Rust needs 9.8% of the code for an
+These totals should not be read as a claim that Rust needs 10.0% of the code for an
 identical product. The Rust crate implements a deliberately smaller surface, while
 the C++ measurement includes unrelated and excluded subsystems. The figures are
 useful as repository baselines and for tracking growth, but a subsystem-by-subsystem

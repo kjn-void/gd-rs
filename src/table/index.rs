@@ -26,7 +26,7 @@ pub enum IndexKeyRef<'a> {
 }
 
 impl<'a> IndexKeyRef<'a> {
-    fn from_value(value: ValueRef<'a>) -> Option<Self> {
+    pub(super) fn from_value(value: ValueRef<'a>) -> Option<Self> {
         Some(match value {
             ValueRef::Null | ValueRef::F32(_) | ValueRef::F64(_) => return None,
             ValueRef::Bool(value) => Self::Bool(value),

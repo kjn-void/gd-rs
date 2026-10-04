@@ -87,3 +87,38 @@ allocation.
 The current API orders by one column. For compound application-specific ordering,
 collect row positions and sort them with a comparator over `Table::cell`, or add a
 measured crate-level operation when that pattern becomes common.
+
+## Indexed left joins
+
+`left.left_join_rows(left_column, &right_index)` returns `(left_position,
+Option<right_position>)` pairs. It preserves left source order and emits every
+matching right row in right source order. Unmatched and null left keys produce one
+`None` pair; null keys never match, including other nulls. Deleted rows on either
+side are excluded. The two columns must have exactly the same supported logical
+type; signed and unsigned types are not coerced.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+let schema = Schema::new([ColumnSpec::new("id", DataType::I64)])?;
+let mut left = Table::new(schema.clone());
+left.push_row([Value::I64(7)])?;
+left.push_row([Value::I64(9)])?;
+let mut right = Table::new(schema);
+right.push_row([Value::I64(7)])?;
+right.push_row([Value::I64(7)])?;
+let index = right.index(0)?;
+assert_eq!(left.left_join_rows(0, &index)?,
+           [(0, Some(0)), (0, Some(1)), (1, None)]);
+# Ok::<(), gd::TableError>(())
+```
+
+An index can be reused across joins. Building it is expected O(right rows); probing
+is expected O(left rows + emitted matches). The returned vector owns positions, not
+cells, and requires O(emitted matches) space. A many-to-many join can therefore
+produce a large result. Inner joins can discard pairs with no right position.
+Materializing selected payload columns is an explicit application step, allowing
+computed columns and name-conflict policies without a query language.
+
+The right index borrows its table and prevents mutation during use. Returned
+positions do not keep that borrow alive: like `select_rows`, they must not be reused
+after removals or compaction change either table's physical row positions.

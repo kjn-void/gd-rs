@@ -102,3 +102,11 @@ c++ -O3 -march=native -std=c++20 -pthread \
 
 The Ky X1 RISC-V GCC does not implement `-march=native`; omit that flag there as
 documented in the memory-operation report.
+
+The standalone `gd_order_workflow` target implements the three-table validation,
+join, filtering, and parameterized-output workload described in the
+[order-workflow report](../../docs/high-level/order-workflow.md). Its maintained
+application and driver are in `order_workflow/`; it links GD from `GD_SOURCE_DIR`
+without editing that checkout. Run `../run_order_workflow.sh --gd /path/to/gd` for
+matched verification, staged timings, concurrent variants, memory, and program-size
+measurements. It deliberately does not link Google Benchmark into the executable.

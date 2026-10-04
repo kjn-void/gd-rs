@@ -822,3 +822,36 @@ owned by the table at all.
   sorted traversal.
 - [Formatting](formatting.md) covers table JSON and CSV output.
 - [SQLite](sqlite.md) materializes query results directly into typed tables.
+
+## Filtering and projection
+
+`select_rows(predicate)` visits live rows once, in source order, and returns their
+physical positions. `filter_rows(predicate)` gathers those rows into a new table,
+sharing the immutable schema and copying values, extras, and properties. Tombstoned
+rows never reach either predicate.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+let mut source = Table::new(Schema::new([
+    ColumnSpec::new("id", DataType::I64),
+    ColumnSpec::new("name", DataType::String),
+])?);
+source.push_row([Value::I64(1), Value::from("Ada")])?;
+source.push_row([Value::I64(2), Value::from("Åsa")])?;
+let positions = source.select_rows(|row| row.get(0) == Some(ValueRef::I64(2)));
+let selected = source.select(&positions, &[1, 0])?;
+assert_eq!(selected.cell(0, 0)?, ValueRef::String("Åsa"));
+# Ok::<(), gd::TableError>(())
+```
+
+`project(columns)` copies all physical rows of the selected columns.
+`select(rows, columns)` gathers both dimensions without a full-width intermediate.
+Both preserve selection order, column specifications (including aliases and
+converters), table properties, extras, and deletion flags. Duplicate row positions
+are allowed; duplicate columns are rejected because schema names must be unique.
+An empty projection retains its row count. An invalid position returns `TableError`
+before anything is copied. Results own their cell data and may be edited independently.
+
+Positions are snapshots, not durable row IDs: do not reuse them after row removal or
+compaction. Projection preserves row-local extras even when declared columns are
+omitted; it is not a data-redaction API.

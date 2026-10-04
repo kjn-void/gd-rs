@@ -507,3 +507,16 @@ comparisons and may move complete rows after comparisons.
 | indexed equality lookup | O(key length) | none per lookup |
 | build stable row order | O(rows log rows) | O(rows) |
 | iterate ordered rows | O(rows) | none after construction |
+
+## Relational workflow building blocks
+
+Predicate selection (`select_rows`, `filter_rows`), projection (`project`, `select`),
+and indexed left-join row pairs (`left_join_rows`) compose into materialized data
+processing pipelines. Filtering skips deleted rows; explicit position-based
+selection and projection preserve them. Combined row/column selection gathers only
+the requested columns, avoiding a full-width filtered intermediate. Joins reuse a
+borrowing `ColumnIndex` and expose duplicate and missing matches explicitly.
+
+The [order-workflow benchmark](order-workflow.md) exercises database import,
+validation, two equality joins across three tables, clean/audit materialization,
+and independent parameterized outputs, including concurrent variant generation.

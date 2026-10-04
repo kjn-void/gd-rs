@@ -7,6 +7,7 @@ mod index;
 mod ordering;
 mod row_mut;
 mod schema;
+mod selection;
 mod storage;
 mod tombstones;
 mod views;

@@ -120,3 +120,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(nightly_simd)"] }
 [lints.clippy]
 all = "deny"
 pedantic = "warn"
+
+[[example]]
+name = "order_workflow"
+path = "benches/order_workflow/driver.rs"
+required-features = ["sqlite", "rayon"]
