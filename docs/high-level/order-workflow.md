@@ -13,6 +13,212 @@ and [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp).
 The [full measurement tables](order-workflow-results.md) include sample ranges,
 peak memory, source sizes, executable sizes, and environment details.
 
+## Coverage of the GD author's examples
+
+**Both implementations exercise the requested joins, subsets, parameterized
+variants, database-data validation, and marking or excluding invalid rows.** The
+following maps the author's wording to the concrete operations being measured:
+
+| Author's example | What both applications do | Timed stage |
+|---|---|---|
+| “mixa data mellan tabellerna, kanske joina ihop tre stycken” | Perform two left joins across order lines, orders, and customers, then combine fields from all three in one 11-column audit table. | `prepare` |
+| “plocka ut tårtbitar” | Select subsets of rows and project six columns into separate, independently owned result tables. | `variants` |
+| “skapa upp varianter baserat på olika inparametrar” | Produce eight result tables using different region, date-range, status, minimum-amount, and discount parameters. | `variants` |
+| “data som är inläst från databas och valideras” | Import three tables from SQLite, then check missing order/customer references, absent or empty customer names, inactive customers, null or nonpositive quantities, null or negative prices, and missing order dates. | `import` + `prepare` |
+| “värden som inte är korrekta skall ... markeras” | Retain every order line in the audit table and accumulate error flags identifying the failed checks. | `prepare` |
+| “värden som inte är korrekta skall plockas bort” | Copy only rows with no validation errors into a separate clean table; invalid rows are excluded from that result and remain available in the audit table. | `prepare` |
+
+Here, **a variant is a parameterized result table** (*resultatvariant*). The
+`variants` time covers the entire batch of eight tables, including filtering,
+copying selected columns, calculating discounted amounts, and destroying outputs.
+The same eight outputs are produced at every worker count. Import, joining,
+validation, and clean-table construction precede this stage and run sequentially;
+`complete` measures the whole pipeline.
+
+**The benchmark checks the results of these operations cell by cell.** The
+[Rust verifier](../../benches/order_workflow/driver.rs) and
+[C++ verifier](../../benches/cpp-reference/order_workflow/driver.cpp) compare the
+audit table, clean table, and all eight variants against an
+[independent SQL oracle](../../benches/order_workflow/fixture.py), including nulls,
+row counts, and row order. This checks both which invalid rows are flagged/excluded
+and which values each parameterized subset contains.
+
+## Table schemas and benchmark flow
+
+The diagrams follow the [SQLite fixture schema](../../benches/order_workflow/fixture.py),
+[Rust application](../../benches/order_workflow/workload.rs),
+[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp), and
+[timing runner](../../benches/order_workflow/compare.py).
+
+### SQLite input schema
+
+The three business tables are `customers`, `orders`, and `lines`. The auxiliary
+`parameters` table supplies the eight variants and is read outside timing. `UK`
+means an actual unique index; the relationship lines show possible lookup matches,
+not enforced foreign-key constraints. Missing and null references are deliberate
+fixture inputs. Each order/line can match zero or one customer/order respectively.
+
+```mermaid
+erDiagram
+    customers |o..o{ orders : "id = customer_id"
+    orders |o..o{ lines : "id = order_id"
+
+    customers {
+        INTEGER id UK "NOT NULL"
+        TEXT name "nullable; UTF-8"
+        INTEGER region "NOT NULL"
+        INTEGER active "NOT NULL; fixture uses 0 or 1"
+    }
+    orders {
+        INTEGER id UK "NOT NULL"
+        INTEGER customer_id "nullable; may reference a missing customer"
+        INTEGER day "nullable"
+        INTEGER status "NOT NULL"
+    }
+    lines {
+        INTEGER id "NOT NULL; unique in generated data"
+        INTEGER order_id "nullable; may reference a missing order"
+        INTEGER quantity "nullable; includes nonpositive values"
+        INTEGER unit_price "nullable; cents; includes negative values"
+    }
+    parameters {
+        INTEGER id "fixture has eight rows, IDs 0 through 7"
+        INTEGER region "-1 means any region"
+        INTEGER from_day "inclusive lower bound"
+        INTEGER to_day "exclusive upper bound"
+        INTEGER status "-1 means any status"
+        INTEGER minimum "inclusive minimum gross amount in cents"
+        INTEGER discount_bp "discount in basis points, 0 through 10000"
+    }
+```
+
+Every `parameters` column is nullable in the SQLite DDL, although the generated
+parameter rows contain no nulls. The drivers require eight parameter rows and
+validate their numeric ranges. The default timed fixtures contain 10,000, 100,000,
+or 1,000,000 lines. For N lines, the other inputs contain N/5 orders and N/20
+customers.
+The separate eleven-line correctness fixture has its own hand-authored contents.
+All three business tables are imported in SQLite `rowid` order, preserving their
+shuffled source order. The native table schemas use nullable `i64` columns and a
+nullable UTF-8 string column for `name`.
+
+### Application data flow and output schemas
+
+This is the logical flow of one **`complete` iteration**. The standalone stages
+execute only their own part; the timing table below specifies what they reuse.
+Each invocation opens its database connection, reads/validates the parameters,
+and creates its worker pool before starting any timer.
+
+```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 400, "rankSpacing": 35}}}%%
+flowchart TB
+    DB[("Shared SQLite fixture")]
+    SETUP["Outside timers: open connection; set read-only query mode<br/>Read eight parameters in ID order; validate ranges<br/>Create persistent pool with 1, 2, 4, or 8 workers"]
+    FAIL["Reject invocation<br/>Parameter error or checked arithmetic overflow"]
+    DB --> SETUP
+    SETUP -. "invalid parameters" .-> FAIL
+
+    subgraph IMPORT["import — sequential"]
+        READ["Read customers, orders, lines<br/>SELECT * ORDER BY rowid<br/>Allocate and populate three native tables"]
+    end
+    SETUP --> READ
+
+    subgraph PREPARE["prepare — sequential"]
+        J1["1. Build index on customers.id<br/>Probe with orders.customer_id<br/>Keep order-position to optional customer-position mapping"]
+        J2["2. Build index on orders.id<br/>Probe with lines.order_id<br/>Keep line-position to optional order-position mapping"]
+        COMBINE["3. For every line in source order<br/>Follow line → order → customer mappings<br/>Missing dimension fields become NULL"]
+        VALIDATE["4. Accumulate seven validation flags<br/>Gross amount = quantity × unit_price when both are valid<br/>Otherwise gross amount is NULL"]
+        AUDIT["5. Materialize AUDIT — one row per input line<br/>i64: line_id, order_id, customer_id<br/>UTF-8: name<br/>i64: region, day, status, quantity, unit_price<br/>i64: amount_cents, errors"]
+        CLEAN["6. Materialize CLEAN — copy rows where errors = 0<br/>Same 11 columns as AUDIT, in the same order<br/>Independent owned values; source row order preserved"]
+        J1 --> J2 --> COMBINE --> VALIDATE --> AUDIT --> CLEAN
+    end
+    READ --> J1
+    VALIDATE -. "gross amount overflow" .-> FAIL
+
+    subgraph VARIANTS["variants — eight tasks on the persistent worker pool"]
+        DISPATCH["Share CLEAN read-only<br/>One task per parameter row; each task owns its destination"]
+        FILTER["Each task scans CLEAN in source order<br/>Region matches or parameter = -1<br/>from_day ≤ day &lt; to_day<br/>Status matches or parameter = -1<br/>gross amount ≥ minimum"]
+        PROJECT["Copy selected rows and six columns<br/>line_id, name, region, day, status, amount_cents"]
+        DISCOUNT["Replace each copied amount with<br/>floor((gross × (10000 - discount_bp) + 5000) / 10000)<br/>Checked i64 arithmetic; round nonnegative cents half up"]
+        OUTPUTS["Wait for all tasks: eight independent VARIANT tables<br/>i64: line_id; UTF-8: name<br/>i64: region, day, status, amount_cents<br/>Retain all eight until the batch completes"]
+        DISPATCH --> FILTER --> PROJECT --> DISCOUNT --> OUTPUTS
+    end
+    CLEAN --> DISPATCH
+    SETUP -. "parameters and worker pool" .-> DISPATCH
+    DISCOUNT -. "multiply or add overflow" .-> FAIL
+    OUTPUTS --> DESTROY["complete: destroy eight outputs, AUDIT, CLEAN,<br/>and all three imported tables before stopping the timer"]
+```
+
+The audit column order is exactly the order shown. `CLEAN` shares that schema;
+each of the eight variants has the six-column projected schema shown. Native
+schemas retain nullable capability even when a result contains no nulls. Audit
+`errors` is always populated; `amount_cents` is gross in audit/clean and discounted
+in variants. Validation flags mark rows; arithmetic overflow instead aborts the
+invocation. The seven flag meanings and conditional checks are specified in
+[What the application actually does](#what-the-application-actually-does).
+
+The join arrows above describe the **actual execution order**: order-to-customer
+mapping first, then line-to-order mapping. They do not represent two fully
+materialized intermediate joined tables. Rust normally builds hash indexes;
+C++ builds sorted indexes and checks candidate equality for missing keys. The
+Rust `sorted` diagnostic substitutes a sorted index for the same operations.
+Only the eight variant tasks run concurrently, with immutable input and separate
+output ownership as described in
+[the GD concurrency requirements](#what-the-application-must-enforce-for-concurrent-gd-use).
+
+### Exact timing boundaries
+
+Sources: [Rust driver](../../benches/order_workflow/driver.rs) and
+[C++ driver](../../benches/cpp-reference/order_workflow/driver.cpp).
+
+| Measured stage | Prepared once outside the timed loop | Work inside each timed iteration, including destruction |
+|---|---|---|
+| `import` | Open database connection, parameters, worker pool | Import and destroy all three native input tables |
+| `prepare` | Common setup plus imported input tables | Build both indexes and mappings; validate and construct audit/clean; destroy indexes, mappings, audit, and clean |
+| `variants` | Common setup plus imported inputs and prepared audit/clean | Scan the reusable clean table eight times, filter/project/copy, apply discounts, wait for all tasks, then destroy all eight outputs |
+| `complete` | Open database connection, parameters, worker pool | Import, prepare, produce all eight variants, and destroy every input/intermediate/output table |
+
+The input-row-count query is also outside timing. Each process executes one
+warmup iteration of its selected stage, discards that duration, and then records
+five samples by default. Input tables stay alive across `prepare` samples;
+input and prepared tables stay alive across `variants` samples. A new worker pool
+is created for each process and reused for all its iterations.
+
+### Verification and measurement orchestration
+
+The SQL views are a correctness oracle used outside timing; the measured joins
+and filtering execute in the Rust/C++ table applications. The
+[runner](../../benches/order_workflow/compare.py) runs one implementation process
+at a time. The following is the default full comparison, excluding the separate
+sanitizer and focused preparation-repeat runs.
+
+```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 400, "rankSpacing": 35}}}%%
+flowchart TB
+    BUILD["Build optimized Rust and C++ programs"]
+    HANDFIXTURE["Generate the shared 11-line hand fixture<br/>Include expected_audit, expected_clean, expected_variants SQL views"]
+    FIXTURE["Generate shared 10k, 100k, and 1M line fixtures<br/>Include the same independent SQL oracle views"]
+    REJECT["Outside timing: both programs must reject<br/>gross overflow, discount overflow, and invalid discount"]
+    DATASET["Take next dataset: hand case, then increasing sizes"]
+    VERIFY["Outside timing: both languages at 1, 2, 4, and 8 workers<br/>Also Rust sorted-index diagnostic at one worker<br/>Verify every output cell, NULL, row count, and order against SQL<br/>Check ownership; compare counts/digests across implementations<br/>Require matching runtime SQLite versions"]
+    HAND{"11-line hand fixture?"}
+    CASE["Take next stage / index / worker case<br/>import: 1 worker<br/>prepare: 1 worker, native and sorted<br/>variants and complete: 1, 2, 4, 8 workers"]
+    R1["Round 1: Rust process, then C++ process<br/>Each: one discarded warmup, then five timed samples"]
+    R2["Round 2: C++ process, then Rust process<br/>Each: one discarded warmup, then five timed samples"]
+    MORECASE{"More cases for this dataset?"}
+    MOREDATA{"More datasets?"}
+    REPORT["Report timing samples and medians, peak process RSS,<br/>source/executable sizes, versions, and source fingerprints"]
+    BUILD --> HANDFIXTURE --> REJECT --> FIXTURE --> DATASET --> VERIFY --> HAND
+    HAND -- "yes: correctness only" --> MOREDATA
+    HAND -- "no" --> CASE --> R1 --> R2 --> MORECASE
+    MORECASE -- "yes" --> CASE
+    MORECASE -- "no" --> MOREDATA
+    MOREDATA -- "yes" --> DATASET
+    MOREDATA -- "no" --> REPORT
+```
+
+## Performance summary
+
 On an Apple M3 Max (12 performance + 4 efficiency cores), both implementations
 produced the same correct outputs at 10,000, 100,000, and 1,000,000 lines. Rust was
 faster in each measured stage in these builds. C++ had a smaller executable and
