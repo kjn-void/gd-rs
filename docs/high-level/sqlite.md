@@ -21,7 +21,11 @@ must use exactly one parameter mode:
 
 Booleans and integer variants bind as SQLite `INTEGER`, floats as `REAL`, strings as
 `TEXT`, bytes as `BLOB`, UUIDs as 16-byte blobs, and null as `NULL`. SQLite integers
-are signed 64-bit values, so a `U64` above `i64::MAX` is rejected.
+are signed 64-bit values, so a `U64` above `i64::MAX` is rejected. SQLite has no NaN
+representation and stores a bound NaN as `NULL`, so binding NaN is rejected instead of
+silently changing the value; infinities bind as ordinary `REAL` values. `execute`
+rejects statements that produce result columns before binding, so a rejected
+`RETURNING` write never reaches the database.
 
 ## Query materialization
 
@@ -44,7 +48,8 @@ owned text and blob payloads are moved into typed columns.
 time, using **O(columns)** temporary space in addition to the returned table. Integer
 widths and unsigned values are range-checked. Boolean columns accept integer 0 or 1.
 UUID columns accept text recognized by the `uuid` crate or a 16-byte blob. Integer-to-float and
-`F64`-to-`F32` conversion can round. Table nullability rules are enforced unchanged.
+`F64`-to-`F32` conversion can round; a finite `F64` outside the `F32` range is rejected
+rather than silently becoming an infinity. Table nullability rules are enforced unchanged.
 
 Both paths require valid UTF-8 for SQLite `TEXT` values.
 
@@ -53,6 +58,11 @@ Both paths require valid UTF-8 for SQLite `TEXT` values.
 Exact-width numeric declarations use the `INTEGER_I8`/`INTEGER_U8` family through 64
 bits and `REAL_F32`/`REAL_F64`; ordinary SQLite declarations retain their conventional
 `I64`, `F64`, `String`, and `Bytes` mappings. Unknown declarations fail explicitly.
+Generated columns that `SELECT *` returns are included; hidden virtual-table columns are
+not. `NOT NULL` is preserved, and a primary key is non-nullable only when SQLite reports
+`NOT NULL` or the column is an `INTEGER PRIMARY KEY` rowid alias. Rowid-table primary
+keys such as `TEXT PRIMARY KEY` and composite keys stay nullable because SQLite permits
+stored `NULL` values in them.
 
 ## Transactions and errors
 

@@ -569,12 +569,15 @@ claim.
 ## Interchange formatting
 
 Benchmark sources: [Rust table and argument formatting](../../benches/format.rs#L37-L77) ·
-[C++ table formatting](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L521-L551) ·
+[C++ table formatting](../../benches/cpp-reference/table_column_buffer_benchmark.cpp#L596-L626) ·
 [C++ argument formatting](../../benches/cpp-reference/arguments_benchmark.cpp#L132-L145)
 
 The table fixture has 10,000 rows containing `u64`, one of 16 short strings, and
-`i64`. JSON is a complete array of named row objects. CSV includes a header. Both
-timed regions begin with an already constructed table.
+`i64`. CSV includes a header. The C++ JSON workload calls the name-keyed object
+writer, which [emits alternating columns and omits the enclosing array](../port/cpp-gd-issues.md#table-json-skips-alternating-columns-and-omits-the-outer-array);
+it is not output-equivalent to the Rust writer's complete array of named objects, so
+the JSON row compares the checked-in formatters rather than matched output. Both timed
+regions begin with an already constructed table.
 
 **M3 Max release**
 

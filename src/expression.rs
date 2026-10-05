@@ -191,9 +191,10 @@ impl ExpressionContext {
 /// Compiler and evaluator for expressions and scripts.
 ///
 /// The default engine limits one evaluation to 1,000,000 operations, 64 call
-/// levels, and expression nesting depth 64. `print` and `debug` are disabled so
-/// library evaluation never writes to stdout or stderr. Use [`Self::inner_mut`]
-/// to register application functions or adjust these limits.
+/// levels, expression nesting depth 64, 1 MiB strings, 1,000,000-element arrays,
+/// and 1,000,000-entry object maps. `print` and `debug` are disabled so library
+/// evaluation never writes to stdout or stderr. Use [`Self::inner_mut`] to
+/// register application functions or adjust these limits.
 pub struct ExpressionEngine {
     engine: Engine,
 }
@@ -207,6 +208,9 @@ impl ExpressionEngine {
             .set_max_operations(1_000_000)
             .set_max_call_levels(64)
             .set_max_expr_depths(64, 64)
+            .set_max_string_size(1_048_576)
+            .set_max_array_size(1_000_000)
+            .set_max_map_size(1_000_000)
             .disable_symbol("print")
             .disable_symbol("debug");
         Self { engine }

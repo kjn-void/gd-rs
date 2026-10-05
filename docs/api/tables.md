@@ -701,9 +701,10 @@ table.par_for_each_row_mut(256, |mut row| {
 assert_eq!(table.cell_named(12, "result"), Ok(ValueRef::U32(144)));
 ```
 
-The grain size (`256` here) is the smallest independently scheduled range. Internally,
-`rows_mut` divides every typed column and the optional extras sidecar at identical row
-boundaries. The resulting `RowsMut` halves own disjoint mutable slices, so Rayon needs
+The grain size (`256` here) is the splitting threshold: ranges larger than it are
+halved until they fit, so scheduled ranges never exceed it and can be about half as
+large. Internally, `rows_mut` divides every typed column and the optional extras
+sidecar at identical row boundaries. The resulting `RowsMut` halves own disjoint mutable slices, so Rayon needs
 neither a table lock nor unsafe aliasing. Callers that manage their own scoped threads
 can use `table.rows_mut().split_at(mid)` directly.
 

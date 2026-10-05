@@ -4,9 +4,10 @@ use std::ops::Range;
 
 /// Per-row tombstone flags for logically deleted rows.
 ///
-/// The flag vector is allocated on the first tombstone and released again once
-/// every tombstoned row has been restored. While the vector is absent, every row
-/// is live and a table pays no metadata cost.
+/// The flag vector is allocated on the first tombstone and dropped once every
+/// tombstoned row has been restored. While the vector is absent, every row is live
+/// and a table pays no metadata cost. The first deletion after the vector is
+/// dropped initializes one flag per physical row; later flag changes are O(1).
 #[derive(Clone, Debug, Default)]
 pub(super) struct Tombstones {
     flags: Vec<bool>,
@@ -42,7 +43,7 @@ impl Tombstones {
         } else {
             self.count -= 1;
             if self.count == 0 {
-                self.flags.clear();
+                self.flags = Vec::new();
             }
         }
         true
@@ -60,7 +61,7 @@ impl Tombstones {
         if self.flags.pop() == Some(true) {
             self.count -= 1;
             if self.count == 0 {
-                self.flags.clear();
+                self.flags = Vec::new();
             }
         }
     }
@@ -68,7 +69,7 @@ impl Tombstones {
     /// Restores every row and returns the number that was tombstoned.
     pub(super) fn clear(&mut self) -> usize {
         let count = self.count;
-        self.flags.clear();
+        self.flags = Vec::new();
         self.count = 0;
         count
     }
@@ -122,5 +123,34 @@ impl Tombstones {
         } else {
             Self { flags, count }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Tombstones;
+
+    #[test]
+    fn restoring_the_last_tombstone_releases_the_flag_vector() {
+        let mut tombstones = Tombstones::default();
+        assert!(tombstones.set(3, true, 8));
+        assert_eq!(tombstones.count(), 1);
+        assert_eq!(tombstones.flags.len(), 8);
+
+        assert!(tombstones.set(3, false, 8));
+        assert_eq!(tombstones.count(), 0);
+        assert!(tombstones.flags.is_empty());
+        assert_eq!(tombstones.flags.capacity(), 0);
+        assert!(tombstones.flags().is_none());
+    }
+
+    #[test]
+    fn clearing_all_tombstones_releases_the_flag_vector() {
+        let mut tombstones = Tombstones::default();
+        assert!(tombstones.set(0, true, 4));
+        assert!(tombstones.set(2, true, 4));
+
+        assert_eq!(tombstones.clear(), 2);
+        assert_eq!(tombstones.flags.capacity(), 0);
     }
 }

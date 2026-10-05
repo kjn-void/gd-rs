@@ -30,6 +30,9 @@ pub enum FormatError {
     /// CSV writing failed.
     #[error(transparent)]
     Csv(#[from] csv::Error),
+    /// A table with no columns has no distinct CSV record shape.
+    #[error("a table with no columns cannot be represented as CSV")]
+    ZeroColumnTable,
     /// Finalizing the CSV writer failed.
     #[error(transparent)]
     Io(#[from] std::io::Error),
@@ -104,7 +107,8 @@ pub fn arguments_to_uri(arguments: &Arguments) -> Result<String, FormatError> {
 ///
 /// Aliases are lookup conveniences and are not emitted. Byte values are lowercase
 /// hex strings and UUIDs are canonical strings. Tombstoned rows are excluded
-/// because they are logically deleted.
+/// because they are logically deleted, and row-local extras are not serialized
+/// because only schema columns are emitted.
 ///
 /// # Errors
 ///
@@ -142,12 +146,18 @@ pub fn row_order_to_json(order: &RowOrder<'_>) -> Result<String, FormatError> {
 /// When `headers` is true, primary column names form the first record. Nulls are
 /// empty fields. Strings are quoted by the `csv` crate when required; bytes are
 /// lowercase hex and UUIDs use canonical text. Tombstoned rows are excluded
-/// because they are logically deleted.
+/// because they are logically deleted, and row-local extras are not serialized
+/// because only schema columns are emitted. A table with no columns is rejected
+/// because CSV cannot distinguish an empty record from one empty field.
 ///
 /// # Errors
 ///
-/// Returns a CSV, I/O, or unexpected UTF-8 finalization error.
+/// Returns [`FormatError::ZeroColumnTable`] for a table with no columns, or a CSV,
+/// I/O, or unexpected UTF-8 finalization error.
 pub fn table_to_csv(table: &Table, headers: bool) -> Result<String, FormatError> {
+    if table.column_count() == 0 {
+        return Err(FormatError::ZeroColumnTable);
+    }
     let mut writer = csv::WriterBuilder::new()
         .has_headers(false)
         .from_writer(Vec::new());

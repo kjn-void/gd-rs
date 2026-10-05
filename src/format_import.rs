@@ -161,7 +161,11 @@ pub fn table_from_json(schema: impl Into<Arc<Schema>>, json: &str) -> Result<Tab
 /// Empty extra fields are not stored. Booleans read `true` and `false`, byte
 /// columns read hex, UUID columns read UUID text, and floats also accept the
 /// `NaN` and `inf` spellings that [`crate::table_to_csv`] writes. The result
-/// contains no tombstones and no table properties.
+/// contains no tombstones and no table properties. The `csv` reader strips a UTF-8
+/// byte-order mark at the start of the input, so a first field that literally
+/// begins with U+FEFF loses those bytes on import. Quoting recovery follows the
+/// `csv` crate: some malformed quoting, such as an unterminated quoted field, is
+/// accepted rather than reported.
 ///
 /// # Errors
 ///

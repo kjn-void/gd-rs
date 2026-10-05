@@ -101,10 +101,12 @@ extension point in place of C++ method arrays containing erased function pointer
 manually synchronized argument-count flags. Advanced callers can access the Rhai
 engine and scope through explicit `inner[_mut]` and `scope[_mut]` methods.
 
-The default engine permits at most 1,000,000 operations, 64 nested calls, and an
-expression depth of 64. `print` and `debug` are disabled, so evaluation does not emit
-library-side output. Applications may tune limits through `inner_mut`; code accepting
-untrusted source should retain finite limits.
+The default engine permits at most 1,000,000 operations, 64 nested calls, an
+expression depth of 64, 1 MiB strings, 1,000,000-element arrays, and 1,000,000-entry
+object maps. `print` and `debug` are disabled, so evaluation does not emit library-side
+output. Applications may tune limits through `inner_mut`; code accepting untrusted
+source should retain finite limits, because the operation limit alone does not bound
+the size of a single string, array, or map.
 
 For source length `n`, compilation is **O(n)** under the parser's normal token stream
 and retains **O(n)** AST storage. Evaluation is **O(t)** for `t` executed operations,

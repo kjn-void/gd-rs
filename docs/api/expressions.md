@@ -53,9 +53,10 @@ scope for advanced integration.
 
 ## Execution limits and extension
 
-The default engine allows at most 1,000,000 operations, 64 call levels, and expression
-nesting depth 64. Its `print` and `debug` symbols are disabled, so evaluation does not
-write to standard output. Exceeding a runtime limit is an evaluation error.
+The default engine allows at most 1,000,000 operations, 64 call levels, expression
+nesting depth 64, 1 MiB strings, 1,000,000-element arrays, and 1,000,000-entry object
+maps. Its `print` and `debug` symbols are disabled, so evaluation does not write to
+standard output. Exceeding a runtime limit is an evaluation error.
 
 Use `ExpressionEngine::inner_mut` to register typed application functions or tune
 limits, and `Program::ast` for advanced read-only AST integration. Those escape

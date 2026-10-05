@@ -60,9 +60,16 @@ repeated keys are detected rather than silently collapsed. The CSV reader uses t
 `csv` crate's record parser. Both readers keep only the current row outside the
 table, so extra space is **O(row width)** beyond the table itself.
 
-Round trips are exact except where CSV is ambiguous: an empty field is both null and
-the empty string or byte sequence, and it reads as the empty value only in a required
-column of those types. Tombstones and table properties are not part of either format.
+Round trips are exact for the fixed schema except where CSV is ambiguous: an empty
+field is both null and the empty string or byte sequence, and it reads as the empty
+value only in a required column of those types. CSV also strips a UTF-8 BOM at the
+start of the input, so a first field that literally begins with U+FEFF loses those
+bytes, and a table with no columns has no CSV representation; `table_to_csv` returns
+`FormatError::ZeroColumnTable` instead of emitting a record the reader would misread.
+Row-local extras are accepted on input (a JSON object key or CSV header column that
+matches no schema column under `UnknownFields::Store`), but neither writer emits them;
+only schema columns are serialized. Tombstones and table properties are not part of
+either format.
 
 ## Value mapping
 

@@ -608,8 +608,10 @@ impl RowsMut<'_> {
 
     /// Applies an operation in parallel after recursively splitting row storage.
     ///
-    /// `min_rows` controls the smallest independently scheduled range. Enable
-    /// the crate's `rayon` feature to use this method.
+    /// `min_rows` is the splitting threshold: a range is split while it holds more
+    /// than `min_rows` rows, so scheduled ranges never exceed that size and halving
+    /// can produce ranges about half as large. Enable the crate's `rayon` feature
+    /// to use this method.
     ///
     /// # Panics
     ///
@@ -690,8 +692,9 @@ impl Table {
 
     /// Applies a mutable row operation in parallel using Rayon.
     ///
-    /// `min_rows` is the smallest range Rayon will schedule independently. Use a
-    /// non-trivial grain size to amortize dynamic row-view construction and task
+    /// `min_rows` is the splitting threshold: a range is split while it holds more
+    /// than `min_rows` rows, so scheduled ranges never exceed that size. Use a
+    /// non-trivial threshold to amortize dynamic row-view construction and task
     /// scheduling. Enable the crate's `rayon` feature to use this method.
     ///
     /// # Panics

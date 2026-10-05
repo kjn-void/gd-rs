@@ -97,6 +97,12 @@ pub enum SqliteError {
         /// The rejected value.
         value: u64,
     },
+    /// `SQLite` has no NaN representation; binding one stores SQL `NULL`.
+    #[error("NaN cannot be bound to SQLite because SQLite stores it as NULL")]
+    NanFloat,
+    /// `execute` was given a statement that produces result columns.
+    #[error("SQLite execute requires a statement that does not return rows; use a query method")]
+    ExecuteReturnedResults,
     /// A query returned a different number of columns than the requested schema.
     #[error("SQLite query returns {actual} columns, schema contains {expected}")]
     ColumnCount {
@@ -208,13 +214,19 @@ impl SqliteDatabase {
     ///
     /// Bare named argument keys match `:name`, `@name`, or `$name` placeholders.
     /// Duplicate names, extra values, missing values, mixed modes, and `u64` values
-    /// above `i64::MAX` are rejected before execution.
+    /// above `i64::MAX` are rejected before execution. Statements that produce
+    /// result columns, including `RETURNING` writes, are rejected before binding so
+    /// a rejected call cannot apply a write; use the query methods instead.
     ///
     /// # Errors
     ///
-    /// Returns a parameter-policy error or [`SqliteError::Engine`].
+    /// Returns a parameter-policy error, [`SqliteError::ExecuteReturnedResults`] for
+    /// a row-returning statement, or [`SqliteError::Engine`].
     pub fn execute(&self, sql: &str, arguments: &Arguments) -> Result<usize, SqliteError> {
         let mut statement = self.connection.prepare(sql)?;
+        if statement.column_count() != 0 {
+            return Err(SqliteError::ExecuteReturnedResults);
+        }
         bind_arguments(&mut statement, arguments)?;
         Ok(statement.raw_execute()?)
     }
@@ -336,10 +348,16 @@ impl SqliteDatabase {
 
     /// Creates a GD schema from one `SQLite` table's declared columns.
     ///
-    /// Column order, names, and `NOT NULL`/primary-key constraints are preserved.
-    /// `SQLite`'s native `INTEGER`, `REAL`, `TEXT`, and `BLOB` declarations map to
-    /// `I64`, `F64`, `String`, and `Bytes`. Exact numeric declarations use
-    /// `INTEGER_I8` through `INTEGER_U64`, plus `REAL_F32` and `REAL_F64`.
+    /// Column order and names are preserved. Generated columns that `SELECT *`
+    /// returns are included; hidden virtual-table columns are not. `SQLite`'s
+    /// native `INTEGER`, `REAL`, `TEXT`, and `BLOB` declarations map to `I64`,
+    /// `F64`, `String`, and `Bytes`. Exact numeric declarations use `INTEGER_I8`
+    /// through `INTEGER_U64`, plus `REAL_F32` and `REAL_F64`.
+    ///
+    /// `NOT NULL` declarations are preserved. A primary key is not by itself a
+    /// nullability constraint in a rowid table, so a primary-key column is
+    /// nullable unless `SQLite` reports `NOT NULL` or the column is an `INTEGER
+    /// PRIMARY KEY` rowid alias, whose stored values are never `NULL`.
     ///
     /// # Errors
     ///
@@ -347,9 +365,10 @@ impl SqliteDatabase {
     /// columns, [`SqliteError::UnsupportedDeclaredType`] for an unknown declared
     /// type, or an engine/schema error.
     pub fn schema_for_table(&self, table_name: &str) -> Result<Schema, SqliteError> {
+        let has_primary_key_index = self.table_has_primary_key_index(table_name)?;
         let mut statement = self.connection.prepare(
-            "SELECT name, type, \"notnull\", pk \
-             FROM pragma_table_info(?1) ORDER BY cid",
+            "SELECT name, type, \"notnull\", pk, hidden \
+             FROM pragma_table_xinfo(?1) ORDER BY cid",
         )?;
         let mut rows = statement.query([table_name])?;
         let mut columns = Vec::new();
@@ -358,8 +377,15 @@ impl SqliteDatabase {
             let declared: String = row.get(1)?;
             let not_null: bool = row.get(2)?;
             let primary_key: i64 = row.get(3)?;
+            let hidden: i64 = row.get(4)?;
+            if hidden == 1 {
+                continue;
+            }
             let data_type = declared_data_type(&name, &declared)?;
-            columns.push(ColumnSpec::new(name, data_type).nullable(!not_null && primary_key == 0));
+            let rowid_alias = primary_key == 1
+                && declared.trim().eq_ignore_ascii_case("INTEGER")
+                && !has_primary_key_index;
+            columns.push(ColumnSpec::new(name, data_type).nullable(!not_null && !rowid_alias));
         }
         if columns.is_empty() {
             return Err(SqliteError::TableNotFound(table_name.into()));
@@ -367,11 +393,23 @@ impl SqliteDatabase {
         Ok(Schema::new(columns)?)
     }
 
+    /// Returns whether `SQLite` created a primary-key index for `table_name`.
+    ///
+    /// The `INTEGER PRIMARY KEY` rowid alias has no such index; every other
+    /// primary key does. `SQLite` reports origin `pk` for implicit primary-key
+    /// indexes.
+    fn table_has_primary_key_index(&self, table_name: &str) -> Result<bool, SqliteError> {
+        let mut statement = self
+            .connection
+            .prepare("SELECT origin FROM pragma_index_list(?1) WHERE origin = 'pk' LIMIT 1")?;
+        Ok(statement.exists([table_name])?)
+    }
+
     /// Creates and populates a typed GD table from all columns of a `SQLite` table.
     ///
-    /// The schema is discovered with [`Self::schema_for_table`], then rows are
-    /// streamed through the same loss-checked conversions as
-    /// [`Self::query_table_with_schema`].
+    /// The schema is discovered with [`Self::schema_for_table`], so generated
+    /// columns that `SELECT *` returns are included. Rows are streamed through the
+    /// same loss-checked conversions as [`Self::query_table_with_schema`].
     ///
     /// # Errors
     ///
@@ -546,8 +584,18 @@ fn sql_value_ref(value: &Value) -> Result<SqlValueRef<'_>, SqliteError> {
         Value::U64(value) => SqlValueRef::Integer(
             i64::try_from(*value).map_err(|_| SqliteError::UnsignedOutOfRange { value: *value })?,
         ),
-        Value::F32(value) => SqlValueRef::Real(f64::from(*value)),
-        Value::F64(value) => SqlValueRef::Real(*value),
+        Value::F32(value) => {
+            if value.is_nan() {
+                return Err(SqliteError::NanFloat);
+            }
+            SqlValueRef::Real(f64::from(*value))
+        }
+        Value::F64(value) => {
+            if value.is_nan() {
+                return Err(SqliteError::NanFloat);
+            }
+            SqlValueRef::Real(*value)
+        }
         Value::String(value) => SqlValueRef::Text(value.as_bytes()),
         Value::Bytes(value) => SqlValueRef::Blob(value),
         Value::Uuid(value) => SqlValueRef::Blob(value.as_bytes()),
@@ -625,7 +673,8 @@ fn quote_identifier(identifier: &str) -> String {
 }
 
 // Explicit floating schemas request SQLite-style numeric coercion. Integer-to-float
-// and f64-to-f32 conversions may round, just as a SQLite REAL/CAST operation may.
+// conversions may round, and f64-to-f32 conversions may round, but a finite f64
+// outside the f32 range is an error rather than a silent infinity.
 #[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
 fn typed_value(
     column: usize,
@@ -670,7 +719,18 @@ fn typed_value(
         }),
         DataType::F32 => match value {
             SqlValueRef::Integer(value) => Ok(Value::F32(value as f32)),
-            SqlValueRef::Real(value) => Ok(Value::F32(value as f32)),
+            SqlValueRef::Real(value) => {
+                let converted = value as f32;
+                if converted.is_infinite() && value.is_finite() {
+                    Err(SqliteError::ValueOutOfRange {
+                        column,
+                        value: value.to_string(),
+                        target: expected,
+                    })
+                } else {
+                    Ok(Value::F32(converted))
+                }
+            }
             _ => Err(column_type(column, expected, value)),
         },
         DataType::F64 => match value {

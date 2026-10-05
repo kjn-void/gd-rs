@@ -122,6 +122,31 @@ fn parameter_modes_and_integer_range_are_checked() {
 }
 
 #[test]
+fn execute_rejects_row_returning_statements_before_any_write() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    database
+        .execute_batch("CREATE TABLE item(id INTEGER)")
+        .unwrap();
+
+    assert!(matches!(
+        database.execute(
+            "INSERT INTO item VALUES (1) RETURNING id",
+            &Arguments::new()
+        ),
+        Err(SqliteError::ExecuteReturnedResults)
+    ));
+    assert!(matches!(
+        database.execute("SELECT id FROM item WHERE 0", &Arguments::new()),
+        Err(SqliteError::ExecuteReturnedResults)
+    ));
+
+    let table = database
+        .query_table("SELECT count(*) FROM item", &Arguments::new())
+        .unwrap();
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::I64(0)));
+}
+
+#[test]
 fn explicit_schema_converts_bool_unsigned_float_and_uuid() {
     let database = SqliteDatabase::open_in_memory().unwrap();
     let uuid = Uuid::parse_str("12345678-1234-5678-9abc-def012345678").unwrap();
@@ -235,6 +260,107 @@ fn declared_table_schema_and_rows_are_materialized() {
     assert_eq!(table.cell(0, 2), Ok(ValueRef::F32(1.25)));
     assert_eq!(table.cell(1, 1), Ok(ValueRef::Null));
     assert_eq!(table.cell(1, 3), Ok(ValueRef::U64(10_000)));
+}
+
+#[test]
+fn rowid_primary_keys_stay_nullable_while_rowid_aliases_do_not() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    database
+        .execute_batch(
+            "CREATE TABLE text_key(key TEXT PRIMARY KEY, value INTEGER);\
+             INSERT INTO text_key VALUES (NULL, 1);\
+             CREATE TABLE composite(a TEXT, b TEXT, PRIMARY KEY(a, b));\
+             INSERT INTO composite VALUES (NULL, NULL);\
+             CREATE TABLE desc_key(id INTEGER PRIMARY KEY DESC, value INTEGER);\
+             INSERT INTO desc_key VALUES (NULL, 2);\
+             CREATE TABLE rowid_key(id INTEGER PRIMARY KEY, value INTEGER);\
+             INSERT INTO rowid_key VALUES (NULL, 3);",
+        )
+        .unwrap();
+
+    for table_name in ["text_key", "desc_key"] {
+        let schema = database.schema_for_table(table_name).unwrap();
+        assert!(
+            schema.column(0).unwrap().is_nullable(),
+            "{table_name} primary key must stay nullable"
+        );
+        let table = database.load_table(table_name).unwrap();
+        assert_eq!(table.cell(0, 0), Ok(ValueRef::Null));
+    }
+
+    let composite_schema = database.schema_for_table("composite").unwrap();
+    assert!(composite_schema.column(0).unwrap().is_nullable());
+    assert!(composite_schema.column(1).unwrap().is_nullable());
+    assert_eq!(database.load_table("composite").unwrap().row_count(), 1);
+
+    let rowid_schema = database.schema_for_table("rowid_key").unwrap();
+    assert!(!rowid_schema.column(0).unwrap().is_nullable());
+    let rowid_table = database.load_table("rowid_key").unwrap();
+    assert_eq!(rowid_table.cell(0, 0), Ok(ValueRef::I64(1)));
+}
+
+#[test]
+fn generated_columns_are_discovered_and_materialized() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    database
+        .execute_batch(
+            "CREATE TABLE generated(\
+                 a INTEGER NOT NULL,\
+                 b INTEGER GENERATED ALWAYS AS (a + 1) STORED,\
+                 c INTEGER GENERATED ALWAYS AS (a + 2) VIRTUAL);\
+             INSERT INTO generated(a) VALUES (10);",
+        )
+        .unwrap();
+
+    let schema = database.schema_for_table("generated").unwrap();
+    assert_eq!(schema.len(), 3);
+    assert_eq!(schema.column(1).unwrap().name(), "b");
+    assert_eq!(schema.column(2).unwrap().name(), "c");
+
+    let table = database.load_table("generated").unwrap();
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::I64(10)));
+    assert_eq!(table.cell(0, 1), Ok(ValueRef::I64(11)));
+    assert_eq!(table.cell(0, 2), Ok(ValueRef::I64(12)));
+}
+
+#[test]
+fn nan_binding_is_rejected_instead_of_becoming_null() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    database
+        .execute_batch("CREATE TABLE measurement(value REAL)")
+        .unwrap();
+
+    assert!(matches!(
+        database.execute(
+            "INSERT INTO measurement VALUES (?1)",
+            &positional([Value::F64(f64::NAN)])
+        ),
+        Err(SqliteError::NanFloat)
+    ));
+    assert!(matches!(
+        database.execute(
+            "INSERT INTO measurement VALUES (?1)",
+            &positional([Value::F32(f32::NAN)])
+        ),
+        Err(SqliteError::NanFloat)
+    ));
+    assert_eq!(
+        database
+            .query_table("SELECT count(*) FROM measurement", &Arguments::new())
+            .unwrap()
+            .cell(0, 0),
+        Ok(ValueRef::I64(0))
+    );
+}
+
+#[test]
+fn finite_real_values_outside_f32_range_are_rejected() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    let schema = Schema::new([ColumnSpec::new("value", DataType::F32)]).unwrap();
+    assert!(matches!(
+        database.query_table_with_schema("SELECT 1e100", &Arguments::new(), schema),
+        Err(SqliteError::ValueOutOfRange { .. })
+    ));
 }
 
 #[test]

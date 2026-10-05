@@ -105,7 +105,10 @@ assert_eq!(
 The Boolean parameter controls whether primary column names are written as a header.
 The `csv` crate handles quoting and line endings. Null is an empty field, bytes are
 lower-case hexadecimal, and UUIDs use canonical text. Tombstoned rows are omitted
-because they are logically deleted.
+because they are logically deleted. A table with no columns returns
+`FormatError::ZeroColumnTable`, because CSV has no distinct zero-field record. The
+`csv` reader strips a leading UTF-8 BOM, so a first field that literally begins with
+U+FEFF does not survive a round trip.
 
 ## Reading tables back
 
@@ -170,8 +173,10 @@ value. The CSV reader also accepts the `NaN` and `inf` text that `table_to_csv` 
 for non-finite floats.
 
 Imported tables have no tombstones and no properties, because the formats carry
-neither. `ImportError::Row` reports the zero-based data row and the `TableError` that
-rejected it; no partial table is returned.
+neither. Import may create row-local extras under `UnknownFields::Store`, but the table
+writers emit only schema columns, so extras are not serialized and do not round-trip.
+`ImportError::Row` reports the zero-based data row and the `TableError` that rejected
+it; no partial table is returned.
 
 These functions work on complete in-memory strings. Streaming input and output,
 custom callback formatting, SQL literals, and a CLI renderer are not current public

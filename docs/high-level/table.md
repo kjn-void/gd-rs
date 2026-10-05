@@ -165,18 +165,19 @@ Rust's standard `Vec<bool>` stores ordinary one-byte `bool` elements; unlike C++
 `std::vector<bool>`, it is not bit-packed. It therefore exposes normal `&[bool]` and
 `&mut [bool]` slices that Rayon can partition directly.
 
-Measured fixed layouts are 104 bytes for a C++ internal table and 64 bytes for the
-Arc-backed Rust `Table`. Rust additionally keeps five 40-byte `ColumnStorage` values
-in the table's column-descriptor allocation. For capacity `C`, excluding the shared
-schema and allocator bookkeeping:
+Measured fixed layouts are 104 bytes for a C++ internal table and 120 bytes for the
+Arc-backed Rust `Table` on the same 64-bit target (`std::mem::size_of::<Table>()`).
+Rust additionally keeps five 40-byte `ColumnStorage` values in the table's
+column-descriptor allocation. For capacity `C`, excluding the shared schema and
+allocator bookkeeping:
 
 | Implementation | Fixed per table | Row capacity | Total per table |
 |---|---:|---:|---:|
 | C++ internal table | 104 bytes | 24C bytes | `104 + 24C` |
-| Rust `Table` | 64 + 200 bytes | 15C bytes | `264 + 15C` |
+| Rust `Table` | 120 + 200 bytes | 15C bytes | `320 + 15C` |
 
 The C++ representation is smaller for very small equal-capacity tables; the Rust
-representation crosses below it at about 18 rows because it avoids per-cell padding.
+representation crosses below it at about 24 rows because it avoids per-cell padding.
 The shared schema was approximately 800 requested bytes for C++ and 1,016 requested
 bytes for Rust in this fixture. Rust's larger one-time schema includes the `AHashMap`
 used for expected constant-time name and alias lookup. Real tiny-table totals also
@@ -238,9 +239,10 @@ slice, not the internal storage enum, so nullable representation can still chang
 A row can be logically deleted without being removed. `tombstone_row` records one
 flag at the row's physical position, so the payload, the schema, and every other row
 position stay unchanged. `restore_row` clears one flag and `restore_all_rows` clears
-every flag at once. The flag vector is allocated on the first tombstone and released
+every flag at once. The flag vector is allocated on the first tombstone and dropped
 when no tombstoned row remains, so tables that never delete a row pay no metadata
-cost. Deletion and restoration are O(1).
+cost. The first deletion after the vector is dropped initializes one flag per physical
+row, which is O(rows); after that, each deletion and restoration is O(1).
 
 Physical and live views are deliberately separate:
 
@@ -453,8 +455,9 @@ flowchart TD
 
 `RowsMut` applies `split_at_mut` to every column at the same logical row and splits the
 optional extras sidecar there too. Each recursive half therefore owns a disjoint set
-of rows across all storage allocations. The grain size (`256` above) controls the
-smallest independently scheduled range. Row-wise access performs dynamic cell work;
+of rows across all storage allocations. The grain size (`256` above) is the splitting
+threshold: larger ranges are halved until they fit, so scheduled ranges never exceed
+it and can be about half as large. Row-wise access performs dynamic cell work;
 typed column slices remain preferable when the operation is homogeneous.
 
 ## Views and indexes
@@ -465,7 +468,7 @@ its typed slice directly. Row iteration assembles a borrowing view across column
 can split all column slices and the open-schema sidecar at one common row boundary;
 its halves can therefore be sent to scoped threads without a table lock or unsafe
 aliasing. With the optional `rayon` feature, `par_for_each_row_mut` performs this
-partitioning recursively using a caller-selected minimum grain size. Typed column
+partitioning recursively using a caller-selected grain-size threshold. Typed column
 slices remain the lower-overhead interface for homogeneous bulk operations.
 `ColumnIndex` borrows the table, uses a typed `AHashMap`, preserves
 duplicate row positions, and tracks null rows separately. Boolean, integer, string,
@@ -498,7 +501,7 @@ comparisons and may move complete rows after comparisons.
 | unknown row-field lookup | O(name length + extras) through four fields; expected O(name length) after promotion | none per lookup |
 | append complete row | O(columns) | payload ownership only |
 | append row with extras | expected O(columns + extras) | owned extra names and values |
-| tombstone or restore one row | O(1) | flag vector allocation on first tombstone only |
+| tombstone or restore one row | O(1) once the flag vector exists; O(rows) for the first deletion after it is dropped | flag vector of one byte per physical row |
 | iterate live rows | O(rows) | none |
 | compact tombstoned rows | O(rows × columns); O(1) without tombstones | removed-position list; column capacity retained |
 | pop last row | O(columns) | none |

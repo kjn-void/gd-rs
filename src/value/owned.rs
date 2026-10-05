@@ -106,7 +106,7 @@ impl Value {
         self.as_ref().as_bytes()
     }
 
-    /// Converts any numeric variant to `i64` with range checking.
+    /// Converts any integer variant to `i64` with range checking.
     ///
     /// # Errors
     ///

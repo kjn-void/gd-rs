@@ -115,6 +115,23 @@ fn execution_limit_stops_unbounded_scripts() {
     ));
 }
 
+#[test]
+fn string_growth_limit_bounds_memory_before_the_operation_limit() {
+    let mut engine = ExpressionEngine::new();
+    engine.inner_mut().set_max_operations(1_000_000_000);
+    assert_eq!(engine.inner().max_string_size(), 1_048_576);
+    assert_eq!(engine.inner().max_array_size(), 1_000_000);
+    assert_eq!(engine.inner().max_map_size(), 1_000_000);
+
+    let program = engine
+        .compile("let text = \"x\"; loop { text += text; }")
+        .unwrap();
+    assert!(matches!(
+        engine.evaluate(&program, &mut ExpressionContext::new()),
+        Err(ExpressionError::Evaluate { .. })
+    ));
+}
+
 proptest! {
     #[test]
     fn compiled_integer_formula_matches_rust(

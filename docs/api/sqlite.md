@@ -40,7 +40,10 @@ database
 A statement and its arguments must be entirely named or entirely positional. Bare
 argument names match `:name`, `@name`, and `$name`. Duplicate, missing, unused, mixed,
 or incorrectly counted parameters are rejected before execution. `u64` values above
-`i64::MAX` are also rejected because SQLite integers are signed.
+`i64::MAX` are also rejected because SQLite integers are signed. Statements that
+produce result columns, including `RETURNING` writes, are rejected before binding with
+`SqliteError::ExecuteReturnedResults`, so a rejected `execute` never applies a write;
+read those results with the query methods instead.
 
 GD values bind as follows:
 
@@ -48,7 +51,7 @@ GD values bind as follows:
 |---|---|
 | null | `NULL` |
 | Boolean and integers | `INTEGER` |
-| floats | `REAL` |
+| floats | `REAL` (NaN is rejected; SQLite stores it as `NULL`) |
 | string | `TEXT` |
 | bytes and UUID | `BLOB` |
 
@@ -107,8 +110,12 @@ UTF-8, UUID, range, and nullability mismatches are errors.
 ## Load a declared SQLite table
 
 `schema_for_table` reads column names, declared types, order, and nullability through
-SQLite's `pragma_table_info`. `load_table` uses that schema to materialize `SELECT *`
-without buffering the complete result as dynamic values:
+SQLite's `pragma_table_xinfo`, excluding hidden virtual-table columns and including
+generated columns. `NOT NULL` is preserved; a primary key is only non-nullable when
+SQLite reports `NOT NULL` or the column is an `INTEGER PRIMARY KEY` rowid alias, since
+rowid-table primary keys such as `TEXT PRIMARY KEY` and composite keys can store
+`NULL`. `load_table` uses that schema to materialize `SELECT *` without buffering the
+complete result as dynamic values:
 
 ```rust
 use gd::{DataType, SqliteDatabase};

@@ -593,6 +593,10 @@ void RowSortSelection(benchmark::State& state)
 }
 BENCHMARK(RowSortSelection)->Arg(100)->Arg(1000)->Arg(5000)->Complexity();
 
+// The name-keyed C++ object writer increments its column counter twice and omits the
+// enclosing array (see docs/port/cpp-gd-issues.md). The Rust counterpart writes every
+// column inside a complete array, so this workload compares the checked-in formatters
+// rather than equivalent output.
 void FormatJson(benchmark::State& state)
 {
    const auto rows = static_cast<std::size_t>(state.range(0));

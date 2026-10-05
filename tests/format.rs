@@ -211,6 +211,25 @@ fn assert_same_cells(actual: &Table, expected: &Table) {
 }
 
 #[test]
+fn zero_column_tables_round_trip_through_json_and_reject_csv() {
+    let schema = Schema::new([]).unwrap();
+    let mut table = Table::new(schema.clone());
+    table.push_row_vec(Vec::new()).unwrap();
+    assert_eq!(table_to_json(&table).unwrap(), "[{}]");
+
+    let restored = table_from_json(schema.clone(), "[{},{}]").unwrap();
+    assert_eq!(restored.row_count(), 2);
+    assert_eq!(restored.column_count(), 0);
+
+    for headers in [false, true] {
+        assert!(matches!(
+            table_to_csv(&table, headers),
+            Err(FormatError::ZeroColumnTable)
+        ));
+    }
+}
+
+#[test]
 fn json_round_trips_every_column_type_exactly() {
     let table = every_type_table();
     let json = table_to_json(&table).unwrap();

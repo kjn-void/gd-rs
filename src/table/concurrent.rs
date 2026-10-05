@@ -93,7 +93,11 @@ impl ConcurrentTableBuilder {
         self.rows.len()
     }
 
-    /// Returns whether no complete row has been published.
+    /// Returns whether the completely published contiguous row prefix is empty.
+    ///
+    /// As with [`Self::row_count`], a later reservation that finishes before an
+    /// earlier one is temporarily excluded, so this can report `true` while a
+    /// producer has already published a row at a non-contiguous position.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()

@@ -303,8 +303,9 @@ impl Table {
     /// A tombstoned row keeps its payload and physical position, and ordinary
     /// cell access still works. It is excluded from [`Table::live_rows`],
     /// [`ColumnIndex`] keys and null rows, [`RowOrder::live_rows`], and JSON/CSV
-    /// output. Deletion and restoration are O(1); the flag vector is allocated on
-    /// the first tombstone and released when no tombstoned row remains.
+    /// output. The flag vector is allocated on the first tombstone and dropped once
+    /// no tombstoned row remains; the first deletion after that initializes one
+    /// flag per physical row, and later flag changes are O(1).
     ///
     /// Returns `true` when the row changed from live to tombstoned and `false`
     /// when it was already tombstoned.
