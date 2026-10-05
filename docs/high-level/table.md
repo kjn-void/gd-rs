@@ -523,3 +523,39 @@ borrowing `ColumnIndex` and expose duplicate and missing matches explicitly.
 The [order-workflow benchmark](order-workflow.md) exercises database import,
 validation, two equality joins across three tables, clean/audit materialization,
 and independent parameterized outputs, including concurrent variant generation.
+
+## Combining and viewing tables
+
+Mapped append stages an entire source batch before extending the destination.
+`append` maps positions, `append_named` resolves destination names/aliases, and
+`append_mapped` uses explicit `ColumnMapping` entries. Matching storage layouts are
+cloned as typed vectors; conversion/nullability changes use per-cell preparation.
+Extras are validated before commit, then prepared columns and sidecars are moved
+into destination vectors. Existing destination cells are not cloned. The guarantee
+is atomicity for returned validation errors, with converter side effects and
+allocation failures outside that guarantee. Physical rows and tombstones are
+preserved; destination properties are not merged with source properties.
+
+`CompositeIndex<N>` extends equality indexing to ordered tuples. It uses borrowed
+`IndexKeyRef` arrays in a hash map and separate duplicate-position buckets. Looking
+up a temporary query key returns a bucket borrowed from the index, independent of
+the query key's lifetime. Any null component excludes a live row from the key map;
+deleted rows are tracked separately. Component type and null semantics remain
+explicit rather than using string conversion to define equality.
+
+`TableSelection` owns metadata and borrows cell storage. Selection predicates and
+projections compose without copying cells; JSON/CSV serializers read the view
+straight from the source. An owned table is created only by `materialize`. Used
+views prevent source mutation at compile time, so their positions cannot become
+stale through compaction. `SelectedRow` exposes projected cells with source row
+positions and access to row-local extras.
+
+Single-column and composite join iterators borrow both source tables and the index,
+yielding borrowed row pairs lazily. They avoid allocating an entire expanded join
+result and support ordinary iterator limits. The older position-vector joins remain
+available for application code that deliberately wants an owned snapshot.
+
+These APIs add no unsafe Rust and do not introduce concurrent mutation of `Table`.
+Existing table-copy and workflow performance figures remain measurements of their
+original benchmark paths; no performance improvement is claimed for the new APIs
+without a corresponding measurement.

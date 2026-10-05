@@ -68,6 +68,27 @@ impl RowExtras {
         }
     }
 
+    pub(super) fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
+        let inline = match self {
+            Self::Inline(entries) => Some(entries),
+            Self::Hashed(_) => None,
+        };
+        let hashed = match self {
+            Self::Hashed(entries) => Some(entries),
+            Self::Inline(_) => None,
+        };
+        inline
+            .into_iter()
+            .flat_map(|entries| entries.iter())
+            .map(|(name, value)| (name.as_str(), value))
+            .chain(
+                hashed
+                    .into_iter()
+                    .flat_map(|entries| entries.iter())
+                    .map(|(name, value)| (name.as_str(), value)),
+            )
+    }
+
     pub(super) fn is_empty(&self) -> bool {
         match self {
             Self::Inline(entries) => entries.is_empty(),
@@ -121,6 +142,26 @@ impl ExtrasStorage {
             Self::Disabled => None,
             Self::Enabled(rows) => rows.get(row)?.as_deref(),
         }
+    }
+
+    pub(super) fn can_append(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::Disabled, Self::Disabled) | (Self::Enabled(_), Self::Enabled(_))
+        )
+    }
+
+    pub(super) fn append(&mut self, other: Self) -> Result<(), TableError> {
+        match (self, other) {
+            (Self::Disabled, Self::Disabled) => {}
+            (Self::Enabled(rows), Self::Enabled(other)) => rows.extend(other),
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "append extras layouts differ",
+                });
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn get_or_insert(&mut self, row: usize) -> Result<&mut RowExtras, TableError> {
@@ -557,6 +598,94 @@ impl ColumnStorage {
             Self::Bytes(values) => values.retain_live(tombstoned),
             Self::Uuid(values) => values.retain_live(tombstoned),
         }
+    }
+
+    pub(super) fn can_append(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Null(_), Self::Null(_)) => true,
+            (Self::Bool(left), Self::Bool(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::I8(left), Self::I8(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::I16(left), Self::I16(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::I32(left), Self::I32(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::I64(left), Self::I64(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::U8(left), Self::U8(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::U16(left), Self::U16(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::U32(left), Self::U32(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::U64(left), Self::U64(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::F32(left), Self::F32(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::F64(left), Self::F64(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::String(left), Self::String(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::Bytes(left), Self::Bytes(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            (Self::Uuid(left), Self::Uuid(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
+            _ => false,
+        }
+    }
+
+    pub(super) fn append(&mut self, other: Self) -> Result<(), TableError> {
+        macro_rules! append {
+            ($left:expr, $right:expr) => {
+                match ($left, $right) {
+                    (ColumnData::Required(left), ColumnData::Required(right)) => left.extend(right),
+                    (ColumnData::Nullable(left), ColumnData::Nullable(right)) => left.extend(right),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "append nullability differs",
+                        })
+                    }
+                }
+            };
+        }
+        match (self, other) {
+            (Self::Null(left), Self::Null(right)) => *left += right,
+            (Self::Bool(left), Self::Bool(right)) => append!(left, right),
+            (Self::I8(left), Self::I8(right)) => append!(left, right),
+            (Self::I16(left), Self::I16(right)) => append!(left, right),
+            (Self::I32(left), Self::I32(right)) => append!(left, right),
+            (Self::I64(left), Self::I64(right)) => append!(left, right),
+            (Self::U8(left), Self::U8(right)) => append!(left, right),
+            (Self::U16(left), Self::U16(right)) => append!(left, right),
+            (Self::U32(left), Self::U32(right)) => append!(left, right),
+            (Self::U64(left), Self::U64(right)) => append!(left, right),
+            (Self::F32(left), Self::F32(right)) => append!(left, right),
+            (Self::F64(left), Self::F64(right)) => append!(left, right),
+            (Self::String(left), Self::String(right)) => append!(left, right),
+            (Self::Bytes(left), Self::Bytes(right)) => append!(left, right),
+            (Self::Uuid(left), Self::Uuid(right)) => append!(left, right),
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "append column types differ",
+                });
+            }
+        }
+        Ok(())
     }
 
     pub(super) fn copy_range(&self, range: std::ops::Range<usize>) -> Self {

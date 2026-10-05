@@ -1,6 +1,8 @@
 //! Schema-driven typed column storage.
 
+mod append;
 mod compaction;
+mod composite;
 mod concurrent;
 pub mod debug;
 mod index;
@@ -8,16 +10,20 @@ mod ordering;
 mod row_mut;
 mod schema;
 mod selection;
+mod selection_view;
 mod storage;
 mod tombstones;
 mod views;
 
+pub use append::ColumnMapping;
 pub use compaction::RowCompaction;
+pub use composite::CompositeIndex;
 pub use concurrent::ConcurrentTableBuilder;
 pub use index::{ColumnIndex, IndexKeyRef};
 pub use ordering::{NullOrder, RowOrder, SortDirection};
 pub use row_mut::{RowMut, RowsMut};
 pub use schema::{ColumnConversionError, ColumnConverter, ColumnSpec, Schema, UnknownFields};
+pub use selection_view::{SelectedRow, TableSelection};
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;
@@ -107,6 +113,24 @@ pub enum TableError {
     /// Hash indexes do not support this logical type.
     #[error("columns of type {0} cannot be indexed")]
     UnsupportedIndexType(DataType),
+    /// A composite index has no key columns.
+    #[error("a composite index must have at least one key column")]
+    EmptyIndexKey,
+    /// A destination column was mapped more than once.
+    #[error("destination column {column} was mapped more than once")]
+    DuplicateColumnMapping {
+        /// Repeated destination column position.
+        column: usize,
+    },
+    /// A destination's primary name and alias match different source columns.
+    #[error("destination column {column} has ambiguous source names")]
+    AmbiguousColumnMapping {
+        /// Destination column position.
+        column: usize,
+    },
+    /// Appending would overflow the physical row count.
+    #[error("appended row count exceeds usize::MAX")]
+    RowCountOverflow,
     /// A concurrent builder and its destination table use different schemas.
     #[error("concurrent builder schema does not match destination table schema")]
     SchemaMismatch,

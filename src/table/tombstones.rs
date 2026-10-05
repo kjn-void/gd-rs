@@ -117,6 +117,20 @@ impl Tombstones {
         Self::from_copied(flags, count)
     }
 
+    /// Appends a physical row range's flags without allocating for all-live data.
+    pub(super) fn append(&mut self, other: &Self, old_len: usize, added: usize) {
+        if self.count == 0 && other.count == 0 {
+            return;
+        }
+        self.flags.resize(old_len, false);
+        if let Some(flags) = other.flags() {
+            self.flags.extend_from_slice(flags);
+        } else {
+            self.flags.resize(old_len + added, false);
+        }
+        self.count += other.count;
+    }
+
     fn from_copied(flags: Vec<bool>, count: usize) -> Self {
         if count == 0 {
             Self::default()

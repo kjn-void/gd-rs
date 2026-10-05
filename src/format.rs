@@ -7,7 +7,7 @@ use compact_str::CompactString;
 use thiserror::Error;
 
 use crate::text::push_percent_component;
-use crate::{Arguments, RowOrder, Table, TableError, ValueRef, encode_hex};
+use crate::{Arguments, RowOrder, Table, TableError, TableSelection, ValueRef, encode_hex};
 
 /// An interchange-format or representability error.
 #[derive(Debug, Error)]
@@ -118,6 +118,7 @@ pub fn table_to_json(table: &Table) -> Result<String, FormatError> {
     rows_to_json(
         table,
         (0..table.row_count()).filter(|&row| !table.row_is_tombstoned(row)),
+        None,
     )
 }
 
@@ -138,6 +139,41 @@ pub fn row_order_to_json(order: &RowOrder<'_>) -> Result<String, FormatError> {
             .iter()
             .copied()
             .filter(|&row| !table.row_is_tombstoned(row)),
+        None,
+    )
+}
+
+/// Serializes live selected rows and projected columns directly to JSON.
+///
+/// Source order/duplicates and projected names are retained. Extras and properties
+/// are omitted like table JSON output; cells are never materialized into a table.
+///
+/// # Errors
+///
+/// Returns a non-finite float or JSON/UTF-8 writer error.
+pub fn selection_to_json(selection: &TableSelection<'_>) -> Result<String, FormatError> {
+    rows_to_json(
+        selection.table(),
+        selection.live_rows().map(crate::SelectedRow::position),
+        Some(selection.columns()),
+    )
+}
+
+/// Serializes live selected rows and projected columns directly to CSV.
+///
+/// Uses the ordinary table CSV rules without first copying cell payloads.
+///
+/// # Errors
+///
+/// Returns a zero-column, CSV, I/O or UTF-8 writer error.
+pub fn selection_to_csv(
+    selection: &TableSelection<'_>,
+    headers: bool,
+) -> Result<String, FormatError> {
+    rows_to_csv(
+        selection.schema(),
+        selection.live_rows().map(crate::SelectedRow::iter),
+        headers,
     )
 }
 
@@ -155,17 +191,29 @@ pub fn row_order_to_json(order: &RowOrder<'_>) -> Result<String, FormatError> {
 /// Returns [`FormatError::ZeroColumnTable`] for a table with no columns, or a CSV,
 /// I/O, or unexpected UTF-8 finalization error.
 pub fn table_to_csv(table: &Table, headers: bool) -> Result<String, FormatError> {
-    if table.column_count() == 0 {
+    rows_to_csv(
+        table.schema(),
+        table.live_rows().map(crate::Row::iter),
+        headers,
+    )
+}
+
+fn rows_to_csv<'a>(
+    schema: &crate::Schema,
+    rows: impl IntoIterator<Item = impl Iterator<Item = ValueRef<'a>>>,
+    headers: bool,
+) -> Result<String, FormatError> {
+    if schema.is_empty() {
         return Err(FormatError::ZeroColumnTable);
     }
     let mut writer = csv::WriterBuilder::new()
         .has_headers(false)
         .from_writer(Vec::new());
     if headers {
-        writer.write_record(table.schema().iter().map(crate::ColumnSpec::name))?;
+        writer.write_record(schema.iter().map(crate::ColumnSpec::name))?;
     }
-    for row in table.live_rows() {
-        for value in row.iter() {
+    for row in rows {
+        for value in row {
             write_csv_value(&mut writer, value)?;
         }
         writer.write_record(None::<&[u8]>)?;
@@ -204,6 +252,7 @@ fn write_csv_value<W: std::io::Write>(
 fn rows_to_json(
     table: &Table,
     rows: impl IntoIterator<Item = usize>,
+    columns: Option<&[usize]>,
 ) -> Result<String, FormatError> {
     let mut output = Vec::new();
     output.push(b'[');
@@ -218,7 +267,21 @@ fn rows_to_json(
             row,
             row_count: table.row_count(),
         })?;
-        for (column, (spec, value)) in table.schema().iter().zip(row.iter()).enumerate() {
+        for column in 0..columns.map_or(table.column_count(), <[usize]>::len) {
+            let source_column = columns.map_or(column, |columns| columns[column]);
+            let spec =
+                table
+                    .schema()
+                    .column(source_column)
+                    .ok_or(TableError::ColumnOutOfBounds {
+                        column: source_column,
+                        column_count: table.column_count(),
+                    })?;
+            let value = row
+                .get(source_column)
+                .ok_or(TableError::InternalInvariant {
+                    detail: "JSON output cell is missing",
+                })?;
             if column > 0 {
                 output.push(b',');
             }

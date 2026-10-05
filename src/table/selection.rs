@@ -81,7 +81,7 @@ impl Table {
         })
     }
 
-    fn projection_schema(&self, columns: &[usize]) -> Result<Schema, TableError> {
+    pub(super) fn projection_schema(&self, columns: &[usize]) -> Result<Schema, TableError> {
         let specs = columns
             .iter()
             .map(|&column| {
@@ -116,6 +116,27 @@ impl Table {
         column: usize,
         right: &ColumnIndex<'_>,
     ) -> Result<Vec<(usize, Option<usize>)>, TableError> {
+        let joined = self.left_join(column, right)?;
+        let mut pairs = Vec::with_capacity(self.live_row_count());
+        pairs.extend(joined.map(|(left, right)| (left.position(), right.map(Row::position))));
+        Ok(pairs)
+    }
+
+    /// Lazily joins live rows against a reusable single-column index.
+    ///
+    /// Semantics match [`Self::left_join_rows`], but result pairs and cell payloads
+    /// are not copied. The iterator keeps both tables and the index borrowed,
+    /// preventing position invalidation. Callers can stop iteration to bound a
+    /// many-to-many result instead of allocating every match upfront.
+    ///
+    /// # Errors
+    ///
+    /// Returns a column-bounds or logical-type mismatch error before iteration.
+    pub fn left_join<'a>(
+        &'a self,
+        column: usize,
+        right: &'a ColumnIndex<'_>,
+    ) -> Result<impl Iterator<Item = (Row<'a>, Option<Row<'a>>)> + 'a, TableError> {
         let spec = self
             .schema
             .column(column)
@@ -138,18 +159,17 @@ impl Table {
                 actual: spec.data_type(),
             });
         }
-        let mut pairs = Vec::with_capacity(self.live_row_count());
-        for row in self.live_rows() {
+        Ok(self.live_rows().flat_map(move |row| {
             let matches = row
                 .get(column)
                 .and_then(IndexKeyRef::from_value)
                 .map_or(&[][..], |key| right.rows(key));
-            if matches.is_empty() {
-                pairs.push((row.position(), None));
-            } else {
-                pairs.extend(matches.iter().map(|&other| (row.position(), Some(other))));
-            }
-        }
-        Ok(pairs)
+            let unmatched = matches.is_empty().then_some((row, None));
+            unmatched.into_iter().chain(
+                matches
+                    .iter()
+                    .map(move |&position| (row, right.table().row(position))),
+            )
+        }))
     }
 }

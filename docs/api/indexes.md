@@ -122,3 +122,57 @@ computed columns and name-conflict policies without a query language.
 The right index borrows its table and prevents mutation during use. Returned
 positions do not keep that borrow alive: like `select_rows`, they must not be reused
 after removals or compaction change either table's physical row positions.
+
+## Composite indexes and joins
+
+`table.composite_index([column_a, column_b, ...])` builds a
+`CompositeIndex<'a, N>` over an ordered tuple of any fixed positive width. Component
+kinds match `ColumnIndex`: booleans, signed/unsigned integer widths, strings, bytes,
+and UUIDs. Null-typed and floating-point columns are rejected, even for an empty
+table. Repeated columns are allowed; a zero-width key returns `EmptyIndexKey`.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+let schema = Schema::new([
+    ColumnSpec::new("customer", DataType::String),
+    ColumnSpec::new("order", DataType::I64),
+])?;
+let mut left = Table::new(schema.clone());
+left.push_row([Value::from("Ada"), Value::I64(7)])?;
+let mut right = Table::new(schema);
+right.push_row([Value::from("Ada"), Value::I64(7)])?;
+right.push_row([Value::from("Ada"), Value::I64(7)])?;
+let index = right.composite_index([0, 1])?;
+assert_eq!(index.rows(["Ada".into(), 7_i64.into()]), &[0, 1]);
+assert_eq!(left.left_join_rows_composite([0, 1], &index)?,
+           [(0, Some(0)), (0, Some(1))]);
+# Ok::<(), gd::TableError>(())
+```
+
+Tuple order matters. Signed/unsigned keys are distinct; strings are compared as
+strings, not converted from numbers. As in single-column probes, signed widths are
+widened losslessly inside keys, but join components must have **exactly matching
+logical types**, including widths. A null in any component excludes the row from
+key buckets and prevents it from joining. `null_rows` reports those live rows;
+`tombstoned_rows` reports all excluded deleted rows. `distinct_key_count` counts
+complete unique tuples. Every duplicate match retains physical source order.
+
+Keys borrow string/byte payloads. Construction takes expected O(rows × N) time and
+storage proportional to keys and indexed row positions. Probing takes expected
+O(N + returned matches) including consuming the returned match slice. The source
+borrow prevents invalidation; query values do not need to live as long as the index
+or the returned position slice.
+
+`left_join_composite(columns, &index)` is a lazy iterator yielding
+`(Row, Option<Row>)` rather than allocating the result vector. `left_join(column,
+&single_column_index)` offers the same shape for single-column joins. Both validate
+column/type compatibility before iteration, exclude tombstones, expand duplicates,
+and emit one unmatched `None` per null/missing left key. Both source tables and the
+right index remain borrowed throughout iteration. `take`, `filter` and other
+ordinary iterator operations can bound or transform output without copying cells.
+No joins implicitly materialize payload columns or choose conflict-name policies.
+
+`left_join_rows_composite` and the existing `left_join_rows` collect owned position
+pairs with those same semantics. These snapshots do not keep either source borrowed
+and become stale after removal/compaction. A many-to-many result can be much larger
+than either input; use lazy iteration when every pair need not be stored.

@@ -182,3 +182,16 @@ These functions work on complete in-memory strings. Streaming input and output,
 custom callback formatting, SQL literals, and a CLI renderer are not current public
 APIs. Use the underlying ecosystem crates when those policies belong to an
 application.
+
+## Exporting borrowed selections
+
+`selection_to_json(&TableSelection)` and
+`selection_to_csv(&TableSelection, headers)` write the selected columns in projection
+order and live rows in selection order, retaining duplicate selected rows. They
+read borrowed cells directly instead of materializing an intermediate table. Names
+come from the projected schema. Ordinary JSON/CSV value rules and error behavior
+apply; properties and row-local extras are omitted. Zero-column views produce JSON
+objects `{}` for live rows, while CSV returns `FormatError::ZeroColumnTable`.
+
+See [borrowed selections](tables.md#borrowed-selections) for construction,
+composition, and lifetime behavior.

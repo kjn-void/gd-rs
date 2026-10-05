@@ -856,3 +856,106 @@ before anything is copied. Results own their cell data and may be edited indepen
 Positions are snapshots, not durable row IDs: do not reuse them after row removal or
 compaction. Projection preserves row-local extras even when declared columns are
 omitted; it is not a data-redaction API.
+
+## Atomic mapped append
+
+`append(&source)` appends by position and requires equal widths.
+`append_named(&source)` resolves each destination's primary name and optional alias
+through source schema lookup. `append_mapped` accepts explicit
+`ColumnMapping::new(source_column, destination_column)` entries:
+
+```rust
+use gd::{ColumnMapping, ColumnSpec, DataType, Schema, Table, Value};
+
+let mut source = Table::new(Schema::new([
+    ColumnSpec::new("name", DataType::String),
+    ColumnSpec::new("id", DataType::I64),
+])?);
+source.push_row([Value::from("Ada"), Value::I64(7)])?;
+let mut destination = Table::new(Schema::new([
+    ColumnSpec::new("id", DataType::I64),
+    ColumnSpec::new("name", DataType::String),
+    ColumnSpec::new("note", DataType::String).nullable(true),
+])?);
+assert_eq!(destination.append_mapped(&source, &[
+    ColumnMapping::new(1, 0),
+    ColumnMapping::new(0, 1),
+])?, 0..1);
+assert_eq!(destination.cell(0, 2)?.to_owned(), Value::Null);
+# Ok::<(), gd::TableError>(())
+```
+
+Policies are explicit:
+
+- Source rows include tombstones; payloads, deletion flags and row-local extras are
+  copied. Existing destination row positions remain unchanged. The returned range
+  identifies every appended physical row.
+- Destination properties remain unchanged; source properties are not merged.
+- A source column may feed multiple destinations. Each destination may be mapped
+  only once. Unmapped destinations must be nullable, including for an empty source,
+  and receive nulls. Unmapped fixed source columns are omitted.
+- Named mapping accepts source aliases and destination aliases. If a destination's
+  primary name and alias resolve to different source columns, the batch fails with
+  `AmbiguousColumnMapping` instead of choosing one silently.
+- Exact-type values bypass converters. Other non-null inputs require the existing
+  named destination converter. Converted output and nullability are checked.
+  Incompatible declared types without a converter fail even for an empty source.
+- Extras are preserved, not promoted into fixed columns. A closed destination
+  schema or an extra name colliding with a destination name/alias rejects the batch.
+
+Compatible columns are cloned directly as typed vectors. Columns requiring conversion
+or a nullability change are staged cell by cell. Extras are prepared and checked
+before typed vectors and sidecars are extended by moves. A returned error leaves the
+destination unchanged, even if a late source value fails conversion. Converter
+side effects cannot be rolled back, and allocation failure has normal Rust behavior.
+Peak staging space is proportional to the appended data, not existing destination
+size; append does not clone the destination.
+
+To append live rows only, use a live selection and materialize it before appending:
+`destination.append(&source.filter_view(|_| true).materialize()?)?`.
+
+## Borrowed selections
+
+`select_view(rows, columns)` borrows selected physical rows and columns.
+`project_view(columns)` borrows all physical rows with a projection, while
+`filter_view(predicate)` selects matching live rows and retains all fixed columns.
+These return `TableSelection<'a>`: it owns row/column positions and projected schema
+metadata but borrows the source cells, extras and properties.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef, selection_to_json};
+
+let mut table = Table::new(Schema::new([
+    ColumnSpec::new("id", DataType::I64),
+    ColumnSpec::new("name", DataType::String),
+])?);
+table.push_row([Value::I64(7), Value::from("Ada")])?;
+let filtered = table.filter_view(|row| row.get(0) == Some(ValueRef::I64(7)));
+let names = filtered.project(&[1])?;
+assert_eq!(selection_to_json(&names)?, "[{\"name\":\"Ada\"}]");
+let independent = names.materialize()?;
+assert_eq!(independent.column_count(), 1);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+`TableSelection::rows` includes selected tombstones and repeated positions;
+`live_rows` excludes tombstones. `filter_rows` composes a live-row predicate over
+projected `SelectedRow` views. `project` uses positions relative to the current
+projection. Columns cannot repeat because the resulting schema would have duplicate
+names. An empty projection retains row count and row-local extras.
+
+`SelectedRow::get` uses projected column positions; `position` returns the original
+physical row position. Named lookup recognizes projected names/aliases and extras,
+but hides omitted fixed columns. `table`, `positions`, `columns` and `schema` expose
+the source and selection metadata for explicit application integration.
+
+The view's source borrow prevents mutation or compaction while the view is used.
+This is stronger than the snapshot positions returned by `select_rows`. Selection
+construction allocates O(selected rows + selected columns) metadata and copies no
+cell payloads. `materialize` performs the existing column-wise gather and copies
+properties, extras and deletion flags without rerunning converters.
+
+`selection_to_json` and `selection_to_csv` export the projection directly, skip
+tombstones, and preserve row order/duplicates. They use the ordinary table formatting
+rules and omit extras/properties. Empty projections produce JSON objects with no
+fields; CSV rejects them with `ZeroColumnTable`.
