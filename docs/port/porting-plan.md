@@ -1,7 +1,9 @@
-# Rust porting plan
+# Current Rust port scope and design
 
-This is the implementation plan for the portable `gd` core. Observed C++ defects,
-data races, undefined behavior, and algorithmic criticism are kept separately in
+This records the implemented design and remaining scope decisions for the portable `gd`
+core, reviewed on 2026-10-05 against gd-rs `f7c7b91` and GD submodule
+`cb11cff90d05260a88d59a30c9da421cd4e19c34`. Observed C++ defects, data races, undefined
+behavior, and algorithmic criticism are kept separately in
 [`cpp-gd-issues.md`](cpp-gd-issues.md). Intentional behavior changes are recorded in
 [`compatibility.md`](compatibility.md). Reproducible source-size and complexity
 measurements are recorded in [`source-stats.md`](source-stats.md).
@@ -12,7 +14,9 @@ The Rust crate includes:
 
 - owned and borrowed dynamic values;
 - ordered named and positional arguments;
-- schemas, typed columns, rows, indexes, and borrowed row ordering;
+- schemas, typed columns, tombstoned rows, single/composite indexes, and borrowed row ordering;
+- mapped table append, owned selections, borrowed projections/filters, and duplicate-expanding left joins;
+- concurrent complete-row collection and checked disjoint mutation, with optional Rayon copying/mutation;
 - checked binary readers and writers, hex, and byte search;
 - UTF boundaries and JSON, URI-component, XML, and CSV conversion;
 - argument and table interchange formatting;
@@ -20,10 +24,10 @@ The Rust crate includes:
 - feature-gated SQLite value binding and typed-table materialization.
 
 Generic database interfaces, ODBC, and drivers other than SQLite are excluded. The
-SQLite module delegates connection and transaction behavior to `rusqlite`; it does
-not reproduce the C++ cursor, record, reference-counted interface, or driver-neutral
-abstractions. Pure SQL construction remains outside this crate and can become a
-separate package if dialect-specific golden tests establish a concrete need.
+SQLite module delegates connection and transaction behavior to `rusqlite`; it does not
+reproduce the C++ cursor, record, reference-counted interface, or driver-neutral
+abstractions. Pure SQL construction remains outside this crate and belongs to an
+application-selected SQL construction layer.
 
 CLI parsing, filesystem policy, rotation, console output, logging sinks, and COM-like
 application routing also remain at application boundaries. Applications should use
@@ -32,7 +36,7 @@ instead of receiving renamed wrappers from the data-model crate.
 
 ## Design rules
 
-1. Preserve characterized useful behavior and make failure behavior explicit.
+1. Preserve useful, specified behavior and make failure behavior explicit.
 2. Reject undefined behavior, data races, stale views, and confirmed defects.
 3. Prefer a smaller safe design when measurements show only a slight cost.
 4. Use Rust sum types and lifetimes instead of numeric tags, ownership flags, and
@@ -46,12 +50,13 @@ instead of receiving renamed wrappers from the data-model crate.
 
 ### Error, bounds, and unsafe-code policy
 
-Public APIs return typed `Result` errors for invalid input, conversion, bounds,
-schema, parsing, and I/O failures. Panics are reserved for internal invariants that
-safe callers cannot violate. Expected failures are returned to the caller and are not
-logged by the library.
+Checked fallible APIs return typed `Result` errors for invalid input, conversion,
+bounds, schema, parsing, and I/O failures. Ordinary slice indexing can panic, and
+application callbacks can panic or have side effects; safe Rust does not make those
+transactional. Expected checked failures are returned to the caller and are not logged
+by the library.
 
-Binary and legacy-format decoders read integers from bounded byte slices with
+Binary readers decode integers from bounded byte slices with
 explicit endianness; they do not cast byte pointers to typed pointers. A failed read
 must be observable and leave the documented cursor state intact.
 
@@ -62,27 +67,21 @@ a local safety argument, Miri coverage where applicable, and tests for every sta
 invariant. Unsafe code without the corresponding measurement or retained-size
 evidence must be removed.
 
-## Value port plan
+## Value representation
 
-Use closed `DataType`, `Value`, and `ValueRef<'a>` sum types rather than reproducing
-the C++ numeric tag, group-bit, width-bit, and allocation-flag scheme. `Value` owns
-its payload and `ValueRef<'a>` borrows string and byte payloads for no longer than
-their source lives. This makes tag/payload mismatches and an owning borrowed view
-unrepresentable. Raw pointers are not values; numeric legacy IDs belong only in an
-explicit compatibility codec if one is ever required.
+The crate uses closed `DataType`, `Value`, and `ValueRef<'a>` sum types rather than
+reproducing the C++ numeric tag, group-bit, width-bit, and allocation-flag scheme.
+`Value` owns its payload and `ValueRef<'a>` borrows string and byte payloads for no
+longer than their source lives. This makes tag/payload mismatches and an owning borrowed
+view unrepresentable. Raw pointers are not values; numeric legacy IDs belong only in an
+explicit compatibility format; none is currently exported.
 
 The implemented representation keeps all scalar widths as distinct variants, uses
 `CompactString` for inline short strings, `Box<[u8]>` for byte payloads, and
 `uuid::Uuid` inline. It intentionally relies on the compiler's enum layout rather
 than a hand-written tagged union.
 
-Before changing that representation, Criterion comparisons must cover credible
-alternatives: `Arc`-shared strings/bytes, string interning, and normalization to
-fewer numeric variants. Compare construction, borrowing, cloning, match/dispatch,
-conversion, allocation count, and complete retained memory; `size_of` alone is not
-a memory comparison.
-
-C++ characterization and Rust tests must cover:
+The current value contract and Rust tests cover:
 
 - signed/unsigned comparisons across widths;
 - integer/float conversion and overflow;
@@ -90,20 +89,19 @@ C++ characterization and Rust tests must cover:
 - C++ `Unknown` versus Rust `Null`;
 - ASCII, UTF-8, JSON, XML, and wide-string boundaries;
 - failed conversions and unlike-type ordering;
-- a non-null-terminated `std::string_view` ending at its declared length, with the
-  C++ regression exercised under AddressSanitizer.
+- length-bounded text ownership, avoiding GD's `string_view` terminator assumption.
 
-## Table and open-row sidecar plan
+## Tables and open-row sidecars
 
-Keep the table's declared schema immutable and its regular cells in homogeneous,
-typed column vectors. Do not reproduce the packed C++ per-row argument buffer or
-turn every cell into a dynamic `Value`. Instead, model unknown named fields as an
-optional sidecar running parallel to the row axis:
+The table's declared schema is immutable and its regular cells are homogeneous, typed
+column vectors. Unknown named fields use an optional sidecar parallel to the row axis,
+rather than a packed argument buffer or a dynamic `Value` in every cell:
 
 - tables with the same layout share immutable metadata through `Arc<Schema>`;
 - `UnknownFields::Reject` remains the default schema policy;
 - `UnknownFields::Store` opts a schema into row-local unknown fields;
-- `Table` keeps one `Option<Box<RowExtras>>` slot per row, initially `None`;
+- `Table` lazily allocates its extras sidecar; once allocated, it keeps one
+  `Option<Box<RowExtras>>` slot per physical row, initially `None`;
 - allocating the `RowExtras` object is deferred until that row receives its first
   extra field;
 - `RowExtras` starts with `SmallVec<[(CompactString, Value); 2]>`, keeping the common
@@ -113,8 +111,7 @@ optional sidecar running parallel to the row axis:
 - `set_named` mutates either a validated fixed cell or a row-local extra, while
   `push_row_with_extras` validates the complete fixed row and all extra names before
   committing either storage class;
-- append, pop, clone, and row bounds must preserve the one-sidecar-slot-per-row
-  invariant.
+- append, pop, clone, compaction, and row bounds preserve that sidecar invariant.
 
 An extra field is deliberately not a logical column: the same name may be absent or
 hold different `Value` types in different rows. Extras therefore do not participate
@@ -124,12 +121,12 @@ be promoted to a real nullable schema column. This keeps the normal columnar pat
 predictable while safely covering the useful behavior of the C++ argument-backed
 table.
 
-Regression coverage must include strict-schema rejection, late insertion with
-`set_named`, atomic insertion with `push_row_with_extras`, replacement, fixed-column
-type checking, declared-name conflicts, row removal, and the matched files, users,
-and metrics custom-field workloads from the C++ characterization test.
+The current table tests cover strict-schema rejection, late insertion with `set_named`,
+atomic insertion with `push_row_with_extras`, replacement, fixed-column type checking,
+declared-name conflicts and row removal. The maintained table benchmarks include files,
+users and metrics custom-field workloads on both implementations.
 
-## Target architecture
+## Architecture
 
 ```mermaid
 flowchart TD
@@ -137,7 +134,10 @@ flowchart TD
     Value --> Schema["Schema / ColumnSpec"]
     Schema --> Table["Table / Row / Column"]
     Value --> Table
-    Table --> ColumnIndex["ColumnIndex / RowOrder"]
+    Table --> ColumnIndex["ColumnIndex / CompositeIndex / RowOrder"]
+    Table --> Selection["TableSelection / SelectedRow / left joins"]
+    Schema --> Builder["ConcurrentTableBuilder"]
+    Builder --> Table
     Value --> Expression["ExpressionEngine / Program / Context"]
     Arguments --> Format["JSON / URI formatting"]
     Table --> Format["JSON / CSV formatting"]
@@ -150,8 +150,8 @@ flowchart TD
 
 Dependencies flow away from the value core. Borrowed views and indexes carry the
 lifetime of their owners, preventing structural mutation while stored positions or
-borrowed keys are live. The crate has no global logger, allocator, service locator,
-or mutable registry.
+borrowed keys are live. The crate installs no custom global allocator, logger or service locator, and has
+no global mutable registry; Rhai function registration is local to each engine.
 
 ## Maintained crate choices
 
@@ -170,19 +170,25 @@ or mutable registry.
 | Errors | `thiserror` | typed public errors without hand-written display plumbing |
 | Expressions | `rhai` | permissive license, owned AST, control flow, typed functions, and bounded execution |
 | SQLite | `rusqlite` with bundled SQLite | maintained safe wrapper and reproducible engine dependency |
+| Concurrent row collection | `orx-concurrent-vec` | complete-row publication before transpose into typed columns |
+| Parallel table operations | optional `rayon` | scheduling for checked disjoint columns and rows |
 | Benchmarks/tests | `criterion` / `proptest` | sampled measurements and generated invariants |
 
-`evalexpr` was evaluated for expressions but is AGPL-3.0-only in version 13.1.0;
-Rhai is MIT or Apache-2.0 and covers both expressions and scripts.
+Rhai is MIT or Apache-2.0 and supplies expressions, scripts and configurable resource
+limits through a single adapter; GD expression syntax and bytecode are not ported.
 
 ## Baseline and comparison method
 
-The `external/gd` submodule has a root CMake build with pinned GoogleTest and Google
-Benchmark revisions. Only its test and benchmark infrastructure is changed; product
-files below `external/gd/source` remain untouched. Debug and sanitizer presets characterize
-what can be exercised safely. Benchmarks use narrow adapters around testable behavior
-when a product defect would make the existing wrapper unsafe or unreliable. Rust uses
-unit, integration, property, and negative tests plus Criterion.
+The read-only `external/gd` submodule is built by gd-rs's maintained [CMake
+recipe](../../benches/cpp-reference/cmake/GdCore.cmake) and [reference
+harness](../../benches/cpp-reference/CMakeLists.txt). Google Benchmark is pinned to
+v1.9.5; bundled SQLite 3.53.2 matches rusqlite 0.40.2. Forwarding headers and the
+isolated SIMD placeholder correction are generated in the build directory. The pinned GD
+revision has no `tests` directory or checked-in GoogleTest suite. Maintained workflow
+verification, probes and sanitizer commands are described in the [order-workflow
+report](../high-level/order-workflow.md). Benchmarks use narrow adapters when a product
+defect would make a wrapper unsafe or unreliable. Rust uses unit, integration, property,
+compile-fail tests and Criterion.
 
 Matched workloads must use the same:
 
@@ -205,6 +211,7 @@ The current workload matrix is:
 | Formatting | argument URI/JSON, table JSON/CSV | 100 through 10,000 rows |
 | Expressions | compile and evaluate three matched formulas | short arithmetic, function, logical |
 | SQLite | bind and materialize inferred/explicit tables | 100 through 10,000 rows |
+| Order workflow | database load, validation, three-table join, slices, parameterized outputs | configurable deterministic fixture; concurrent workers |
 
 Raw timings must come from optimized builds on the same host. The report compares
 work performed, confidence intervals, algorithmic complexity, and allocation
@@ -212,37 +219,31 @@ boundaries rather than treating cross-machine numbers as thresholds. Memory clai
 require retained capacity, payload, index overhead, and allocation counts;
 `size_of::<T>()` alone is only a representation guardrail.
 
-## Work stages
+## Current coverage
 
-| Stage | Evidence | Status |
+| Area | Evidence | Status |
 |---|---|---|
-| Reproducible C++ baseline | CMake, GoogleTest, Google Benchmark, sanitizer preset | complete |
-| Values and types | C++ characterization; Rust value/property tests; Criterion | complete |
+| Reproducible C++ baseline | maintained CMake/Google Benchmark harness and workflow probes | available; pinned GD has no full unit-test suite |
+| Values and types | pinned-source audit; Rust value/property tests; maintained benchmarks | implemented |
 | Arguments | duplicate/unnamed behavior, lifetime-bound `AHashMap` index, codecs | complete |
-| Tables | typed columns, null policy, views, exact index, stable row order | complete |
+| Tables | typed columns, null policy, tombstones/compaction, mapped append, borrowed selections, exact single/composite indexes, left joins, stable row order, concurrent builder | implemented; broader GD conveniences remain application work |
 | Binary and text | checked cursors and maintained codecs with negative/property tests | complete |
 | Interchange formats | complete JSON/CSV/URI output and matched benchmarks | complete |
-| Expressions | Rhai adapter, C++ regressions, Rust property tests, matched benchmarks | complete |
+| Expressions | bounded Rhai adapter, pinned-source audit, Rust property tests, maintained benchmarks | implemented; GD syntax is not preserved |
 | SQLite | strict binding, schema inference/coercion, transaction access, in-memory tests, matched benchmark | complete |
 | Public documentation | rustdoc plus architecture, subsystem, compatibility, and audit documents | complete |
-| Final verification | strict Rust checks, debug/release C++, and ASan/UBSan C++ suites | complete |
+| Verification | strict Rust CI; maintained release C++ workflow checks and focused sanitizer probes | reproducible for documented paths; no claim of exhaustive GD coverage |
 
-## Replacement gate
+## Validation and limits
 
-A ported subsystem is ready only when:
+[`scripts/ci.sh`](../../scripts/ci.sh) runs formatting, Clippy, all-target/all-feature
+tests, minimal-feature tests, rustdoc and the Rust 1.86 library check. The public Rust
+APIs have unit, integration, property and compile-fail coverage. This does not establish
+exhaustive GD parity or prove absence of application logic errors.
 
-1. its public behavior, ownership, errors, and complexity are documented;
-2. relevant C++ characterization and regression tests pass;
-3. equivalent Rust unit, integration, property, and negative tests pass;
-4. every applicable finding in `cpp-gd-issues.md` is covered or rejected explicitly;
-5. Criterion and Google Benchmark workloads are demonstrably equivalent;
-6. timing, space, and algorithmic differences are recorded without unsupported claims;
-7. the Rust API contains no accidental C++ layout or naming artifacts;
-8. maintained crates were evaluated before custom code was accepted;
-9. public APIs do not emit logs for expected errors;
-10. database support remains confined to the SQLite feature and does not grow an
-    untested generic abstraction.
-
-Documentation uses Mermaid only where dependency, ownership, or state relationships
-are clearer as a graph. Compatibility decisions remain explicit rather than being
-inferred from whichever implementation happens to pass a test.
+The maintained C++ harness builds a selected GD core, not every toolkit facility.
+Workflow correctness checks compare materialized outputs against a SQLite oracle;
+focused probes and sanitizers cover the paths described in the workflow report. The
+reference does not contain a complete GD unit-test suite. Performance results belong to
+the dedicated reports, with source links, measurement boundaries and revisions; API
+breadth is not evidence of speed or retained-memory efficiency.

@@ -1,4 +1,7 @@
-# Architecture postmortem: preserving the three-object core
+# Architecture: preserving the three-object core
+
+Reviewed on 2026-10-05 against gd-rs `f7c7b91` and the pinned
+[`external/gd`](../../external/gd) reference. This describes current APIs and contracts.
 
 The author of the C++ library described `Variant`, `Arguments`, and `Table` as a
 small framework of foundational data structures rather than three isolated classes.
@@ -31,8 +34,9 @@ concentration of responsibility.
 | companion lookup structure | `ArgumentIndex<'a>` | optional borrowed name index |
 | `Table` | `Table` | owned typed column storage |
 | table schema metadata | `Arc<Schema>`, `ColumnSpec` | shared immutable column contracts |
-| table accessors | `Row<'a>`, `Column<'a>` | lightweight borrowed views |
-| indexes and sorting | `ColumnIndex<'a>`, `RowOrder<'a>` | optional borrowed results |
+| table accessors and selections | `Row<'a>`, `Column<'a>`, `TableSelection<'a>`, `SelectedRow<'a>` | borrowed cells with optional owned selection metadata |
+| indexes and sorting | `ColumnIndex<'a>`, `CompositeIndex<'a, N>`, `RowOrder<'a>` | optional borrowed results |
+| concurrent ingestion | `ConcurrentTableBuilder` | validates complete rows, then materializes an owned `Table` |
 
 The supporting types are not alternative ownership models. `ValueRef`, `Row`, and
 `Column` are views returned by the owned roots. The index and ordering types are
@@ -48,20 +52,24 @@ centered on the three roots.
 
 ## Current public surface
 
-The C++ discussion speculated that the central classes might expose hundreds of
-methods while still presenting only a few concepts to users. The Rust surface is
-currently much narrower. Counting inherent public method declarations in the source:
+The C++ discussion speculated that the central classes might expose hundreds of methods
+while still presenting only a few concepts to users. The Rust surface is currently
+narrower. Counting inherent public method declarations in the source at `f7c7b91`,
+including feature-gated declarations:
 
 | Owned root | Methods on root | Methods in its complete supporting family |
 |---|---:|---:|
 | `Value` | 6 | 16 across `DataType`, `Value`, and `ValueRef` |
 | `Arguments` | 19 | 36 across `Argument`, `Arguments`, and `ArgumentIndex` |
-| `Table` | 19 | 53 across schema, table, views, index, and row-order types |
+| `Table` | 61 | 171 across the exported table family, including schema, converters, mappings, selections, indexes, mutable views, compaction, ordering, and concurrent builder |
 
-These figures exclude trait implementations such as `From<T>`. They are a snapshot
-of the current crate, not evidence that Rust expresses every C++ convenience method
-with fewer declarations. The port intentionally implements a smaller semantic core;
-it has not established method-for-method parity with the complete C++ API.
+These figures exclude trait implementations such as `From<T>` and methods provided by
+traits. Count `pub fn` / `pub const fn` declarations in inherent `impl` blocks of the
+types [exported at the crate root](../../src/lib.rs), including `src/table.rs` and its
+submodules. They are a snapshot of the current crate, not evidence that Rust expresses
+every C++ convenience method with fewer declarations. The port intentionally implements
+a smaller semantic core; it has not established method-for-method parity with the
+complete C++ API.
 
 ## What the original observation gets right
 
@@ -90,9 +98,10 @@ set of competing domain abstractions throughout user code:
 
 - `Value` is a closed sum type, so a runtime tag cannot disagree with its payload.
 - `ValueRef` cannot outlive the string, byte buffer, or value that it borrows.
-- an `ArgumentIndex` or `ColumnIndex` immutably borrows its owner, preventing
+- an `ArgumentIndex`, `ColumnIndex`, `CompositeIndex` or `TableSelection` immutably borrows its owner, preventing
   structural mutation that would invalidate names or stored positions;
-- schema width, value type, and nullability are validated before a row mutation;
+- schema width, value type, and nullability are checked by row insertion and cell
+  setters; mapped append stages a whole batch before changing the destination;
 - null is explicit rather than an uninitialized non-null payload state;
 - binary cursor failures return typed errors and leave the cursor unchanged;
 - serializers reject or preserve information according to documented policies rather
@@ -109,22 +118,14 @@ The detailed accepted differences and rejected defects are recorded in
 
 ## Performance evidence
 
-The matched benchmarks show a mixed result rather than an automatic Rust advantage:
+The maintained [order workflow](../high-level/order-workflow.md) measures database
+loading, validation, a three-table join, slices and parameterized outputs, including
+concurrent frozen-input runs. Its measurements also apply to the concrete revisions and
+implementations recorded there, rather than proving the speed of every API.
 
-- eleven-field argument reads are about 1.5 times faster by linear name lookup and
-  about 2 times faster positionally, while building the Rust hash index is slower;
-- ordinary table construction in the current fixture is about 0.65 times as fast,
-  largely because of the fixture's integer-to-string formatting path;
-- with group strings prepared, insertion is about 1.9 times faster in Rust;
-- the typed column scan is about 2 times faster;
-- row ordering is dramatically faster because Rust builds an `O(n log n)` stable
-  permutation while the characterized C++ path destructively performs `O(n²)` work;
-- dynamic-value results vary by payload size, with neither language uniformly ahead.
-
-The row-order comparison is particularly important: most of the gain comes from a
-different algorithm and post-sort contract, not from translating identical code into
-Rust. The complete methodology and caveats are in
-[the performance report](../high-level/performance.md).
+The current Rust row-order API builds an `O(n log n)` stable permutation; GD's DTO
+selection/bubble sorting uses `O(n²)` comparisons and physically moves rows. That
+algorithm and contract difference must be considered when comparing timings.
 
 No retained-memory or allocation-count conclusion follows from the timing results.
 Those measurements are still required before claiming that either representation is
@@ -137,9 +138,10 @@ compatible or drop-in replacement for all of `gd`. CLI handling, filesystem poli
 logging, console behavior, COM-like routing, generic database interfaces, ODBC, and
 several other integration layers are intentionally outside the crate.
 
-The existing compatibility matrix maps behavior areas and important edge cases. The
-examples demonstrate common workflows. Neither is an exhaustive map of every C++
-public method or of the operations used by downstream applications. Consequently:
+The [feature matrix](feature-matrix.md) inventories current capabilities and the
+compatibility matrix maps behavior areas and important edge cases. The examples
+demonstrate common workflows. Neither is an exhaustive map of every C++ public method or
+of the operations used by downstream applications. Consequently:
 
 - a drop-in replacement for the full mature C++ convenience surface has not been
   demonstrated;
@@ -147,10 +149,9 @@ public method or of the operations used by downstream applications. Consequently
   contracts has been demonstrated;
 - production maturity and downstream ergonomics remain empirical questions.
 
-The next useful parity study would inventory real C++ call sites, rank the methods
-actually used by applications, and map those workflows to Rust. That would test the
-claim that most user code needs only a small subset of a broad convenience API more
-directly than raw public-method counts.
+Downstream method-for-method parity is not established. The feature matrix covers
+library capabilities, while the order workflow demonstrates one concrete application;
+neither inventories every call site in downstream GD projects.
 
 ## Conclusion
 

@@ -1,12 +1,13 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured on 2026-10-05. It measures source shape, not
+baseline measured and revalidated on 2026-10-05. Rust source is gd-rs `f7c7b91`; GD is
+pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures source shape, not
 implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
-filesystem, and COM-style routing. The C++ inclusive scopes add characterization tests
-and maintained benchmarks when present; the pinned submodule revision contains no
-`external/gd/tests` directory, so its test-inclusive scope equals the product scope.
+filesystem, and COM-style routing. The C++ inclusive scopes include maintained
+benchmarks; the pinned submodule revision contains no `external/gd/tests` directory, so
+its test-inclusive scope equals the product scope.
 
 ## Results
 
@@ -54,18 +55,18 @@ PYTHONPATH=/tmp/gd-code-metrics python3 -m lizard \
   --languages rust --input_file /tmp/gd-rs-files.txt
 ```
 
-Add `tests` and `benches` to the `find` roots for the inclusive Rust result. For
-C++, run from `gd-rs`, replace the roots with `external/gd/source external/gd/tests
-benches/cpp-reference`, select the C/C++ suffixes listed above, and use
-`--languages cpp`. The maintained C++ benchmark scope includes matched GD references
-and standalone host fixtures; reports identify fixtures that have no Rust counterpart.
+Add `tests` and `benches` to the `find` roots for the inclusive Rust result. For C++,
+run from `gd-rs`, replace the roots with `external/gd/source benches/cpp-reference` (add
+`external/gd/tests` only when that directory exists), select the C/C++ suffixes listed
+above, and use `--languages cpp`. The maintained C++ benchmark scope includes matched GD
+references and standalone host fixtures; reports identify fixtures that have no Rust
+counterpart.
 
-Lizard assigns CCN 1 to a straight-line function and adds paths for recognized
-branches and loops. Its parsers are language-aware but not compiler front ends.
-Macros can hide control flow—especially GoogleTest/Google Benchmark bodies—and
-generated or macro-expanded complexity is not represented. Parser recovery can also
-change after a purely mechanical file split; the current smaller Rust modules let
-Lizard recognize more functions than the previous large files even though this edit
-does not add behavior. Consequently, the average is a repeatable static-analysis
-indicator, not an exact count of runtime paths. Function count and total CCN are
-included so rounding and shifts in the average remain visible.
+Lizard assigns CCN 1 to a straight-line function and adds paths for recognized branches
+and loops. Its parsers are language-aware but not compiler front ends. Macros can hide
+control flow—especially Google Benchmark bodies—and generated or macro-expanded
+complexity is not represented. Parser recovery can also change after a purely mechanical
+file split without a change in behavior. Smaller modules can let Lizard recognize
+functions it missed in larger files. Consequently, the average is a repeatable
+static-analysis indicator, not an exact count of runtime paths. Function count and total
+CCN are included so rounding and shifts in the average remain visible.

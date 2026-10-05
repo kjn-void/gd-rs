@@ -126,42 +126,46 @@ count, and any outstanding borrowed index or ordering view.
 
 ### Thread-safety classification
 
-Both implementations are classified against three increasingly strong levels:
+These are separate properties, rather than three levels of one guarantee:
 
 - **Thread-compatible**: distinct objects can be used on distinct threads without
   synchronization. One object used from several threads needs caller-provided
   synchronization, and distinct objects share no hidden mutable state.
-- **Reentrant**: a function may be entered again (from another thread on other data,
-  by recursion, or from a callback) before an earlier call returns, because it touches
-  only its arguments. There are no static result buffers or mutable globals.
+- **Reentrant**: a function can be entered again, by recursion or a callback, before
+  an earlier call returns without corrupting its state. This also depends on any
+  application callbacks and locks it uses; thread safety alone does not establish it.
 - **Safe sharing**: one object can be accessed by several threads at once without
   caller-provided synchronization, at least for reads.
 
-| Level | gd-rs | GD (C++) |
+| Property | gd-rs | GD (C++) |
 |---|---|---|
-| Thread-compatible | Yes, compiler-enforced; expression types are confined to their creating thread | Conditional: broken by non-atomic reference counts on shared backing objects and by the `r64` UUID generator |
-| Reentrant | Yes, compiler-enforced, including re-entry into the same object | For distinct data, apart from `r64`; re-entry into the same object is unguarded |
-| Safe sharing | Shared reads of `Table`; shared appends through `ConcurrentTableBuilder`; disjoint mutable partitions | No, not even through `const` references |
+| Thread-compatible | Core data types are `Send`; expression objects are not. Borrowing and `Send`/`Sync` constrain cross-thread use | Application must check shared backing objects, non-atomic reference counts, and global state such as the `r64` UUID generator |
+| Reentrant | Borrowing prevents conflicting access to an ordinary `Table`; callback reentrancy and deadlock freedom are not compiler guarantees | No general guarantee; callers must preserve views and avoid conflicting access or callback mutation |
+| Safe sharing | Shared reads of `Table`; shared appends through `ConcurrentTableBuilder`; disjoint mutable partitions | No general internally synchronized table API; verified frozen reads require an application-enforced protocol |
 
 #### gd-rs
 
-The crate contains no `unsafe` code, mutable statics, or thread-local state, so the
-compiler derives `Send` and `Sync` from field types:
+The crate contains no `unsafe` code or manual `Send`/`Sync` implementations. The
+compiler derives these traits from field types; this is distinct from establishing
+logical correctness or callback reentrancy. With the current dependency features:
 
 | Types | `Send` | `Sync` | Consequence |
 |---|---|---|---|
 | `Table`, `Schema`, `ConcurrentTableBuilder`, `Value`, `Arguments` | Yes | Yes | May be moved to and shared between threads |
-| `SqliteDatabase` | Yes | No | May be moved to another thread; sharing requires a `Mutex` because `rusqlite::Connection` uses `RefCell` |
-| `ExpressionEngine`, `ExpressionContext`, `Program` | No | No | Confined to the creating thread; create one per worker. Rhai is built without its `sync` feature, so it uses `Rc` and `RefCell` |
+| `SqliteDatabase` | Yes | No | May be moved to another thread; shared access needs synchronization such as a `Mutex` because `rusqlite::Connection` uses `RefCell` |
+| `ExpressionEngine`, `ExpressionContext`, `Program` | No | No | Existing objects cannot be moved or shared across threads; create one per worker. Rhai is built without its `sync` feature, so it uses `Rc` and `RefCell` |
 
 Shared backing data, namely `Arc<Schema>` and named converters (`Send + Sync`
 closures), uses atomic reference counts. Tables that share a schema therefore remain
-independent objects for threading purposes.
+independent row storage for threading purposes. Converters may capture synchronized
+application state, so sharing a schema does not promise independent callback behavior.
 
-Re-entry into the same object is prevented by borrowing. Mutation requires `&mut`,
+Conflicting re-entry into an ordinary table is prevented by borrowing. Mutation requires `&mut`,
 converters receive only a `ValueRef`, row-mutation callbacks cannot reach the table
 they are mutating, and borrowed index and ordering views prevent structural mutation
-while they are alive. A panic in a row-wise mutation callback leaves earlier rows
+while they are alive. Shared immutable operations can re-enter; callbacks can also
+re-enter other objects or acquire locks. The compiler does not prevent recursive
+business logic or deadlocks. A panic in a row-wise mutation callback leaves earlier rows
 modified; this is memory-safe but not transactional. `ConcurrentTableBuilder` avoids
 partial rows by validating each complete row before publishing it.
 
@@ -172,13 +176,13 @@ structural mutation of one live `Table` requires an application-level `Mutex` or
 
 #### GD (C++)
 
-The core table, variant, and arguments code has no mutable global state, and the
-logger's static state is protected by a mutex. Thread compatibility nevertheless holds
-only for object graphs that share no backing storage:
+GD does not provide a general thread-safety contract for these containers. Separate
+table objects can still share backing storage, and unrelated utilities can use shared
+mutable state. In particular:
 
 - Member tables share `detail::columns` schema objects whose reference count is a
   plain `int` ([`gd_table_column.h`](../../external/gd/source/gd_table_column.h)).
-  Constructing a table from a `const table&` increments the source's count
+  Schema-sharing construction paths, including the `tag_columns` overload, increment the source's count
   ([`gd_table_table.cpp`](../../external/gd/source/gd_table_table.cpp)), so two
   threads doing so from one frozen source race.
 - String and binary `reference` storage also uses a non-atomic `int` reference count
@@ -188,10 +192,13 @@ only for object graphs that share no backing storage:
   `uuid_generate_g` uses a thread-local engine
   ([`gd_types.cpp`](../../external/gd/source/gd_types.cpp)).
 
-No GD table is internally synchronized, and re-entry into the same object (for example,
-`row_add` while a view or iterator is live) is ordinary undefined behavior rather than
-a checked error. Because a `const` operation can mutate shared reference counts,
-`const` access is not evidence of safe sharing. The order workflow's frozen-input,
+GD's ordinary table operations do not internally synchronize access. Growth such as
+`row_add` can invalidate live views or iterators; subsequently using invalidated views
+can be undefined behavior. Unsynchronized conflicting accesses, including reference
+count updates, can themselves be data races. A `const` operation can change shared
+reference counts, so `const` alone is not evidence of safe sharing. Genuinely read-only
+operations on safely published, frozen storage can run concurrently if the application
+also preserves lifetimes and prevents reference-count changes. The order workflow's frozen-input,
 single-writer-output protocol is the only concurrent pattern that has been checked; see
 [What the application must enforce for concurrent GD use](order-workflow.md#what-the-application-must-enforce-for-concurrent-gd-use).
 

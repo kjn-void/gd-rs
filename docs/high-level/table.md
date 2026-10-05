@@ -282,6 +282,10 @@ The slice uses standard iterator operations rather than table-specific versions 
 `map`, `filter`, and `fold`:
 
 ```rust
+# use gd::{ColumnSpec, DataType, Schema, Table, Value};
+# let schema = Schema::new([ColumnSpec::new("requests", DataType::U64)]).unwrap();
+# let mut table = Table::new(schema);
+# table.push_row([Value::U64(1_000)]).unwrap();
 let values = table.column_named("requests").unwrap().as_slice::<u64>()?;
 
 let doubled: Vec<u64> = values.iter().map(|value| value * 2).collect();
@@ -292,6 +296,7 @@ let selected_rows: Vec<usize> = values
     .filter_map(|(row, value)| (*value >= 1_000).then_some(row))
     .collect();
 let total = values.iter().copied().fold(0_u64, u64::saturating_add);
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 For an element-wise transform, `Table::columns_io` borrows any number of immutable
@@ -299,6 +304,10 @@ inputs and mutable outputs together. Each view can then be converted to a typed 
 with one type/nullability check:
 
 ```rust
+# use gd::{ColumnSpec, DataType, Schema, Table, Value};
+# let schema = Schema::new(["left", "right", "sum", "product"].map(|name| ColumnSpec::new(name, DataType::U32))).unwrap();
+# let mut table = Table::new(schema);
+# table.push_row([Value::U32(3), Value::U32(4), Value::U32(0), Value::U32(0)]).unwrap();
 let ([left, right], [sum, product]) = table.columns_io([0, 1], [2, 3])?;
 let left = left.as_slice::<u32>()?;
 let right = right.as_slice::<u32>()?;
@@ -309,6 +318,7 @@ for (((left, right), sum), product) in left.iter().zip(right).zip(sum).zip(produ
     *sum = left.saturating_add(*right);
     *product = left.saturating_mul(*right);
 }
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 Input positions may repeat because they are shared borrows. Output positions must be
@@ -317,6 +327,10 @@ before returning any view. The common one-input, one-output case has a specializ
 zero-allocation path:
 
 ```rust
+# use gd::{ColumnSpec, DataType, Schema, Table, Value};
+# let schema = Schema::new([ColumnSpec::new("arg", DataType::U32), ColumnSpec::new("result", DataType::U32)]).unwrap();
+# let mut table = Table::new(schema);
+# table.push_row([Value::U32(3), Value::U32(0)]).unwrap();
 let (args, results) = table.column_pair_mut(0, 1).unwrap();
 let args = args.as_slice::<u32>()?;
 let results = results.as_mut_slice::<u32>()?;
@@ -324,6 +338,7 @@ let results = results.as_mut_slice::<u32>()?;
 for (&arg, result) in args.iter().zip(results) {
     *result = arg.saturating_mul(arg);
 }
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 `column_pair_mut` validates the two positions and applies `split_at_mut` directly;

@@ -5,31 +5,34 @@ deliberately critical: undocumented quirks must either become tested compatibili
 requirements or be rejected explicitly. They must not enter the Rust implementation
 by accident.
 
-Port scope, design choices, crate selection, sequencing, and acceptance gates live in
+Current port scope, design choices and crate selection live in
 [`porting-plan.md`](porting-plan.md).
 
-The current audit covers the C++ sources in the `external/gd` submodule. Tests and benchmarks are kept
-separate from product code in the reproducible counts in
-[`source-stats.md`](source-stats.md).
+Reviewed on 2026-10-05 against GD submodule `cb11cff90d05260a88d59a30c9da421cd4e19c34`
+and gd-rs `f7c7b91`. The current audit covers the C++ sources in the `external/gd`
+submodule. Tests and benchmarks are kept separate from product code in the reproducible
+counts in [`source-stats.md`](source-stats.md).
 
 ## Baseline and confirmed defects
 
-The C++ product tree contains 138 C/C++ files and 62,408 non-comment source lines;
-the exact scope and method are in [`source-stats.md`](source-stats.md). Source volume
-does not establish correctness, and the recently added characterization suite covers
-only the ported surface. Consequently, the C++ implementation is a behavioral
+The C++ product tree contains 140 C/C++ files and 64,587 non-comment source lines; the
+exact scope and method are in [`source-stats.md`](source-stats.md). Source volume does
+not establish correctness. The pinned GD revision has no checked-in unit-test directory.
+Findings below are based on the pinned source. Maintained workflow checks and sanitizer
+probes are linked in the [workflow report](../high-level/order-workflow.md). That
+evidence covers specific paths, not all overloads. Consequently, GD is a behavioral
 reference, not an automatically trusted specification.
 
-SQLite is now in scope as a narrow adapter and its C++ implementation is included in
-this audit. The following integration remains out of scope:
+SQLite is in scope as a narrow adapter and its C++ implementation is included in this
+audit. The following integration remains out of scope:
 
 - generic `gd::database` interfaces;
 - ODBC and drivers other than SQLite;
 - COM-like connection/cursor wrappers and custom record-buffer APIs.
 
-The pure `gd_sql_*` query and formatting helpers do not connect to a database. They
-may be considered later as an optional module because golden-output tests can cover
-them without a live database. They are not part of the initial port.
+The pure `gd_sql_*` query and formatting helpers do not connect to a database. They are
+outside gd-rs; applications own SQL construction and can use separate libraries without
+routing them through the data-model crate.
 
 ### SQLite connection copies can double-close the same handle
 
@@ -84,11 +87,10 @@ this as an allocation/deallocation mismatch.
 
 ### Declared SQLite `BLOB` columns are classified as integers
 
-`cursor::get_column_type_s` classifies a declaration beginning with `B` as binary
-only when its third character is `N`. That handles `BINARY`, but maps `BLOB` to
-`eColumnTypeCompleteInt64`. The characterization test records this result; the
-matched SQLite benchmark bypasses this record layer rather than measuring corrupted
-materialization.
+`cursor::get_column_type_s` classifies a declaration beginning with `B` as binary only
+when its third character is `N`. That handles `BINARY`, but maps `BLOB` to
+`eColumnTypeCompleteInt64`. The matched SQLite benchmark bypasses this record layer
+rather than measuring corrupted materialization.
 
 ### Null-enabled tables create non-null empty rows
 
@@ -101,25 +103,25 @@ cell. This is a correctness and information-disclosure defect, not behavior to r
 ### Column-name lengths perform unaligned integer access
 
 The C++ name arena prefixes each string with a `uint16_t`, but consecutive variable
-length strings do not preserve two-byte alignment. Direct pointer casts in
-`names::add`, `names::get_name_s`, and `table_column_buffer::column::{name,alias}`
-therefore trigger UndefinedBehaviorSanitizer. The product source remains unchanged;
-tests avoid executing this undefined path in sanitizer builds.
+length strings do not preserve two-byte alignment. Direct pointer casts in `names::add`,
+`names::get_name_s`, and `table_column_buffer::column::{name,alias}` can violate
+alignment requirements. The maintained workflow report documents focused sanitizer
+findings; no full GD test suite is present in the submodule.
 
 ### Binary floating-point reads destroy the bit pattern
 
-The endian-aware C++ readers decoded a `uint32_t`/`uint64_t` and then used a numeric
-`static_cast` to `float`/`double`. For example, the bytes for `1.5F` became the numeric
-floating-point value of integer `0x3fc00000`, not `1.5`. The writers preserve bits
-with `memcpy`, so read and write are not inverses. The characterization test records
-the resulting numeric conversion without changing the reader.
+The endian-aware C++ readers decode a `uint32_t`/`uint64_t` and then use a numeric
+`static_cast` to `float`/`double`. For example, the bytes for `1.5F` become the numeric
+floating-point value of integer `0x3fc00000`, not `1.5`. The writers preserve bits with
+`memcpy`, so read and write are not inverses. The maintained binary benchmark uses a
+bit-preserving adapter rather than this broken floating-point read path.
 
-### Binary reader/writer overflow was not observable
+### Binary reader/writer overflow is not observable
 
-Checked stream operators clamp their cursor to `end` on overflow, while `error()`
-tests whether the cursor is greater than `end`. That condition cannot become true,
-so failed reads return a zero value with `error() == false`. The characterization
-test records the unobservable failure; the product source remains unchanged.
+Checked stream operators clamp their cursor to `end` on overflow, while `error()` tests
+whether the cursor is greater than `end`. That condition cannot become true, so failed
+reads return a zero value with `error() == false`. Rust reports a typed error and leaves
+the cursor unchanged.
 
 ## Core type and value issues
 
@@ -188,15 +190,16 @@ Named lookup scans the encoded entries sequentially in
 - iteration is **O(n)**, with decoding work at each entry;
 - storage is compact, but names and runtime tags remain repeated per entry.
 
-Linear lookup may be optimal for very small argument lists, so Rust should begin
-with an ordered `Vec<Entry>` to preserve duplicates, unnamed values, and iteration
-order. Benchmarks should determine when an auxiliary name index pays for itself.
-An optional lazily built `HashMap<&str, SmallVec<usize>>` gives expected **O(1)**
-lookup while retaining ordered storage, at **O(n)** additional space.
+Rust uses an ordered `Vec<Argument>` to preserve duplicates, unnamed values, and
+iteration order. The optional explicitly constructed `ArgumentIndex` uses an `AHashMap`
+with borrowed names and `SmallVec` positions. Lookup is expected **O(1)** for
+fixed-length names, plus hashing/name-comparison cost, with **O(n)** additional space.
+Linear lookup can still be useful for small lists; the argument benchmarks compare index
+construction and repeated reads separately.
 
-The packed C++ layout should be a separate codec, not the live Rust container.
-Decoder tests must cover truncated names, invalid lengths, invalid type tags,
-alignment, integer overflow, duplicate names, and hostile input.
+The packed C++ layout is not the live Rust container, and no compatible argument codec
+is exported. Rust's checked binary primitives do not constitute an argument
+serialization format.
 
 ### Data race: shared argument reference count
 
@@ -206,9 +209,9 @@ Concurrent copying or dropping of instances sharing a buffer is a data race and 
 lead to a leak, double delete, or use-after-free. See
 [`gd_arguments_shared.h`](../../external/gd/source/gd_arguments_shared.h).
 
-Rust should use `Arc<[Entry]>` or another standard ownership primitive if sharing is
-needed. Mutable sharing should require synchronization or copy-on-write through
-`Arc::make_mut`. No custom reference counter is justified here.
+Rust's ordinary `Arguments` can be wrapped in `Arc` by the application. Mutable sharing
+requires synchronization or ownership-based copying; gd-rs does not export a separate
+packed shared-argument container or a custom reference counter.
 
 ### Argument serializers reuse stale escape buffers
 
@@ -221,14 +224,9 @@ object silently omits unnamed arguments even though they are valid container
 entries. Duplicate names are emitted as duplicate object members with no policy for
 readers that collapse them.
 
-Rust formatters need a representability contract. URI pairs can preserve duplicate
-names but must reject unnamed entries. A JSON object should reject unnamed and
-duplicate names rather than silently lose information. Field names and values must
-go through maintained format encoders, and formatting should write each value from
-immutable input into a distinct destination.
-
-The characterization test records the stale-buffer corruption. The product source
-remains unchanged.
+Rust's URI formatter preserves duplicate names and rejects unnamed entries; its
+JSON-object formatter rejects unnamed and duplicate names. Field names and values use
+maintained format encoders, with immutable input and a distinct destination.
 
 ## Tables
 
@@ -257,20 +255,20 @@ For `r` rows and a fixed row width `w`:
 - null and row-state metadata add **O(r)** space;
 - variable-sized values add their payload size plus reference bookkeeping.
 
-The Rust design should use a schema plus typed `ColumnData` vectors and validity
-bitmaps. This makes column scans contiguous and avoids a `Value` allocation per
-cell. Row iteration can be exposed as a borrowing view assembled from the columns.
-Criterion must compare row-oriented and column-oriented workloads before choosing
-between the representations.
+Rust uses a schema plus typed `ColumnData` vectors and validity bitmaps. Column scans
+are contiguous without storing a dynamic `Value` per cell. Row iteration is a borrowing
+view assembled from the columns. The maintained table benchmarks cover both row-oriented
+access and typed column scans; this is not a claim that column storage is preferable for
+every workload.
 
 ### Repeated linear schema lookup
 
 Column name and alias lookup linearly scan all columns in
-[`gd_table_column-buffer.cpp`](../../external/gd/source/gd_table_column-buffer.cpp). With
-`c` columns, name resolution is **O(c)**. A named operation performed for every cell
-can therefore become **O(r c)** before doing useful cell work. Rust should build a
+[`gd_table_column-buffer.cpp`](../../external/gd/source/gd_table_column-buffer.cpp).
+With `c` columns, name resolution is **O(c)**. For `r` rows, one named lookup per row
+costs **O(r c)**, while named access for every cell costs **O(r c²)**. Rust builds a
 name/alias map when a schema is finalized, using **O(c)** extra space for expected
-**O(1)** lookup.
+**O(1)** lookup, plus name hashing/comparison costs.
 
 ### Quadratic sorting
 
@@ -284,30 +282,36 @@ worst case.
 The Rust table sorts a permutation of row indexes using a stable **O(r log r)**
 algorithm and retains that permutation in a lifetime-bound `RowOrder`. This needs
 **O(r)** auxiliary space, avoids quadratic behavior, and provides a documented
-null-order policy.
-Selection and bubble sorts should only remain as named compatibility exercises in
-the C++ benchmark suite, not as production Rust algorithms.
+null-order policy. Rust does not export selection/bubble sort or a destructive
+table-sort API.
 
-The selection-sort range assertion currently checks `uFrom + uFrom` rather than
-`uFrom + uCount`. This is a concrete range-validation defect and needs a regression
-test.
+The selection-sort range assertion currently checks `uFrom + uFrom` rather than `uFrom +
+uCount`. This is a source-level range-validation defect; no maintained probe currently
+exercises it.
 
 ### Broken binary-search result validation
 
-Both index implementations call `lower_bound` and report success whenever the
-iterator is not `end`; neither verifies that the returned key equals the requested
-key. A search for a missing value can therefore return the next greater value as a
-match. See [`gd_table_index.cpp`](../../external/gd/source/gd_table_index.cpp).
+The scalar integer and string index implementations call `lower_bound` and report
+success whenever the iterator is not `end`; neither verifies that the returned key
+equals the requested key. A search for a missing value can therefore return the next
+greater value as a match. See
+[`gd_table_index.cpp`](../../external/gd/source/gd_table_index.cpp). The two-column
+`index_composite<T1,T2>` in
+[`gd_table_index.h`](../../external/gd/source/gd_table_index.h) does check equality; the
+defect must not be generalized to that implementation.
 
 Index construction is otherwise **O(r log r)** time and **O(r)** space, with intended
-**O(log r)** lookup. GoogleTest must capture the current bug as a regression test;
-the Rust index must return `None` for non-equal lower bounds.
+**O(log r)** lookup for fixed-size keys. The maintained [workflow
+probes](../../benches/cpp-reference/order_workflow/probes.cpp) exercise the scalar miss
+defect. Rust's single/composite hash indexes require exact equality, return all
+duplicate positions, and exclude null/deleted keys.
 
-The string index stores `string_view` keys. Table mutation, reference-store growth,
-or destruction can invalidate those views. Indexes also have no generation marker
-or automatic invalidation after table mutation. Rust should either own index keys or
-borrow the table for the complete index lifetime, and should associate every index
-with a table generation.
+The string index stores `string_view` keys. Table mutation, reference-store growth, or
+destruction can invalidate those views. Indexes also have no generation marker or
+automatic invalidation after table mutation. Rust's `ColumnIndex` and `CompositeIndex`
+borrow the table for their complete usable lifetimes, preventing conflicting mutation.
+They therefore need no generation counter. Returned plain position vectors are snapshots
+and can become stale after later compaction/removal.
 
 ### Data race: shared column metadata
 
@@ -317,8 +321,13 @@ describes shared columns as suitable for threaded use, but concurrent copy/drop 
 race exactly like the shared argument counter. Rust uses `Arc<Schema>` and makes the
 schema immutable after construction.
 
-Table contents are not safe for concurrent mutation. Public documentation must
-distinguish immutable shared schema from shared mutable table data.
+GD table contents are not safe for unsynchronized conflicting access. Even tables with
+independent row buffers can share reference-counted metadata. The application must
+enforce safe publication, lifetimes, storage stability, and synchronization of all
+shared metadata/reference-count changes; see the [concurrent-use
+requirements](../high-level/order-workflow.md#what-the-application-must-enforce-for-concurrent-gd-use).
+Rust provides shared immutable tables, checked disjoint mutable views and a synchronized
+complete-row collector; ordinary `Table` mutation remains exclusive.
 
 ### Copying an internal table does not retain its shared columns
 
@@ -350,15 +359,12 @@ by a newline, not a complete JSON value with an enclosing array. The array-orien
 formatter has the same missing outer container. Header names are also written
 without a complete JSON serializer.
 
-The characterization test records both the skipped column and missing outer array.
-The product source remains unchanged.
-
 ### Table CSV inserts a comma between records
 
 The C++ CSV formatter appends `",\n"` between rows and then also emits field commas,
-creating an extra empty field at the start or end of records. Its header helper
-quotes every header and does not share a single record writer with the body. The
-characterization test records the extra comma; the product source remains unchanged.
+creating an extra empty field at the start or end of records. Its header helper quotes
+every header and does not share a single record writer with the body. The extra field
+separator is present in the pinned formatter. Rust uses the `csv` record writer instead.
 
 ## UTF-8, text, and parsing
 
@@ -366,35 +372,35 @@ The project implements substantial custom UTF-8 traversal, conversion, escaping,
 normalization, URI handling, JSON handling, and string containers. This increases
 the amount of unsafe boundary logic without a conformance suite.
 
-Rust should use `str`, `char_indices`, and established crates. Candidate crates must
-be selected per behavior rather than hidden behind a large custom text module:
+Rust uses valid UTF-8 `str` boundaries and focused helpers backed by `serde_json`,
+`percent-encoding`, `csv`, `uuid` and `hex-simd`. Other facilities remain application
+choices rather than existing gd-rs APIs:
 
 - `unicode-normalization` for normalization;
 - `unicode-segmentation` only when grapheme semantics are required;
-- `serde_json` for JSON;
-- `url` and `percent-encoding` for URI work;
-- `csv` for CSV;
-- `uuid` for UUID parsing and formatting;
-- `base64` and `hex-simd` for binary text encodings.
+- `url` for complete URI parsing;
+- a Base64 codec for Base64 text encodings.
 
-Property tests and fuzzing should cover invalid UTF-8 bytes at codec boundaries,
-overlong sequences, truncated escapes, malformed JSON, percent encoding, embedded
-NULs, and round trips. Rust `String` APIs should not preserve C-string terminator
-assumptions.
+Rust's text tests cover malformed encodings/escapes and round trips. Public text helpers
+use Rust string lengths instead of C-string terminator assumptions. This is not evidence
+that every GD text overload has been tested for conformance.
 
-### URI decoding writes outside the vector's element range
+### URI decoding uses reserved capacity as an untracked output buffer
 
 Both string-returning `uri::convert_uri_to_uf8` overloads call `reserve(uSize)` on an
-empty `std::vector<char>` and then write through `vectorText.data()`. Capacity does
-not create elements: the vector's size remains zero, so those writes occur outside
-the lifetime of any `char` elements even when the allocator supplied enough memory.
-The code then constructs a string from those bytes. This relies on storage outside
-the C++ container's valid element range and is not behavior to preserve.
+empty `std::vector<char>` and then write through `vectorText.data()`. Capacity does not
+increase size: the vector remains logically empty while a raw pointer is used for
+output, followed by constructing a string from that output. The standard [`vector::data`
+contract](https://eel.is/c++draft/vector.data) guarantees the range through `size()`,
+not a public writable range through `capacity()`. This is a portability/buffer-contract
+concern. The size mismatch alone is not proof that every write to allocated `char`
+storage is undefined behavior; that also needs an analysis of the implementation,
+pointer and object lifetimes. A sized output buffer avoids the assumption. No current
+maintained probe establishes a crash for this path.
 
-Rust percent decoding should allocate a real output buffer through a maintained
-crate and validate the decoded bytes as UTF-8 before returning `String`. Malformed or
-truncated percent sequences must return a typed error, not an empty string that is
-indistinguishable from successful decoding of empty input.
+Rust percent decoding uses a maintained decoder and validates UTF-8 before returning
+`String`. Malformed/truncated escapes and invalid UTF-8 return typed errors; successful
+empty output is distinct from failure.
 
 ### Multi-byte splitting reads past suffixes and copies the wrong ranges
 
@@ -407,9 +413,9 @@ incorrect output, this makes an otherwise linear split **O(n²)** time and outpu
 the common no-delimiter case. The implementation also assumes the view has an
 accessible NUL terminator, which `std::string_view` does not guarantee.
 
-Rust should expose borrowed splitting through `str::split` and collect owned parts
-only when ownership is requested. Standard splitting is **O(n)** time plus the
-reported output and cannot inspect bytes outside the input slice.
+Applications can use borrowed `str::split` directly. gd-rs's narrower `split_escaped`
+helper handles a character delimiter and escape character, returning owned parts. Both
+stay within valid input; it is not a port of every GD split overload.
 
 ### Trim helpers dereference one-past-end pointers
 
@@ -420,34 +426,30 @@ read is outside the supplied view. Several wrappers also form `&*begin()` for em
 end. Empty text is therefore either unsupported, undefined, or accidentally accepted
 depending on the overload and allocation behind the view.
 
-Rust trimming should be a borrowed `&str` operation with empty input explicitly
-valid. The port must distinguish the C++ definition of whitespace (bytes `<= 0x20`)
-from Rust's Unicode whitespace and name the narrower operation when compatibility is
-needed.
+Rust's `trim_ascii_control` returns a borrowed `&str`, accepts empty input and trims the
+C++ byte range `<= 0x20`. Unicode whitespace trimming remains `str::trim`.
 
 ### UTF-8 traversal validates too little before pointer movement
 
-Several traversal methods choose a width solely from the lead-byte lookup table and
-then advance without checking remaining length, continuation-byte form, overlong
-encodings, surrogate code points, or the Unicode maximum. Assertions disappear in
-release builds and some bounded overloads can advance beyond `end`. The Rust public
-text API should accept `&str` when valid UTF-8 is required and use
-`std::str::from_utf8` at byte boundaries. It should not expose unchecked code-point
-stepping.
+Several traversal methods choose a width solely from the lead-byte lookup table and then
+advance without checking remaining length, continuation-byte form, overlong encodings,
+surrogate code points, or the Unicode maximum. Assertions disappear in release builds
+and some bounded overloads can advance beyond `end`. The Rust public text API accepts
+`&str` when valid UTF-8 is required and uses `std::str::from_utf8` at byte boundaries.
+No unchecked code-point stepping is exported.
 
 The validator also uses `remaining > sequence_length` instead of `>=`, so a valid
 multibyte character ending exactly at the supplied boundary is rejected. This makes
 validation depend on whether an unrelated trailing byte or C-string terminator was
-included in the range. The C++ characterization suite records this defect; Rust's
-byte-boundary contract follows `std::str::from_utf8`.
+included in the range. Rust's byte-boundary contract follows `std::str::from_utf8`.
 
 Several C-string convenience wrappers compute their byte end as `begin + strlen(...)`,
-but unqualified lookup resolves to `gd::utf8::strlen`, which returns a code-point
-count rather than `std::strlen`'s byte count. Any multibyte character therefore moves
-the end pointer too little. URI and JSON conversions can silently truncate the tail
-or process only part of a multibyte sequence. The tests demonstrate the same URI
-input producing different output through the pointer and `string_view` overloads.
-Rust has one `&str` entry point per operation and derives boundaries from `str::len`.
+but unqualified lookup resolves to `gd::utf8::strlen`, which returns a code-point count
+rather than `std::strlen`'s byte count. Any multibyte character therefore moves the end
+pointer too little. URI and JSON conversions can silently truncate the tail or process
+only part of a multibyte sequence. These paths can therefore disagree with the
+length-bounded `string_view` overloads. Rust has one `&str` entry point per operation
+and derives boundaries from `str::len`.
 
 ### JSON escaping can emit invalid or lossy JSON
 
@@ -459,41 +461,38 @@ being represented as a UTF-16 surrogate pair, so characters such as U+1F600 do n
 round trip. The raw-buffer and `std::string` overloads also disagree: the former
 copies multibyte UTF-8 bytes while the latter converts them to `\uXXXX`.
 
-Rust should have one JSON string-content contract backed by `serde_json`, including
-all control characters and valid surrogate-pair handling. Decode errors must include
-the parser's position and category.
+Rust's `encode_json_string` produces a complete JSON string literal through
+`serde_json`, with control-character escaping and astral-character round trips.
+`decode_json_string` requires a complete literal and preserves the parser's error
+information. This differs from GD's append-oriented fragment APIs.
 
 ## Expression engine
 
-The expression subsystem duplicates tokenization, shunting-yard compilation, a
-postfix interpreter, a second dynamic value, a function registry, and a separate
-statement bytecode layer. It is more than 8,000 lines before its glue code. These
-layers share invariants through numeric token fields, raw pointers, and assertions,
-making malformed-source behavior depend on which entry point was used.
+The expression subsystem duplicates tokenization, shunting-yard compilation, a postfix
+interpreter, a second dynamic value, a function registry, and a separate statement
+bytecode layer. These layers share invariants through numeric token fields, raw
+pointers, and assertions, making malformed-source behavior depend on which entry point
+is used.
 
-### Incomplete binary expressions reached an empty value stack
+### Incomplete binary expressions can reach an empty value stack
 
 The tokenizer and postfix compiler accept `1 +` as a successful compilation. During
-evaluation, the binary-operator path checked for one stack value but then popped two.
-The second `top()` operates on an empty `std::stack`, which is undefined behavior and
-can crash or read invalid storage. GoogleTest records the compile-time acceptance and
-uses a death test for evaluation. The product source remains unchanged.
+evaluation, the binary-operator path checks for one stack value but then pops two. The
+second `top()` operates on an empty `std::stack`, which is undefined behavior and can
+crash or read invalid storage. Rust rejects malformed source at compilation.
 
 This is not only a syntax-quality issue: any path that lets a malformed postfix token
 sequence reach the evaluator could trigger the same underflow. Stack-effect validation
 belongs in compilation, and evaluation must still treat bytecode as fallible input.
 
-### Method lookup could return the wrong function or index an empty registry
+### Method lookup can return the wrong function or index an empty registry
 
-`runtime::find_method` indexed `m_vectorMethod[0]` without checking whether any method
-table was registered. Its `lower_bound` path returned every non-end result without an
-equality check; in release builds the assertion disappeared, so a missing name could
+`runtime::find_method` indexes `m_vectorMethod[0]` without checking whether any method
+table is registered. Its `lower_bound` path returns every non-end result without an
+equality check; in release builds the assertion disappears, so a missing name could
 resolve to the next lexicographic method. Calling that method changes program meaning
-and may also mismatch its expected arity. Namespace lookup compared a namespace-sized
-prefix with `memcmp` before proving the requested name was that long.
-
-GoogleTest records the empty-registry crash with a death test. The other lookup
-hazards remain in the product source.
+and may also mismatch its expected arity. Namespace lookup compares a namespace-sized
+prefix with `memcmp` before proving the requested name is that long.
 
 ### Function signatures are erased into `void*`
 
@@ -518,8 +517,7 @@ for `m` correctly sorted methods.
 
 The Rust adapter keeps Rhai's stack-like scope because it supports shadowing and the
 observed formulas use small contexts. Its worst-case named lookup is also **O(v)** and
-is documented rather than hidden. Large-context workloads should compare a Rhai
-variable resolver backed by `AHashMap` before adding another index.
+remains a current limitation; no hash-backed variable resolver is exported.
 
 ## Logging, files, console, and platform code
 
@@ -528,18 +526,14 @@ contain explicit `TODO: lock this` comments. A thread-safe logger wrapper does n
 make every printer implementation thread-safe. Concurrent file writes and rotation
 can race.
 
-Do not port the logger implementation. Expected failures use typed `Result` values
-and produce no output. If a concrete later integration needs spans, expose optional
-`tracing` instrumentation and leave subscriber selection to the application. Use an
-established rolling-file appender if rotation is required. Likewise:
+gd-rs does not include a logger. Expected failures use typed `Result` values and produce
+no output. Applications own instrumentation, subscriber selection and rolling-file
+appenders. Likewise:
 
 - use `std::fs`, `std::path`, `Read`, `Write`, and `Seek` for files and archives;
-- use `clap` for CLI parsing unless characterization proves required syntax that
-  cannot be expressed by it;
+- use `clap` directly for CLI parsing;
 - use `crossterm` or `indicatif` for optional terminal behavior;
-- omit custom arena/vector implementations until benchmarks prove a need;
-- prefer `smallvec`, `bumpalo`, or another maintained crate when a measured need
-  exists.
+- use ordinary Rust containers; applications select specialized storage if needed.
 
 The POSIX console path includes an explicitly unimplemented operation. Platform APIs
 must have platform-specific tests; unsupported operations should return a typed
@@ -548,17 +542,17 @@ error, not assert.
 These facilities are intentionally not modules in `gd-rs`. CLI schemas belong in an
 application's `clap::Command`; file and path operations use `std`; rotation belongs to
 the selected logging sink; COM-like routing is replaced by application traits and
-standard `Arc` ownership. Pure SQL construction remains an optional, database-adjacent
-package and would require dialect-specific golden tests. This avoids adding wrapper
-APIs whose only job is to rename maintained Rust facilities.
+standard `Arc` ownership. Pure SQL construction is an application-level concern outside
+this crate. This avoids adding wrapper APIs whose only job is to rename maintained Rust
+facilities.
 
 ## Assertion-based validation and unchecked typed access
 
-The non-database code contains roughly 1,887 assertion sites, 270
-`reinterpret_cast` sites, and hundreds of direct memory-copy operations. Assertions
-often validate public inputs such as names, row bounds, types, and parser states.
-In release builds, failed assertions disappear, potentially allowing invalid indexes
-or pointer arithmetic to continue.
+The source extensively uses assertions, `reinterpret_cast` and direct memory-copy
+operations. Textual occurrence counts are not counts of unsafe executed paths.
+Assertions often validate public inputs such as names, row bounds, types, and parser
+states. In release builds, failed assertions disappear, potentially allowing invalid
+indexes or pointer arithmetic to continue.
 
 Packed buffers also perform typed loads through cast pointers. Unless every offset is
 proved aligned, such loads can be undefined on some architectures. The alignment
@@ -603,17 +597,17 @@ may still panic, and incorrect validation or serialization can still compile.
 | Argument serializers reuse stale buffers and can alias an input view with its output | Lifetime/invalidation; memory-unsafe access; serialization correctness; undefined behavior | ☑ | Corrupted URI fields, invalid JSON names, or reads through an invalidated view |
 | Table implementations duplicate layouts and cast between sibling classes | Type safety; architecture; undefined-behavior risk | ☑ | A layout change silently invalidates offset and cast assumptions |
 | The documented columnar table is actually a packed row store | Documentation mismatch; space/cache efficiency | ☐ | Strided column scans and avoidable cache traffic for wide rows |
-| Named table access repeatedly scans schema metadata | Algorithmic complexity | ☐ | A row/column traversal can perform **O(r c)** lookup work before cell work |
+| Named table access repeatedly scans schema metadata | Algorithmic complexity | ☐ | One named access per row costs **O(r c)**; named access for every cell costs **O(r c²)** |
 | Table row sorting uses selection/bubble-style physical swaps | Algorithmic complexity; write amplification | ☐ | **O(r²)** comparisons and commonly **O(r² w)** byte movement |
 | The selection-sort range assertion checks `uFrom + uFrom` | Missing argument/range validation | ☐ | Invalid ranges can pass while valid ranges can be rejected |
-| Table index lookup accepts any non-end `lower_bound` result | Missing result validation; correctness | ☐ | A missing key is reported as the next greater key |
+| Scalar integer/string table index lookup accepts any non-end `lower_bound` result | Missing result validation; correctness | ☐ | A missing key is reported as the next greater key; composite lookup checks equality |
 | String indexes retain views without mutation invalidation or a generation check | Ownership/lifetime; stale reference; memory-unsafe access | ☑ | Table growth or destruction leaves dangling index keys |
 | Shared table-column metadata uses a non-atomic reference count | Data race; ownership/lifetime; undefined behavior | ☑ | Premature deletion, double deletion, or use-after-free |
 | Internal-table copies do not retain their shared column metadata | Ownership/lifetime; memory-unsafe access; undefined behavior | ☑ | The first copy destroyed can leave the other with a dangling schema pointer and cause use-after-free or double release |
 | Table JSON skips alternating columns and omits the outer array | Serialization correctness; missing output validation | ☐ | Silent data loss and output that is not one complete JSON value |
 | Table CSV inserts a comma between records | Serialization correctness | ☐ | Extra empty fields and inconsistent record widths |
 | Text handling duplicates UTF traversal, escaping, and parsing primitives | Duplication; architecture; validation risk | ☐ | Inconsistent boundary rules and a broad memory-safety audit surface |
-| URI decoding writes into reserved vector capacity without creating elements | Object lifetime; memory-unsafe access; undefined behavior | ☑ | Writes outside the vector's element range |
+| URI decoding uses reserved vector capacity without increasing size | Container/buffer contract; portability; bounds/lifetime risk | ☑ | Raw output relies on storage beyond the range guaranteed by `vector::data`; the size mismatch alone does not establish UB on every implementation |
 | Multi-byte splitting compares beyond suffix bounds and appends whole suffixes | Bounds validation; memory-unsafe access; undefined behavior; algorithmic complexity | ☑ | Out-of-bounds reads plus **O(n²)** time/output on ordinary input |
 | Trim helpers dereference the exclusive end and mishandle empty views | Bounds validation; memory-unsafe access; undefined behavior | ☑ | One-past-end or invalid empty-range reads |
 | UTF-8 traversal advances from lead bytes without complete sequence validation | Encoding validation; bounds validation; memory-unsafe access; undefined behavior | ☑ | Out-of-bounds pointer movement, truncated processing, or acceptance of invalid UTF-8 |

@@ -439,6 +439,10 @@ without constructing the generalized selection request:
 ```rust
 use rayon::prelude::*;
 
+# use gd::{ColumnSpec, DataType, Schema, Table, Value};
+# let schema = Schema::new([ColumnSpec::new("arg", DataType::U32), ColumnSpec::new("result", DataType::U32)]).unwrap();
+# let mut table = Table::new(schema);
+# table.push_row([Value::U32(3), Value::U32(0)]).unwrap();
 let (args, results) = table.column_pair_mut(0, 1).unwrap();
 let args = args.as_slice::<u32>().unwrap();
 let results = results.as_mut_slice::<u32>().unwrap();
@@ -513,6 +517,10 @@ When the column type is not known until runtime, `Column::for_each_value` retain
 `ValueRef` callback but dispatches the column's storage type and nullability only once:
 
 ```rust
+# use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+# let schema = Schema::new([ColumnSpec::new("requests", DataType::U64)]).unwrap();
+# let mut table = Table::new(schema);
+# table.push_row([Value::U64(7)]).unwrap();
 let column = table.column_named("requests").unwrap();
 let mut total = 0_u64;
 column.for_each_value(|value| {
@@ -899,9 +907,12 @@ Policies are explicit:
   `AmbiguousColumnMapping` instead of choosing one silently.
 - Exact-type values bypass converters. Other non-null inputs require the existing
   named destination converter. Converted output and nullability are checked.
-  Incompatible declared types without a converter fail even for an empty source.
-- Extras are preserved, not promoted into fixed columns. A closed destination
-  schema or an extra name colliding with a destination name/alias rejects the batch.
+  Mismatched declared types without a converter fail even for an empty source,
+  except that a `Null`-typed source supplies nulls. Nullable-to-required mappings
+  check actual values, so an empty source has no nulls to reject.
+- Extras are preserved, not promoted into fixed columns. Supplying nonempty extras
+  to a closed destination schema, or an extra name colliding with a destination
+  name/alias, rejects the batch.
 
 Compatible columns are cloned directly as typed vectors. Columns requiring conversion
 or a nullability change are staged cell by cell. Extras are prepared and checked

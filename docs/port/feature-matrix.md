@@ -11,14 +11,16 @@ APIs: concurrent row collection, checked disjoint mutable views, lifetime-bound
 indexes, duplicate-expanding left joins, and schema-driven JSON table import.
 Neither is a drop-in replacement for the other.
 
-This compares the exported Rust API with the C++ source, including facilities
-outside the benchmark's build. **Native** means an implementation exists, not that
-every overload or platform was tested. **Partial** means a narrower contract or a
-known implementation problem. **Application** means callers must compose operations
-or supply another library. **Absent** means no corresponding library API was found;
-it does not mean the language cannot implement it. Source links beneath each matrix
-identify the evidence. This is an API/source audit, not a new performance run,
-exhaustive compilation of GD, or security certification.
+This compares the exported Rust API with the C++ source, including facilities outside
+the benchmark's build. **Native** means an implementation exists, not that every
+overload or platform was tested. **Partial** means a narrower contract or a known
+implementation problem. **Application** means callers must compose operations or supply
+another library. **Absent** means no corresponding library API was found; it does not
+mean the language cannot implement it. Where gd-rs deliberately leaves an integration to
+the application, the matrix names that choice instead of treating it as a missing core
+feature. These external crates are not bundled or re-exported by gd-rs. Source links
+beneath each matrix identify the evidence. This is an API/source audit, not a new
+performance run, exhaustive compilation of GD, or security certification.
 
 ## Values and arguments
 
@@ -26,7 +28,7 @@ exhaustive compilation of GD, or security certification.
 |---|---|---|
 | Null, boolean, signed/unsigned 8–64-bit integers, 32/64-bit floats | Native tagged values | Native `Value` / `ValueRef` variants |
 | Text, binary data, UUID values | Native | Native |
-| Wide strings and distinct narrow/UTF string representations | Native `wchar_t` strings and separate type tags | Partial: one UTF-8 `String`; UTF-16 input can be decoded, but is not a stored value kind |
+| Wide strings and distinct narrow/UTF string representations | Native `wchar_t` strings and separate type tags | Partial: one UTF-8 text type; UTF-16 input can be decoded, but is not a stored value kind |
 | Opaque pointer as a dynamic value | Native `void*` variant | Absent intentionally |
 | Owned values and zero-copy borrowed values | Native; caller maintains backing-storage lifetime | Native; Rust lifetimes enforce the borrow |
 | General runtime conversion by destination type | Native `convert_to` / conversion tags | Partial: checked numeric helpers and explicit schema converters; no equivalent general coercion engine |
@@ -63,7 +65,7 @@ appropriate; they do not imply every GD table class has identical behavior.
 | Allocate empty rows and fill later | Native; payload initialization depends on tags | Absent equivalent: inserted Rust rows must be valid complete rows |
 | Rename existing column metadata | Native DTO `column_rename` | Application: construct a new schema/table; no rename API |
 | Select row ranges, row lists, and columns | Native `harvest`, range-copy and related operations | Native owned copies and borrowed `TableSelection` views |
-| Filter rows using application business rules | Native scans/callbacks plus harvest; equality `find_all` helpers | Native `select_rows` predicate and materializing `filter_rows` |
+| Filter rows using application business rules | Native scans/callbacks plus harvest; equality `find_all` helpers | Native `select_rows`, materializing `filter_rows`, and borrowed `filter_view` |
 | Append another table with column mapping or matching names | Native DTO `append`, including conversion overloads | Native `append`, `append_named`, `append_mapped`; destination converters and atomic batch validation |
 | Copy values into existing rows by column/name mapping | Native DTO `plant` | Application: setters or typed column views |
 | Split into multiple owned tables by row count | Native DTO `split` | Application: repeated `copy_range` |
@@ -91,9 +93,9 @@ rules such as permitted regions or positive quantities: callers supply those rul
 |---|---|---|
 | Single-column equality index | Native sorted integer/string indexes; see exact-miss caveat below | Native hash index for booleans, integer widths, strings, bytes, UUIDs |
 | Two-column composite index | Native `index_composite<T1,T2>` and two-column `create_index_g`; extraction supports strings/integer conversions | Native `CompositeIndex<N>` over arbitrary positive fixed-width tuples |
-| Get all duplicate matches directly from an index | Partial: index lookup returns one row; scans or direct index traversal needed for all | Native `ColumnIndex::rows` returns every matching position |
+| Get all duplicate matches directly from an index | Partial: index lookup returns one row; scans or direct index traversal needed for all | Native `ColumnIndex::rows` and `CompositeIndex::rows` return every matching position |
 | Index explicit null/deleted row positions separately | Application | Native `null_rows` and `tombstoned_rows`; deleted rows excluded from key buckets |
-| Index whose lifetime prevents table mutation/invalidation | Absent; caller preserves storage and rebuilds after relevant changes | Native borrowing `ColumnIndex<'a>` |
+| Index whose lifetime prevents table mutation/invalidation | Absent; caller preserves storage and rebuilds after relevant changes | Native borrowing `ColumnIndex<'a>` and `CompositeIndex<'a, N>` |
 | Pairwise join helper | Partial: DTO `join_s` returns only the first right match for each matched left row | Native single/composite joins return every duplicate match and `None` for unmatched left rows; lazy borrowed iterators are available |
 | Defined left-join null/deletion/type policy | Application around GD primitives | Native: nulls do not match, deleted rows are excluded, key types must match exactly |
 | Join three tables and materialize an application result | Application, demonstrated in order workflow | Application composing pairwise joins, demonstrated in order workflow |
@@ -174,35 +176,35 @@ No new sanitizer or performance results are claimed by this matrix.
 | Capability | GD | gd-rs |
 |---|---|---|
 | Arguments to JSON / URI query parameters | Native, different treatment of unnamed/duplicate JSON fields | Native; JSON rejects ambiguous unnamed/duplicate fields; URI preserves duplicates |
-| Tables to CSV / JSON | Native multiple layouts/options; characterized defects in some paths | Native fixed formats; skips tombstones |
+| Tables to CSV / JSON | Native multiple layouts/options; source defects in some paths | Native fixed formats; skips tombstones |
 | Per-cell output callbacks, selected-row output, JSON layout options | Native table I/O overloads | Partial: fixed serializers plus sorted/borrowed-selection output; richer layouts/callbacks require application formatting |
 | CSV into a typed table | Native `read_g` into a prepared DTO table | Native `table_from_csv` with explicit schema |
 | JSON array of objects into a typed table | Application; shallow JSON-object parser exists, but no table importer found | Native `table_from_json`, schema aliases/converters and unknown-field policy |
 | Standalone shallow JSON object into arguments | Native `parse_shallow_object_g` | Absent direct arguments importer |
 | Binary table/schema/buffer serialization | Native DTO `serialize` family; raw layout format | Absent; `BinaryReader`/`Writer` are primitives, not table persistence |
-| Table to SQL INSERT text | Native `write_insert_g` | Absent; application uses parameter binding |
-| SQL query builders and value/template formatting | Native query/builder/value modules | Absent |
+| Table to SQL INSERT text | Native `write_insert_g` | Application: use SQLite parameter binding or a separate SQL formatting layer |
+| SQL query builders and value/template formatting | Native query/builder/value modules | Application: SQL construction is a separate layer; gd-rs supplies SQLite parameter binding |
 | SQLite open/execute/query and table loading | Native database/cursor and table bridge | Native optional `sqlite` adapter, enabled by default |
-| Generic database interface and ODBC driver | Native | Absent; SQLite only |
+| Generic database interface and ODBC driver | Native | Application selects other drivers directly; gd-rs provides SQLite only |
 | Streaming database cursor API | Native C++ cursor | Partial: Rust wrapper materializes tables; native rusqlite access via `connection()` / `into_connection()` |
 | Checked SQLite binding mode/count/name and integer-range policy | Driver/wrapper-specific, not the same contract | Native typed errors for mixed/missing/extra/duplicate bindings and out-of-range `u64` |
 | Compile once, evaluate repeatedly with changing variables | Native custom expression compiler/runtime | Native Rhai-backed `Program` and `ExpressionContext` |
 | GD token/code representation and original expression syntax | Native | Absent compatibility; Rhai syntax and AST instead |
 | Register application functions | Native callback/function registry | Native through Rhai `inner_mut()` |
-| Default execution-operation and nesting limits | No corresponding bounded wrapper policy found | Native default 1,000,000 operations, 64 call levels, depth 64 |
+| Default execution-operation, nesting and collection limits | No corresponding bounded wrapper policy found | Native default 1,000,000 operations, 64 call levels, depth 64, 1 MiB strings, 1,000,000-element arrays/maps |
 | Preserve every GD scalar type through expression evaluation | Runtime-specific | Partial: integers normalize to `i64`, floats to `f64`, UUID to text; excessive `u64` and non-scalar output rejected |
 
-Sources: [GD table I/O](../../external/gd/source/gd_table_io.h),
-[GD JSON parser](../../external/gd/source/parse/gd_parse_json.h),
-[GD SQL builder](../../external/gd/source/gd_sql_query_builder.h),
-[GD SQLite](../../external/gd/source/gd_database_sqlite.h),
-[GD ODBC](../../external/gd/source/gd_database_odbc.h),
-[GD expression runtime](../../external/gd/source/expression/gd_expression_runtime.h),
-[Rust formatting](../../src/format.rs), [Rust import](../../src/format_import.rs),
-[Rust SQLite](../../src/sqlite.rs), [Rust expressions](../../src/expression.rs).
-The [compatibility document](compatibility.md) details characterized format defects
-and intentionally different semantics. Neither Rust CSV nor JSON table output is a
-complete round-trip archive of schema, properties, extras, and deletion state.
+Sources: [GD table I/O](../../external/gd/source/gd_table_io.h), [GD JSON
+parser](../../external/gd/source/parse/gd_parse_json.h), [GD SQL
+builder](../../external/gd/source/gd_sql_query_builder.h), [GD
+SQLite](../../external/gd/source/gd_database_sqlite.h), [GD
+ODBC](../../external/gd/source/gd_database_odbc.h), [GD expression
+runtime](../../external/gd/source/expression/gd_expression_runtime.h), [Rust
+formatting](../../src/format.rs), [Rust import](../../src/format_import.rs), [Rust
+SQLite](../../src/sqlite.rs), [Rust expressions](../../src/expression.rs). The
+[compatibility document](compatibility.md) details current format defects and
+intentionally different semantics. Neither Rust CSV nor JSON table output is a complete
+round-trip archive of schema, properties, extras, and deletion state.
 
 ## Text, binary, and surrounding toolkit
 
@@ -211,34 +213,34 @@ complete round-trip archive of schema, properties, extras, and deletion state.
 | UTF validation/conversion, JSON-string escaping, percent encoding, XML escaping | Native utility families | Native focused helpers; not the whole GD utility surface |
 | Escaped splitting, character prefixes, control-character trimming | Native utility equivalents | Native helpers |
 | Binary search/hex encoding/endian-aware primitive I/O | Native | Native checked `BinaryReader` / `BinaryWriter` and free functions |
-| Base64 encode/decode/validation | Native `gd_translate` | Absent |
-| URI parsing, pattern matching, format-string and line parsing helpers | Native `parse/` modules | Absent equivalents; percent-component decoding is not a URI parser |
-| Custom strings, string collections, vectors and arenas | Native toolkit types | Absent custom counterparts; ordinary Rust containers used internally |
-| CLI argument/options parser | Native `gd_cli_options` | Absent |
-| Logging/printers/macros and file rotation | Native `gd_log_*`, `gd_file_rotate` | Absent |
-| File/path helpers and archive/repository streams | Native `gd_file`, `io/` modules | Absent; binary primitives do not implement this framework |
-| Console styling/printing and keyboard helpers | Native `console/`, `io/gd_io_keyboard` | Absent; table debug formatting is narrower |
-| COM-style interfaces and command/server routing | Native `gd_com`, `com/gd_com_server` | Absent |
-| Standalone math/algebra/string-math utilities | Native `math/` modules | Absent equivalents |
+| Base64 encode/decode/validation | Native `gd_translate` | Application: use a Base64 codec crate directly |
+| URI parsing, pattern matching, format-string and line parsing helpers | Native `parse/` modules | Application: use URI/parser crates and standard formatting directly; percent-component decoding is not a URI parser |
+| Custom strings, string collections, vectors and arenas | Native toolkit types | Standard Rust containers; application selects specialized storage when needed |
+| CLI argument/options parser | Native `gd_cli_options` | Application: gd-rs assumes use of `clap` directly |
+| Logging/printers/macros and file rotation | Native `gd_log_*`, `gd_file_rotate` | Application selects its logging sink/appender; optional instrumentation belongs at that boundary |
+| File/path helpers and archive/repository streams | Native `gd_file`, `io/` modules | Application: use `std::fs`, `std::path`, `std::io` and archive crates directly |
+| Console styling/printing and keyboard helpers | Native `console/`, `io/gd_io_keyboard` | Application selects terminal crates such as `crossterm` / `indicatif`; gd-rs provides table debug formatting |
+| COM-style interfaces and command/server routing | Native `gd_com`, `com/gd_com_server` | Application: use Rust traits and `Arc` for routing/ownership; actual COM interoperability needs a separate binding |
+| Standalone math/algebra/string-math utilities | Native `math/` modules | Application: use standard numeric operations or a suitable numerical crate directly |
 | Public packed SIMD table API | Partial: `gd_table_simd.h` contains a literal `...` function-body placeholder | Absent corresponding API; SIMD inside dependencies is not that feature |
 
-Sources: [GD text](../../external/gd/source/gd_utf8.h),
-[GD binary](../../external/gd/source/gd_binary.h),
-[GD Base64](../../external/gd/source/gd_translate.h),
-[GD source tree](../../external/gd/source),
-[GD SIMD header](../../external/gd/source/gd_table_simd.h),
-[Rust public exports](../../src/lib.rs), [Rust text](../../src/text.rs),
-[Rust binary](../../src/binary.rs).
-Toolkit entries establish source availability, not portability or complete runtime
-validation of every subsystem. Rust ecosystem alternatives are migration options,
-not features already provided by gd-rs.
+Sources: [GD text](../../external/gd/source/gd_utf8.h), [GD
+binary](../../external/gd/source/gd_binary.h), [GD
+Base64](../../external/gd/source/gd_translate.h), [GD source
+tree](../../external/gd/source), [GD SIMD
+header](../../external/gd/source/gd_table_simd.h), [Rust public
+exports](../../src/lib.rs), [Rust text](../../src/text.rs), [Rust
+binary](../../src/binary.rs). Toolkit entries establish source availability, not
+portability or complete runtime validation of every subsystem. The application choices
+follow the [port's scope decisions](porting-plan.md#scope); they are not features
+implemented inside gd-rs.
 
 ## Practical gaps and extension effort
 
 For a table-processing application, the most concrete remaining missing gd-rs
 conveniences are mapped writes into existing rows (`plant`), aggregate functions,
 multi-column ordering, direct column renaming, and richer output options. Composite
-indexes, mapped append, and borrowed selections are now native APIs. Remaining
+indexes, mapped append, and borrowed selections are native APIs. Remaining
 table conveniences can be added without copying GD's packed storage design. ODBC,
 SQL construction, CLI/logging, and archive frameworks are separate scope decisions,
 not small table API omissions.

@@ -157,9 +157,10 @@ key buckets and prevents it from joining. `null_rows` reports those live rows;
 `tombstoned_rows` reports all excluded deleted rows. `distinct_key_count` counts
 complete unique tuples. Every duplicate match retains physical source order.
 
-Keys borrow string/byte payloads. Construction takes expected O(rows × N) time and
+Keys borrow string/byte payloads. For fixed-size keys, construction takes expected O(rows × N) time and
 storage proportional to keys and indexed row positions. Probing takes expected
-O(N + returned matches) including consuming the returned match slice. The source
+O(N + returned matches) including consuming the returned match slice. Hashing and
+comparing string/byte components additionally depend on their payload lengths. The source
 borrow prevents invalidation; query values do not need to live as long as the index
 or the returned position slice.
 
