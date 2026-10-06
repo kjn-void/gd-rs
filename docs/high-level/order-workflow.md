@@ -220,21 +220,22 @@ flowchart TB
 
 ## Performance summary
 
-The [current measurements](order-workflow-results.md) compare Rust, GD DTO, and
-GD SIMD on the same fixtures. All three produce identical audit, clean, and eight
-variant tables. Timing includes allocation, copying, index construction in
+The [current measurements](order-workflow-results.md) compare gd-rs (SoA), GD's
+DTO table (AoS), and GD's packed table (AoSoA) on the same fixtures.
+All three produce identical audit, clean, and eight variant tables.
+Timing includes allocation, copying, index construction in
 `prepare`, and destruction within the stage boundaries above.
 
 Sources: [Rust application](../../benches/order_workflow/workload.rs),
 [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
-[GD SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
+[GD AoSoA adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
 [raw measurements](measurements/order-workflow-m3max.json).
 
 On the measured M3 Max, one million order lines give these median times across
 three process rounds with five samples each. Speedup multipliers divide GD elapsed
 time by gd-rs elapsed time, using the unrounded medians.
 
-| Stage | Workers | gd-rs ms | GD DTO ms | GD SIMD ms | gd-rs speedup vs DTO | gd-rs speedup vs SIMD |
+| Stage | Workers | gd-rs (SoA) ms | GD (AoS) ms | GD (AoSoA) ms | gd-rs speedup vs AoS | gd-rs speedup vs AoSoA |
 |---|---:|---:|---:|---:|---:|---:|
 | Import | 1 | 122.7 | 214.8 | 193.1 | 1.75× | 1.57× |
 | Prepare, native index | 1 | 149.8 | 289.8 | 243.1 | 1.93× | 1.62× |
@@ -243,9 +244,9 @@ time by gd-rs elapsed time, using the unrounded medians.
 | Complete | 1 | 346.0 | 727.4 | 634.6 | 2.10× | 1.83× |
 | Complete | 8 | 307.4 | 625.7 | 531.3 | 2.04× | 1.73× |
 
-For this full workflow, DTO takes 2.10× Rust's elapsed time and GD SIMD takes
+For this full workflow, GD AoS takes 2.10× the elapsed time of gd-rs, and GD AoSoA takes
 1.83× at one worker; the ratios at eight workers are 2.04× and 1.73×.
-GD SIMD takes 13–15% less elapsed time than DTO for `complete`.
+GD AoSoA takes 13–15% less elapsed time than GD AoS for `complete`.
 Rust's one-worker sorted-index diagnostic takes 180.4 ms for `prepare`, versus
 149.8 ms with its native hash index. These are observations for this fixture and
 software stack, not general library rankings.
@@ -255,8 +256,8 @@ that Rust stage 3.25× faster, while the complete pipeline is 1.13× faster beca
 import and preparation remain sequential. Stage medians come from separate
 invocations and should not be added to predict a complete-run median.
 
-Whole-process peak RSS for `complete` is 591.8/670.5 MiB for Rust at one/eight
-workers, 561.1/686.4 MiB for DTO, and 518.3/537.8 MiB for GD SIMD. The stripped
+Whole-process peak RSS for `complete` is 591.8/670.5 MiB for gd-rs at one/eight
+workers, 561.1/686.4 MiB for GD AoS, and 518.3/537.8 MiB for GD AoSoA. The stripped
 standalone executables occupy 2,384,304, 1,325,104, and 1,324,960 bytes respectively;
 these include the benchmark driver and dependencies, not just table code.
 The full tables also cover 10,000 and 100,000 lines and every worker count.
