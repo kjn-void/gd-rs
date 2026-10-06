@@ -108,6 +108,11 @@ The standalone `gd_order_workflow` target implements the three-table validation,
 join, filtering, and parameterized-output workload described in the
 [order-workflow report](../../docs/high-level/order-workflow.md). Its maintained
 application and driver are in `order_workflow/`; it links GD from `GD_SOURCE_DIR`
-without editing that checkout. Run `../run_order_workflow.sh` for
+without editing that checkout. The `gd_order_workflow_simd` target compiles the same
+driver/application against `gd::table::simd::table_8_8` and the upstream
+`gd_table_simd.cpp`, using the existing syntax-corrected generated header. Its
+counted [adapter](order_workflow/simd_table.hpp) supplies null handling, schema
+preparation, ownership, and projected copying; filtering reads packed columns.
+Run `../run_order_workflow.sh` for
 matched verification, staged timings, concurrent variants, memory, and program-size
 measurements. It deliberately does not link Google Benchmark into the executable.

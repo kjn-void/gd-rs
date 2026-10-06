@@ -12,9 +12,18 @@
 #include "gd_database_sqlite.h"
 #include "gd_table_column-buffer.h"
 #include "gd_table_index.h"
+#ifdef GD_WORKFLOW_SIMD
+#include "simd_table.hpp"
+#endif
 
 namespace workflow {
+#ifdef GD_WORKFLOW_SIMD
+using Table = SimdTable;
+inline constexpr std::string_view implementation = "cpp_simd";
+#else
 using Table = gd::table::table_column_buffer;
+inline constexpr std::string_view implementation = "cpp";
+#endif
 using Database = gd::database::sqlite::database;
 using View = gd::variant_view;
 using Parameters = std::array<std::int64_t, 6>;
@@ -114,11 +123,23 @@ inline Prepared Prepare(const Inputs& input) {
 inline Table Variant(const Table& clean, const Parameters& p) {
     const auto [region, fromDay, toDay, status, minimum, discountBp] = p;
     std::vector<std::uint64_t> rows;
+#ifdef GD_WORKFLOW_SIMD
+    // Clean rows have no nulls in these fields. Read contiguous eight-lane
+    // column packs directly; preserve source order and handle a partial tail.
+    for(std::uint64_t first = 0; first < clean.get_row_count(); first += 8) {
+        const auto regions = clean.pack(first, 4), days = clean.pack(first, 5);
+        const auto statuses = clean.pack(first, 6), amounts = clean.pack(first, 9);
+        for(unsigned lane = 0; lane < days.size(); ++lane)
+            if((region == -1 || regions[lane] == region) && days[lane] >= fromDay && days[lane] < toDay &&
+               (status == -1 || statuses[lane] == status) && amounts[lane] >= minimum) rows.push_back(first + lane);
+    }
+#else
     for(std::uint64_t row = 0; row < clean.get_row_count(); ++row) {
         const auto n = [&](unsigned c) { return clean.cell_get_variant_view(row, c).as_int64(); };
         if((region == -1 || n(4) == region) && n(5) >= fromDay && n(5) < toDay &&
            (status == -1 || n(6) == status) && n(9) >= minimum) rows.push_back(row);
     }
+#endif
     auto result = Make({"line_id", "name", "region", "day", "status", "amount_cents"}, rows.size());
     clean.harvest(variantColumns, rows, result);
     for(std::uint64_t row = 0; row < result.get_row_count(); ++row) {

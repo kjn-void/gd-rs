@@ -18,7 +18,9 @@ OUT = ROOT / 'target/order-workflow'
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--gd', type=Path, default=ROOT / 'external/gd')
+    parser.add_argument('--implementation', choices=['cpp', 'cpp_simd'], default='cpp')
     args = parser.parse_args()
+    target = 'gd_order_workflow_simd' if args.implementation == 'cpp_simd' else 'gd_order_workflow'
     OUT.mkdir(parents=True, exist_ok=True)
     records = []
     with tempfile.TemporaryDirectory(prefix='safety-', dir=OUT) as temp:
@@ -31,7 +33,7 @@ def main():
                                 '-DCMAKE_BUILD_TYPE=Debug', f'-DGD_SOURCE_DIR={args.gd.resolve()}',
                                 '-DGD_ENABLE_SANITIZERS=ON', f'-DGD_SANITIZERS={sanitizer}'],
                                check=True, stdout=log, stderr=subprocess.STDOUT)
-                subprocess.run(['cmake', '--build', str(build), '--target', 'gd_order_workflow',
+                subprocess.run(['cmake', '--build', str(build), '--target', target,
                                 'gd_order_workflow_probes', '-j', '4'],
                                check=True, stdout=log, stderr=subprocess.STDOUT)
             for recover in ([False, True] if name == 'asan' else [False]):
@@ -39,9 +41,9 @@ def main():
                 env['ASAN_OPTIONS'] = 'detect_leaks=0' if sys.platform == 'darwin' else 'detect_leaks=1'
                 env['UBSAN_OPTIONS'] = f'halt_on_error={0 if recover else 1}:print_stacktrace=1'
                 env['TSAN_OPTIONS'] = 'halt_on_error=1'
-                command = [str(build / 'gd_order_workflow'), str(db), '8', 'verify', '1', 'native']
+                command = [str(build / target), str(db), '8', 'verify', '1', 'native']
                 completed = subprocess.run(command, text=True, capture_output=True, env=env)
-                label = name + ('-recover' if recover else '-failfast')
+                label = ('cpp_simd-' if args.implementation == 'cpp_simd' else '') + name + ('-recover' if recover else '-failfast')
                 (OUT / f'{label}.log').write_text(completed.stderr + completed.stdout)
                 findings = re.findall(r'^.*(?:runtime error:|SUMMARY:|ERROR:|WARNING: ThreadSanitizer|FATAL:).*$',
                                       completed.stderr, flags=re.MULTILINE)
@@ -64,7 +66,8 @@ def main():
                                                     completed.stderr, flags=re.MULTILINE)}
                     records.append(result)
                     print(json.dumps({k: v for k, v in result.items() if k not in ['stderr', 'command']}), flush=True)
-    (OUT / 'safety.json').write_text(json.dumps(records, indent=2) + '\n')
+    filename = 'cpp_simd-safety.json' if args.implementation == 'cpp_simd' else 'safety.json'
+    (OUT / filename).write_text(json.dumps(records, indent=2) + '\n')
 
 
 if __name__ == '__main__':

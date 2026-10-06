@@ -13,6 +13,11 @@ and [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp).
 The [full measurement tables](order-workflow-results.md) include sample ranges,
 peak memory, source sizes, executable sizes, and environment details.
 
+The original measurements below compare Rust with GD's DTO table. The runner now
+also builds a GD SIMD variant and compares **all three** on freshly generated
+fixtures. See [GD SIMD variant](#gd-simd-variant) and its
+[three-implementation measurement tables](order-workflow-simd-results.md).
+
 ## Coverage of the GD author's examples
 
 **Both implementations exercise the requested joins, subsets, parameterized
@@ -189,7 +194,7 @@ is created for each process and reused for all its iterations.
 The SQL views are a correctness oracle used outside timing; the measured joins
 and filtering execute in the Rust/C++ table applications. The
 [runner](../../benches/order_workflow/compare.py) runs one implementation process
-at a time. The following is the default full comparison, excluding the separate
+at a time. The following describes the original two-implementation recorded comparison, excluding the separate
 sanitizer and focused preparation-repeat runs.
 
 ```mermaid
@@ -217,7 +222,7 @@ flowchart TB
     MOREDATA -- "no" --> REPORT
 ```
 
-## Performance summary
+## Original DTO performance summary
 
 On an Apple M3 Max (12 performance + 4 efficiency cores), both implementations
 produced the same correct outputs at 10,000, 100,000, and 1,000,000 lines. Rust was
@@ -273,6 +278,201 @@ reported separately from the application and harness/test sizes. Stripped standa
 programs are **2,384,272 bytes Rust / 1,325,104 bytes C++**. This includes their
 respective runtimes, retained libraries, SQLite, and verification/timing code.
 
+
+## GD SIMD variant
+
+Sources: [shared C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
+[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp),
+[shared C++ driver](../../benches/cpp-reference/order_workflow/driver.cpp),
+[Rust application](../../benches/order_workflow/workload.rs),
+[CMake target](../../benches/cpp-reference/CMakeLists.txt), and
+[three-implementation runner](../../benches/order_workflow/compare.py).
+
+`gd_order_workflow_simd` uses **`gd::table::simd::table_8_8`** for all three
+imported tables, audit, clean, and eight result tables. It compiles the pinned
+upstream **`gd_table_simd.cpp`** unchanged. Its generated header has only the
+existing removal of the literal `...` syntax placeholder in `pack_set_values`.
+It retains GD's eight-lane, 64-byte column packs, aligned allocation, numeric
+cell storage, and owned reference-string storage. The same sorted GD index,
+validation rules, discounts, persistent pool, SQLite input, and timing driver
+serve both C++ variants. GD SIMD filtering reads region/day/status/amount packs
+directly and scans only populated lanes, preserving source order.
+
+The pinned SIMD API cannot directly substitute for DTO in this nullable,
+string-owning workflow. The table below distinguishes missing entry points,
+existing functions requiring workarounds, and application performance policy.
+Sources: [upstream SIMD declarations and templates](../../external/gd/source/gd_table_simd.h),
+[upstream SIMD definitions](../../external/gd/source/gd_table_simd.cpp), and
+[the maintained application adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp).
+
+| GD SIMD function or operation | Status in the pinned source | What the application supplies |
+|---|---|---|
+| `column_add(vector<tuple<string_view, unsigned, string_view>>, tag_type_name)` | Declared in the header, not defined in the `.cpp`; linking this overload fails. The initializer-list overload exists. | Loop over the schema and call the implemented single-column overload. |
+| `common_construct(table_base&&)` used by the native move constructor | Declared, not defined; there is no usable native move-construction implementation for this path. | Move an owning pointer to the GD table; never copy or move its native storage. |
+| `harvest(columnIndices, rowIndices, destination)` | DTO's projected gather overload is absent. SIMD has a row-only `harvest`. | Gather selected cells with packed getters and copy borrowed values through GD setters into the destination's own string store. |
+| Parameterized multi-column row filtering | Pack predicates exist, but there is no helper for this workflow's combined region/date/status/minimum filter and result projection. | Scan populated column-pack lanes, apply the parameter predicate, retain selected positions, and call the application gather. |
+| `prepare()` — column descriptors | Does not initialize column reference flags or positions. | Set descriptor positions and `eColumnStateReference` through GD's public schema API so `cell_set` owns `rstring` values. |
+| `prepare()` / `size_row_meta()` / `row_get_null()` — nullable metadata | Allocates one bitmap per reserved pack but addresses one bitmap per logical row. | Add a normal packed GD `uint64` column containing each row's null bits; expose the original logical nullable schema to the driver. |
+| `cell_get_variant_view(row, column)` | Uses `column.position()` from the pack base without the lane offset. | Use the working `cell_get_value64` and `cell_get_reference` getters, then construct the borrowed variant view. |
+| `pack_harvest_span` / `get_row_pack_count` — partial packs | The span helper's assertion requires the entire table's row count to be a multiple of eight. | Use `rowpack_get` and a span limited to populated lanes, including the final partial pack. |
+| `clear()` — schema lifetime | Frees the data buffer but omits releasing its columns object. | Release each privately owned schema after destroying its native table. |
+| `row_add` / `row_reserve_add` — import growth policy | Functions exist; automatic append growth adds only the next required pack. This is a performance policy gap, not a missing symbol. | Reserve packs geometrically for unknown-length imports to avoid repeated whole-buffer copies. |
+
+The packed null bitmap costs eight bytes per reserved row. It is excluded from
+the business schema and SQL output, and included in memory/timing measurements.
+The join orchestration, missing-key equality check, business validation, and
+checked discount arithmetic remain application code in both C++ variants; those
+are shared workflow responsibilities, not newly missing SIMD function definitions.
+
+Every adapter operation, null bitmap, copy, and destruction is included in the
+appropriate timed stage. These adaptations remain in maintained benchmark code.
+This measures a working application built on GD SIMD's
+available packed APIs, including its required adaptation, rather than an
+unadapted drop-in API comparison. It does not isolate SIMD instruction throughput:
+the layout enables packed reads, while the compiler decides vectorization and
+the workload also includes strings, indexing, allocation, copying, and SQLite.
+
+### Storage layout versus SIMD instructions
+
+**This workflow's packed filter is scalar in the measured M3 Max build.** The
+class name identifies GD's SIMD-oriented table; it does not establish that the
+filter executes hardware SIMD comparisons. The layout is **AoSoA** (an array of
+eight-row blocks, each containing column arrays), rather than one full-length SoA
+array per column. Each cell slot is eight bytes; the reference-string slots hold
+indexes into GD's owned string store.
+
+```text
+DTO, packed rows:  [id0 name0 region0 ...] [id1 name1 region1 ...] ...
+GD SIMD, AoSoA:    pack0: [id0..id7] [nameRef0..nameRef7] [region0..region7] ...
+                  pack1: [id8..id15] [nameRef8..nameRef15] [region8..region15] ...
+Rust, SoA:        [id0..idN] [name0..nameN] [region0..regionN] ...
+```
+
+The inspected upstream `.cpp` and `.h` use ordinary C++ operations and loops,
+with alignment/restrict hints. They contain no explicit NEON/SSE/AVX intrinsics
+or portable SIMD vector types. Header functions such as `pack_find_value`,
+`pack_find_value_if`, and `pack_broadcast_value` are candidates for compiler
+auto-vectorization; they do not guarantee it for every type, predicate, or compiler.
+
+Disassembling the exact optimized executable built by the runner shows that
+`Variant` was inlined into the worker function. Its filter at
+`0x100005af0`–`0x100005c28` loads one 64-bit value at a time and uses scalar
+`cmp`/`ccmp` and conditional branches, then appends one selected row position.
+For example, its date and status checks include:
+
+```asm
+100005b5c: ldr  x8, [x27]
+100005b60: cmp  x8, x25
+100005b64: ccmp x8, x22, #0x0, ge
+100005b68: b.ge 0x100005b38
+100005b6c: cmn  x21, #0x1
+100005b70: b.eq 0x100005b80
+100005b74: ldr  x8, [x27, #0x40]
+100005b78: cmp  x8, x21
+100005b7c: b.ne 0x100005b38
+```
+
+To reproduce the inspection after building with the
+[runner's optimization flags](../../benches/order_workflow/compare.py):
+
+```sh
+xcrun llvm-objdump --disassemble --demangle --no-show-raw-insn \
+  target/order-workflow/cpp/gd_order_workflow_simd
+```
+
+The executable does contain SIMD instructions elsewhere, including retained
+library/dependency code; that does not make this row predicate vectorized.
+The reported improvement therefore combines layout, packed access, allocation,
+and adapter differences. It cannot be attributed to hardware SIMD filtering.
+Other pack functions or compiler/architecture builds may vectorize; they require
+their own generated-code evidence.
+
+### Fresh three-implementation measurements
+
+The current runner verifies all three implementations against the independent
+SQL oracle at each worker count, including partial packs and empty results in
+the hand fixture. It checks the same ownership and rejection cases, and runs
+one implementation process at a time. Three rounds rotate Rust/DTO/SIMD,
+DTO/SIMD/Rust, SIMD/Rust/DTO; five samples follow each process's warmup. The new
+[measurement tables](order-workflow-simd-results.md) compare fresh runs of all
+three, preserving the historical DTO measurements above.
+
+On 2026-10-06, the M3 Max comparison completed **52 SQL verification invocations**
+and **nine overflow/invalid-discount rejection checks**. Counts and digests matched
+at every worker count. For **1,000,000 lines**, medians across 15 samples were:
+
+| Stage | Workers | Rust | GD DTO | GD SIMD | SIMD time reduction vs DTO |
+|---|---:|---:|---:|---:|---:|
+| import | 1 | 142.98 ms | 220.30 ms | 194.27 ms | 11.8% |
+| prepare | 1 | 186.54 ms | 303.03 ms | 256.11 ms | 15.5% |
+| variants | 1 | 70.36 ms | 186.44 ms | 172.03 ms | 7.7% |
+| variants | 8 | 20.19 ms | 79.30 ms | 64.57 ms | 18.6% |
+| complete | 1 | 404.73 ms | 704.27 ms | 625.59 ms | 11.2% |
+| complete | 8 | 356.11 ms | 601.86 ms | 517.54 ms | 14.0% |
+
+Sources: [Rust application](../../benches/order_workflow/workload.rs),
+[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
+[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
+[all samples and environment](measurements/order-workflow-simd-m3max.json).
+
+GD SIMD reduced elapsed time relative to DTO in every measured case, while Rust
+remained faster than both in these builds. For the million-row complete workflow,
+SIMD took 1.55 times Rust's time with one worker and 1.45 times with eight. Peak RSS
+was 591.9/561.1/518.2 MiB for Rust/DTO/SIMD with one worker, and
+743.5/759.5/562.2 MiB with eight. RSS measures the whole process and varies with
+allocator reuse and worker scheduling; it does not isolate table storage.
+The two C++ stripped programs were both approximately 1.325 MB, versus 2.384 MB
+for Rust. The SIMD adapter adds 106 physical lines / 5,443 bytes beyond the shared
+154-line / 7,541-byte C++ application, with library and driver sizes reported
+separately. These results include adaptation cost and do not establish optimal
+implementations or a pure language/SIMD effect.
+
+The runner paused during untimed million-row verification when an unrelated Unity
+compilation started, and resumed after that load and repository checks finished.
+No timed process ran during the pause. The raw metadata records the pause and
+process-load snapshots. The optimized comparison ran separately from sanitizers.
+
+The 10k SIMD single-worker variant samples included a 10.09 ms outlier, and the
+100k samples also had a wide range. A fresh one-worker repeat with three rotated
+rounds and five samples per process confirmed the direction without those outliers:
+
+| Variant batch, one worker | Rust median (range) | GD DTO median (range) | GD SIMD median (range) |
+|---|---:|---:|---:|
+| 10,000 lines | 0.656 ms (0.639–0.687) | 1.687 ms (1.647–1.845) | 1.212 ms (1.128–1.335) |
+| 100,000 lines | 6.563 ms (6.344–7.031) | 17.695 ms (17.353–18.229) | 13.112 ms (12.415–14.424) |
+
+Sources: [Rust application](../../benches/order_workflow/workload.rs),
+[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
+[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
+[repeat samples and environment](measurements/order-workflow-simd-small-repeat.json).
+The original samples remain in the main table. Reproduce this repeat with
+`./benches/run_order_workflow.sh --skip-build --rows 10000 100000 --workers 1 --samples 5 --rounds 3`.
+
+The original safety findings later in this document concern the DTO executable.
+SIMD diagnostics use the same sanitizer runner with `--implementation cpp_simd`
+and must be interpreted separately from optimized performance measurements.
+The immutable-input/independent-output pool protocol applies to both C++ variants;
+the SIMD adapter creates a private schema and string store for each output.
+
+Sources for the separate SIMD safety run:
+[sanitizer runner](../../benches/order_workflow/check_safety.py),
+[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp),
+[C++ verifier](../../benches/cpp-reference/order_workflow/driver.cpp), and
+[recorded diagnostics](measurements/order-workflow-simd-safety.json).
+
+| SIMD check: 10,000 lines, eight workers, Debug | Observed result |
+|---|---|
+| ASan + UBSan, fail-fast | Aborted on an unaligned `uint16_t` store in `gd_database_record.cpp:46` |
+| ASan + UBSan, recovery | Completed full SQL/ownership verification; the same alignment UB was reported; no ASan address error was reported |
+| ThreadSanitizer, fail-fast | Completed full verification without a reported race |
+
+These runs used Apple Clang 21 on the same M3 Max, with sanitizer instrumentation
+and no performance claims. Leak detection was disabled on macOS. They provide
+limited evidence for this adapter and pool protocol; they do not establish that
+GD SIMD is free of undefined behavior. The raw file also includes the unchanged
+DTO-focused `index-miss` and `name-view` probes: the former reports a false hit,
+and the latter triggers an ASan error for a non-NUL-terminated name view. Those
+probe outcomes concern their specific upstream APIs, not SIMD output verification.
 
 ## Preparation timing repeat
 
@@ -407,7 +607,8 @@ benchmark instead uses its sorted index to avoid quadratic joining at scale.
 This is **not** a benchmark of GD's separate `gd::table::table` member-table class
 or its shared-schema lifecycle. The chosen DTO class directly supports projected
 harvesting and disabling string deduplication. Conclusions about other GD table
-classes would require another implementation. Likewise, short names that fit
+classes would require another implementation; the [SIMD variant](#gd-simd-variant)
+now separately measures GD's packed SIMD table. Likewise, short names that fit
 Rust's compact strings do not represent all long-string/blob workloads.
 
 ## What went well, and what did not

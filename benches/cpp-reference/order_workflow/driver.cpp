@@ -95,7 +95,7 @@ void Verify(Database& db, const std::vector<Parameters>& p, BatchPool& pool, uns
     }
     prepared.reset();
     for(std::size_t i = 1; i < outputs.size(); ++i) Require(Digest(outputs[i]) == hashes[i], "output did not own its cells");
-    std::cout << "{\"implementation\":\"cpp\",\"verified\":true,\"sqlite\":\"" << sqlite3_libversion()
+    std::cout << "{\"implementation\":\"" << implementation << "\",\"verified\":true,\"sqlite\":\"" << sqlite3_libversion()
               << "\",\"workers\":" << workers << ",\"counts\":";
     PrintArray(counts); std::cout << ",\"digests\":"; PrintArray(hashes); std::cout << "}\n";
 }
@@ -148,7 +148,7 @@ int main(int argc, char** argv) {
             const auto elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
             if(iteration) seconds.push_back(elapsed);
         }
-        std::cout << std::setprecision(10) << "{\"implementation\":\"cpp\",\"rows\":" << rows
+        std::cout << std::setprecision(10) << "{\"implementation\":\"" << implementation << "\",\"rows\":" << rows
                   << ",\"workers\":" << workers << ",\"stage\":\"" << stage << "\",\"index\":\"" << index
                   << "\",\"sqlite\":\"" << sqlite3_libversion() << "\",\"seconds\":";
         PrintArray(seconds); std::cout << "}\n";

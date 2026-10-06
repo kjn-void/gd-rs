@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build, verify, and alternate the two standalone order-workflow applications."""
+"""Build, verify, and rotate Rust, GD DTO, and GD SIMD order-workflow applications."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -46,7 +46,8 @@ def build(gd):
                  '-DGD_ENABLE_SANITIZERS=OFF', '-DCMAKE_CXX_FLAGS=-march=native',
                  '-DCMAKE_C_FLAGS=-march=native', '-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON'],
                 stdout=log, stderr=subprocess.STDOUT)
-        command(['cmake', '--build', OUTPUT / 'cpp', '--target', 'gd_order_workflow', '-j', '4'],
+        command(['cmake', '--build', OUTPUT / 'cpp', '--target', 'gd_order_workflow',
+                 'gd_order_workflow_simd', '-j', '4'],
                 stdout=log, stderr=subprocess.STDOUT)
         env = os.environ.copy()
         env.pop('CARGO_ENCODED_RUSTFLAGS', None)
@@ -80,6 +81,7 @@ def sizes(binaries):
         'rust_selection_library': ['src/table/selection.rs'],
         'rust_driver': ['benches/order_workflow/driver.rs'],
         'cpp_application_and_adapters': ['benches/cpp-reference/order_workflow/workload.hpp'],
+        'cpp_simd_adapter': ['benches/cpp-reference/order_workflow/simd_table.hpp'],
         'cpp_driver_and_pool': ['benches/cpp-reference/order_workflow/driver.cpp',
                                 'benches/cpp-reference/order_workflow/pool.hpp'],
         'shared_fixture_and_runner': ['benches/order_workflow/fixture.py', 'benches/order_workflow/compare.py'],
@@ -129,20 +131,22 @@ def main():
     parser.add_argument('--rows', type=int, nargs='+', default=[10000, 100000, 1000000])
     parser.add_argument('--workers', type=int, nargs='+', default=[n for n in [1, 2, 4, 8] if n <= (os.cpu_count() or 1)])
     parser.add_argument('--samples', type=int, default=5)
-    parser.add_argument('--rounds', type=int, default=2)
+    parser.add_argument('--rounds', type=int, default=3)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--output', type=Path, default=OUTPUT / 'results.json')
     args = parser.parse_args()
     if min(args.rows) < 20 or max(args.rows) > 100_000_000 or min(args.workers) < 1 or max(args.workers) > (os.cpu_count() or 1):
         parser.error('invalid row count or workers exceeding logical CPUs')
     if args.samples < 1 or args.rounds < 2:
-        parser.error('at least one sample and two alternating process rounds required')
+        parser.error('at least one sample and two process rounds required (three recommended)')
     gd = args.gd.resolve()
     before = source_fingerprint(gd)
     if not args.skip_build:
         print('Building optimized standalone applications...', flush=True)
         build(gd)
-    binaries = {'rust': ROOT / 'target/release/examples/order_workflow', 'cpp': OUTPUT / 'cpp/gd_order_workflow'}
+    binaries = {'rust': ROOT / 'target/release/examples/order_workflow',
+                'cpp': OUTPUT / 'cpp/gd_order_workflow',
+                'cpp_simd': OUTPUT / 'cpp/gd_order_workflow_simd'}
     report = {'metadata': {
         'utc': datetime.now(timezone.utc).isoformat(), 'platform': platform.platform(),
         'logical_cpus': os.cpu_count(), 'cpu': text(['sysctl', '-n', 'machdep.cpu.brand_string']) if sys.platform == 'darwin' else platform.processor(),
@@ -156,6 +160,12 @@ def main():
         'affinity': 'OS scheduling, no affinity; persistent pools; one process at a time',
         'invocation': sys.argv, 'fixture_sqlite': fixture.sqlite3.sqlite_version,
         'samples': args.samples, 'rounds': args.rounds,
+        'implementations': {'rust': 'gd::Table', 'cpp': 'gd::table::table_column_buffer',
+                            'cpp_simd': 'gd::table::simd::table_8_8 with benchmark adapter'},
+        'process_order': 'rotate starting implementation each round; reverse every three rounds',
+        'simd_adapter': 'unmodified gd_table_simd.cpp; syntax-placeholder-only generated header; '
+                        'packed null-bitmap column; packed cell/reference getters; owned pointer/schema; '
+                        'geometric import reservation; application projected gather and packed filtering',
     }, 'verification': [], 'measurements': []}
     sqlite_version = None
     OUTPUT.mkdir(parents=True, exist_ok=True)
@@ -193,7 +203,7 @@ def main():
                 raise RuntimeError('Sorted-index diagnostic mismatch')
             sorted_check['rows'] = rows
             report['verification'].append(sorted_check)
-            print(f'Verified every cell: {rows} lines, all worker counts and both index algorithms', flush=True)
+            print(f'Verified every cell: {rows} lines, three implementations, all worker counts and both index algorithms', flush=True)
             if db == hand:
                 continue
             cases = [('import', 1, 'native'), ('prepare', 1, 'native'), ('prepare', 1, 'sorted')]
@@ -201,8 +211,10 @@ def main():
             for stage, workers, index in cases:
                 for round_id in range(args.rounds):
                     order = list(binaries.items())
-                    if round_id % 2:
+                    if (round_id // len(order)) % 2:
                         order.reverse()
+                    offset = round_id % len(order)
+                    order = order[offset:] + order[:offset]
                     for language, binary in order:
                         result = invoke(binary, db, workers, stage, args.samples, index)
                         result['round'] = round_id

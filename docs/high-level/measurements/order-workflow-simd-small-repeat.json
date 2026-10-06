@@ -1,0 +1,2900 @@
+{
+  "metadata": {
+    "utc": "2026-10-06T06:36:41.746331+00:00",
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "logical_cpus": 16,
+    "cpu": "Apple M3 Max",
+    "cpu_topology": "hw.physicalcpu: 16\nhw.logicalcpu: 16\nhw.perflevel0.physicalcpu: 12\nhw.perflevel1.physicalcpu: 4",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: aarch64-apple-darwin\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "cxx": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+    "gd_revision": "cb11cff90d05260a88d59a30c9da421cd4e19c34",
+    "gd_rs_revision": "20e51587b141932990ae7cb40dafda7c73467585",
+    "gd_source_sha256": "a2261ae9166c0f372d98fd698d481dc76014bef2b7d9a6314d1e6d3282abaef6",
+    "seed": 7640891576956012809,
+    "rust_flags": "release: opt-level=3, codegen-units=1, lto=thin; target-cpu=native; features sqlite,rayon; CFLAGS=-march=native",
+    "cpp_flags": "Release: -O3 -DNDEBUG -march=native; CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON; sanitizers OFF",
+    "affinity": "OS scheduling, no affinity; persistent pools; one process at a time",
+    "invocation": [
+      "/Users/kjn/repos/gd-rs/benches/order_workflow/compare.py",
+      "--skip-build",
+      "--rows",
+      "10000",
+      "100000",
+      "--workers",
+      "1",
+      "--samples",
+      "5",
+      "--rounds",
+      "3",
+      "--output",
+      "target/order-workflow/simd-small-repeat.json"
+    ],
+    "fixture_sqlite": "3.53.4",
+    "samples": 5,
+    "rounds": 3,
+    "implementations": {
+      "rust": "gd::Table",
+      "cpp": "gd::table::table_column_buffer",
+      "cpp_simd": "gd::table::simd::table_8_8 with benchmark adapter"
+    },
+    "process_order": "rotate starting implementation each round; reverse every three rounds",
+    "simd_adapter": "unmodified gd_table_simd.cpp; syntax-placeholder-only generated header; packed null-bitmap column; packed cell/reference getters; owned pointer/schema; geometric import reservation; application projected gather and packed filtering",
+    "sqlite_version": "3.53.2",
+    "source_sha256": {
+      "benches/order_workflow/driver.rs": "f14adc2937b60a19e6154b88b881fbbe9722600297e9802b9c6c526b2352ceee",
+      "benches/order_workflow/workload.rs": "42f76ae094e995e4ac07a9d047ab4605d3d1b7d7b78d3aee58270c7295e44801",
+      "benches/order_workflow/check_safety.py": "5fcf8a2aa59c9bd573e117d166c3041e52c62da8f8daf9e92177ff0c576b6a1c",
+      "benches/order_workflow/compare.py": "dadf45d749462a20dc6b6980176b1564e16205c9f0e9a3e5b7195164f2ad5fd2",
+      "benches/order_workflow/fixture.py": "c5d25592d2d5962e8747dab197a3fc6961601127cbac7ce8cb78d358b905ef50",
+      "benches/order_workflow/summarize.py": "197ae9c7ea401db3e141bbb75c2bf576048646941150a2d82dc5947f8f260ee3",
+      "benches/cpp-reference/order_workflow/driver.cpp": "b90ba15f0f655a4f129f66fd7f2ba094fcc1e3ae78d1c0c5d9d435ee6ce61360",
+      "benches/cpp-reference/order_workflow/probes.cpp": "49fdca83f5e0674cb029b9b72f24c5e5516261bf6b7dd60e8e0246e9e20a6326",
+      "benches/cpp-reference/order_workflow/pool.hpp": "ce5c916ee51ac6228de37b3b05ffb7fa60d3c255cf2f69c7624518bddc0c79b3",
+      "benches/cpp-reference/order_workflow/simd_table.hpp": "c56a4b4bd84ac83ebbd6524962c5055f53971d2eaedc10a9a39659fa54926d8c",
+      "benches/cpp-reference/order_workflow/workload.hpp": "08de35f7154c74e56de41d3400a9f2c5d91e1d353d7e150e5afb499be8a4b41f",
+      "src/table/selection.rs": "eaee85fbbffb1c529e001a5bc33d883f846cdbeda7727aca13a2a2fbe0345188",
+      "Cargo.toml": "c309db897991a0e949393de568cc0d8f17713190025f0be87d10de6243842167",
+      "Cargo.lock": "b9da6e1deb720058fa9f399811aa1c9fb28206c7b2370197b400473b56e7a6fb",
+      "benches/cpp-reference/CMakeLists.txt": "787751f09859e63fcc037ff45692d50f2e61e2a3ba1c64ed645284b08a8d90af",
+      "benches/cpp-reference/cmake/GdCore.cmake": "ed1a10df89727379366cc9aa45449b37c13c6ed7b2cbc725c6f4616fd48e29b8"
+    },
+    "gd_source_unchanged": true,
+    "post_run_code_generation_inspection": {
+      "command": "xcrun llvm-objdump --disassemble --demangle --no-show-raw-insn target/order-workflow/cpp/gd_order_workflow_simd",
+      "binary_sha256": "ab0b7ecc702ab7f3d7f7707a3c1bff08acfbc3162ce0587ed3e9c4aba64f29aa",
+      "filter_address_range": "0x100005af0-0x100005c28",
+      "finding": "Variant is inlined into the pool worker. The multi-column filter uses scalar 64-bit loads, cmp/ccmp, and conditional branches; no multi-lane SIMD comparisons. Storage is eight-row AoSoA, not full-column SoA. Upstream SIMD source/header use C++ loops and alignment hints; auto-vectorization is compiler/kernel dependent."
+    }
+  },
+  "verification": [
+    {
+      "counts": [
+        5,
+        4,
+        0,
+        0,
+        0,
+        0,
+        1,
+        3
+      ],
+      "digests": [
+        6589126907175393823,
+        6513644493053763794,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        16310295492857740858,
+        16932732572230737452
+      ],
+      "implementation": "rust",
+      "sorted": false,
+      "sqlite": "3.53.2",
+      "verified": true,
+      "workers": 1,
+      "peak_rss_bytes": 3981312,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/hand.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 11
+    },
+    {
+      "implementation": "cpp",
+      "verified": true,
+      "sqlite": "3.53.2",
+      "workers": 1,
+      "counts": [
+        5,
+        4,
+        0,
+        0,
+        0,
+        0,
+        1,
+        3
+      ],
+      "digests": [
+        6589126907175393823,
+        6513644493053763794,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        16310295492857740858,
+        16932732572230737452
+      ],
+      "peak_rss_bytes": 3571712,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/hand.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 11
+    },
+    {
+      "implementation": "cpp_simd",
+      "verified": true,
+      "sqlite": "3.53.2",
+      "workers": 1,
+      "counts": [
+        5,
+        4,
+        0,
+        0,
+        0,
+        0,
+        1,
+        3
+      ],
+      "digests": [
+        6589126907175393823,
+        6513644493053763794,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        16310295492857740858,
+        16932732572230737452
+      ],
+      "peak_rss_bytes": 3571712,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/hand.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 11
+    },
+    {
+      "counts": [
+        5,
+        4,
+        0,
+        0,
+        0,
+        0,
+        1,
+        3
+      ],
+      "digests": [
+        6589126907175393823,
+        6513644493053763794,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        5344244055534522403,
+        16310295492857740858,
+        16932732572230737452
+      ],
+      "implementation": "rust",
+      "sorted": true,
+      "sqlite": "3.53.2",
+      "verified": true,
+      "workers": 1,
+      "peak_rss_bytes": 3964928,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/hand.sqlite",
+        "1",
+        "verify",
+        "1",
+        "sorted"
+      ],
+      "rows": 11
+    },
+    {
+      "counts": [
+        7000,
+        1695,
+        412,
+        255,
+        939,
+        1001,
+        5365,
+        167
+      ],
+      "digests": [
+        1672120506813440832,
+        13977942161223766943,
+        15832498287151679193,
+        3157095052055083462,
+        8671133740142384149,
+        7830835187370020929,
+        1594625061166931554,
+        10783339151053120608
+      ],
+      "implementation": "rust",
+      "sorted": false,
+      "sqlite": "3.53.2",
+      "verified": true,
+      "workers": 1,
+      "peak_rss_bytes": 9994240,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 10000
+    },
+    {
+      "implementation": "cpp",
+      "verified": true,
+      "sqlite": "3.53.2",
+      "workers": 1,
+      "counts": [
+        7000,
+        1695,
+        412,
+        255,
+        939,
+        1001,
+        5365,
+        167
+      ],
+      "digests": [
+        1672120506813440832,
+        13977942161223766943,
+        15832498287151679193,
+        3157095052055083462,
+        8671133740142384149,
+        7830835187370020929,
+        1594625061166931554,
+        10783339151053120608
+      ],
+      "peak_rss_bytes": 10387456,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 10000
+    },
+    {
+      "implementation": "cpp_simd",
+      "verified": true,
+      "sqlite": "3.53.2",
+      "workers": 1,
+      "counts": [
+        7000,
+        1695,
+        412,
+        255,
+        939,
+        1001,
+        5365,
+        167
+      ],
+      "digests": [
+        1672120506813440832,
+        13977942161223766943,
+        15832498287151679193,
+        3157095052055083462,
+        8671133740142384149,
+        7830835187370020929,
+        1594625061166931554,
+        10783339151053120608
+      ],
+      "peak_rss_bytes": 8929280,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 10000
+    },
+    {
+      "counts": [
+        7000,
+        1695,
+        412,
+        255,
+        939,
+        1001,
+        5365,
+        167
+      ],
+      "digests": [
+        1672120506813440832,
+        13977942161223766943,
+        15832498287151679193,
+        3157095052055083462,
+        8671133740142384149,
+        7830835187370020929,
+        1594625061166931554,
+        10783339151053120608
+      ],
+      "implementation": "rust",
+      "sorted": true,
+      "sqlite": "3.53.2",
+      "verified": true,
+      "workers": 1,
+      "peak_rss_bytes": 9977856,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "sorted"
+      ],
+      "rows": 10000
+    },
+    {
+      "counts": [
+        70174,
+        17099,
+        4093,
+        2614,
+        8689,
+        11217,
+        54149,
+        1641
+      ],
+      "digests": [
+        14966605751799854278,
+        5257530464256973587,
+        12107672864910451968,
+        9152593673955076324,
+        1422474267757825336,
+        9563279465888969268,
+        10249293645015645500,
+        15670654979173510919
+      ],
+      "implementation": "rust",
+      "sorted": false,
+      "sqlite": "3.53.2",
+      "verified": true,
+      "workers": 1,
+      "peak_rss_bytes": 59228160,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 100000
+    },
+    {
+      "implementation": "cpp",
+      "verified": true,
+      "sqlite": "3.53.2",
+      "workers": 1,
+      "counts": [
+        70174,
+        17099,
+        4093,
+        2614,
+        8689,
+        11217,
+        54149,
+        1641
+      ],
+      "digests": [
+        14966605751799854278,
+        5257530464256973587,
+        12107672864910451968,
+        9152593673955076324,
+        1422474267757825336,
+        9563279465888969268,
+        10249293645015645500,
+        15670654979173510919
+      ],
+      "peak_rss_bytes": 58228736,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 100000
+    },
+    {
+      "implementation": "cpp_simd",
+      "verified": true,
+      "sqlite": "3.53.2",
+      "workers": 1,
+      "counts": [
+        70174,
+        17099,
+        4093,
+        2614,
+        8689,
+        11217,
+        54149,
+        1641
+      ],
+      "digests": [
+        14966605751799854278,
+        5257530464256973587,
+        12107672864910451968,
+        9152593673955076324,
+        1422474267757825336,
+        9563279465888969268,
+        10249293645015645500,
+        15670654979173510919
+      ],
+      "peak_rss_bytes": 56131584,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "native"
+      ],
+      "rows": 100000
+    },
+    {
+      "counts": [
+        70174,
+        17099,
+        4093,
+        2614,
+        8689,
+        11217,
+        54149,
+        1641
+      ],
+      "digests": [
+        14966605751799854278,
+        5257530464256973587,
+        12107672864910451968,
+        9152593673955076324,
+        1422474267757825336,
+        9563279465888969268,
+        10249293645015645500,
+        15670654979173510919
+      ],
+      "implementation": "rust",
+      "sorted": true,
+      "sqlite": "3.53.2",
+      "verified": true,
+      "workers": 1,
+      "peak_rss_bytes": 59244544,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "verify",
+        "1",
+        "sorted"
+      ],
+      "rows": 100000
+    }
+  ],
+  "measurements": [
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.001447125,
+        0.001451,
+        0.001450042,
+        0.001468,
+        0.001465417
+      ],
+      "sqlite": "3.53.2",
+      "stage": "import",
+      "workers": 1,
+      "peak_rss_bytes": 5734400,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002224,
+        0.002195959,
+        0.002162584,
+        0.002176625,
+        0.002170125
+      ],
+      "peak_rss_bytes": 5160960,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001985792,
+        0.001958834,
+        0.001977708,
+        0.001977208,
+        0.001972584
+      ],
+      "peak_rss_bytes": 4718592,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002098417,
+        0.002253083,
+        0.002193666,
+        0.002132459,
+        0.002249708
+      ],
+      "peak_rss_bytes": 5144576,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001781917,
+        0.001923125,
+        0.00199275,
+        0.001945916,
+        0.00197925
+      ],
+      "peak_rss_bytes": 4718592,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.001394875,
+        0.001498875,
+        0.001448542,
+        0.001486,
+        0.001453167
+      ],
+      "sqlite": "3.53.2",
+      "stage": "import",
+      "workers": 1,
+      "peak_rss_bytes": 5685248,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001922875,
+        0.001928083,
+        0.001916708,
+        0.001928042,
+        0.001925166
+      ],
+      "peak_rss_bytes": 4718592,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.001451958,
+        0.001513291,
+        0.001558333,
+        0.00146125,
+        0.001482625
+      ],
+      "sqlite": "3.53.2",
+      "stage": "import",
+      "workers": 1,
+      "peak_rss_bytes": 5668864,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002010458,
+        0.002084875,
+        0.002124625,
+        0.002226625,
+        0.002091834
+      ],
+      "peak_rss_bytes": 5144576,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.001395167,
+        0.001359625,
+        0.00142275,
+        0.001388667,
+        0.001346167
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 8765440,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002085,
+        0.002094834,
+        0.002036416,
+        0.002075959,
+        0.002116416
+      ],
+      "peak_rss_bytes": 8486912,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001606417,
+        0.001557958,
+        0.001546709,
+        0.001541584,
+        0.001577916
+      ],
+      "peak_rss_bytes": 7356416,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002069667,
+        0.002101417,
+        0.002092292,
+        0.002213166,
+        0.002020209
+      ],
+      "peak_rss_bytes": 8454144,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001605709,
+        0.001569875,
+        0.001653083,
+        0.001624625,
+        0.001540583
+      ],
+      "peak_rss_bytes": 7405568,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.001383541,
+        0.001358167,
+        0.001360375,
+        0.001513917,
+        0.001413208
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 8798208,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001586167,
+        0.001571625,
+        0.001563958,
+        0.001667625,
+        0.001579041
+      ],
+      "peak_rss_bytes": 7405568,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.001392042,
+        0.001370166,
+        0.001388458,
+        0.001372875,
+        0.001516208
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 8667136,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001995792,
+        0.002053833,
+        0.002087334,
+        0.002099417,
+        0.002045417
+      ],
+      "peak_rss_bytes": 8486912,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "sorted",
+      "rows": 10000,
+      "seconds": [
+        0.001367334,
+        0.001378666,
+        0.001367334,
+        0.001560959,
+        0.001396375
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 8634368,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002077375,
+        0.00216275,
+        0.002139458,
+        0.002114375,
+        0.002103125
+      ],
+      "peak_rss_bytes": 8470528,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001568625,
+        0.001717375,
+        0.001533,
+        0.001569833,
+        0.001560584
+      ],
+      "peak_rss_bytes": 7405568,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002211416,
+        0.002102375,
+        0.002088375,
+        0.002104458,
+        0.002121417
+      ],
+      "peak_rss_bytes": 8454144,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001610333,
+        0.0015775,
+        0.001564042,
+        0.001568125,
+        0.00155525
+      ],
+      "peak_rss_bytes": 7405568,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "sorted",
+      "rows": 10000,
+      "seconds": [
+        0.001330667,
+        0.001390958,
+        0.00139675,
+        0.001387791,
+        0.001389792
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 8716288,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001658833,
+        0.001552333,
+        0.001578,
+        0.001553166,
+        0.0015625
+      ],
+      "peak_rss_bytes": 7356416,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "sorted",
+      "rows": 10000,
+      "seconds": [
+        0.0015455,
+        0.001408833,
+        0.001390417,
+        0.001362083,
+        0.001362875
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 8716288,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.002135708,
+        0.00197975,
+        0.00213475,
+        0.002187875,
+        0.002269541
+      ],
+      "peak_rss_bytes": 8454144,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.000676875,
+        0.000654666,
+        0.000687417,
+        0.000640625,
+        0.000683208
+      ],
+      "sqlite": "3.53.2",
+      "stage": "variants",
+      "workers": 1,
+      "peak_rss_bytes": 10715136,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001687417,
+        0.001844542,
+        0.001773959,
+        0.001753125,
+        0.001735125
+      ],
+      "peak_rss_bytes": 10223616,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001257417,
+        0.001200292,
+        0.001197,
+        0.001241167,
+        0.001212458
+      ],
+      "peak_rss_bytes": 9125888,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001682542,
+        0.001662875,
+        0.001678708,
+        0.001668708,
+        0.001647083
+      ],
+      "peak_rss_bytes": 10272768,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001332917,
+        0.001272167,
+        0.001248666,
+        0.001250125,
+        0.001335417
+      ],
+      "peak_rss_bytes": 9125888,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.000665542,
+        0.000683458,
+        0.000680958,
+        0.000654875,
+        0.0006565
+      ],
+      "sqlite": "3.53.2",
+      "stage": "variants",
+      "workers": 1,
+      "peak_rss_bytes": 10698752,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001209917,
+        0.001155167,
+        0.001143542,
+        0.001134625,
+        0.001128125
+      ],
+      "peak_rss_bytes": 9093120,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.000671,
+        0.000650541,
+        0.000639458,
+        0.000652875,
+        0.000645458
+      ],
+      "sqlite": "3.53.2",
+      "stage": "variants",
+      "workers": 1,
+      "peak_rss_bytes": 10600448,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.001774,
+        0.001754834,
+        0.0017025,
+        0.001682666,
+        0.001668125
+      ],
+      "peak_rss_bytes": 10240000,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.003702,
+        0.003652083,
+        0.003627375,
+        0.003626042,
+        0.003643916
+      ],
+      "sqlite": "3.53.2",
+      "stage": "complete",
+      "workers": 1,
+      "peak_rss_bytes": 10846208,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.006034291,
+        0.006072708,
+        0.006018541,
+        0.006438,
+        0.007295542
+      ],
+      "peak_rss_bytes": 10338304,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.004826084,
+        0.004792209,
+        0.0048405,
+        0.004595959,
+        0.004836
+      ],
+      "peak_rss_bytes": 9158656,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.006161708,
+        0.006018834,
+        0.005971166,
+        0.006092125,
+        0.006012625
+      ],
+      "peak_rss_bytes": 10354688,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.004713625,
+        0.0044705,
+        0.004746625,
+        0.004653042,
+        0.004669917
+      ],
+      "peak_rss_bytes": 9158656,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.003550708,
+        0.003522042,
+        0.003502791,
+        0.003564958,
+        0.003501042
+      ],
+      "sqlite": "3.53.2",
+      "stage": "complete",
+      "workers": 1,
+      "peak_rss_bytes": 10960896,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.004897125,
+        0.004828375,
+        0.0047565,
+        0.004728083,
+        0.004707792
+      ],
+      "peak_rss_bytes": 9142272,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 10000,
+      "seconds": [
+        0.003690083,
+        0.003544625,
+        0.003528917,
+        0.003516125,
+        0.003482125
+      ],
+      "sqlite": "3.53.2",
+      "stage": "complete",
+      "workers": 1,
+      "peak_rss_bytes": 10731520,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 10000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.006042375,
+        0.006193167,
+        0.005990542,
+        0.006013916,
+        0.006032667
+      ],
+      "peak_rss_bytes": 10354688,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/10000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.014816833,
+        0.014949041,
+        0.01492075,
+        0.014861125,
+        0.014848459
+      ],
+      "sqlite": "3.53.2",
+      "stage": "import",
+      "workers": 1,
+      "peak_rss_bytes": 22396928,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.022014875,
+        0.022007583,
+        0.022221375,
+        0.022181291,
+        0.022363583
+      ],
+      "peak_rss_bytes": 19955712,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.019618084,
+        0.019512584,
+        0.019606041,
+        0.019476167,
+        0.019545625
+      ],
+      "peak_rss_bytes": 16498688,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.021970208,
+        0.021767125,
+        0.021819167,
+        0.021810834,
+        0.021877208
+      ],
+      "peak_rss_bytes": 19955712,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.019487541,
+        0.019453167,
+        0.019639334,
+        0.019538833,
+        0.019550292
+      ],
+      "peak_rss_bytes": 16498688,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.014652958,
+        0.014449541,
+        0.014434208,
+        0.014418792,
+        0.014433666
+      ],
+      "sqlite": "3.53.2",
+      "stage": "import",
+      "workers": 1,
+      "peak_rss_bytes": 22380544,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.019637583,
+        0.019513125,
+        0.019537833,
+        0.019534791,
+        0.019537458
+      ],
+      "peak_rss_bytes": 16498688,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.014540084,
+        0.014593791,
+        0.014493708,
+        0.014484208,
+        0.014527959
+      ],
+      "sqlite": "3.53.2",
+      "stage": "import",
+      "workers": 1,
+      "peak_rss_bytes": 22380544,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "import",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.021601583,
+        0.02153575,
+        0.021522458,
+        0.021473,
+        0.0213805
+      ],
+      "peak_rss_bytes": 19988480,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "import",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.014793,
+        0.014841292,
+        0.014749959,
+        0.014688542,
+        0.014657916
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 54738944,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.025543541,
+        0.025365375,
+        0.025499042,
+        0.025610875,
+        0.025665333
+      ],
+      "peak_rss_bytes": 49807360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.020392916,
+        0.020608959,
+        0.020598,
+        0.020338917,
+        0.020373334
+      ],
+      "peak_rss_bytes": 41615360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.026336084,
+        0.026112083,
+        0.025770709,
+        0.025593083,
+        0.026113667
+      ],
+      "peak_rss_bytes": 49823744,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.020726167,
+        0.021203125,
+        0.020833042,
+        0.020700333,
+        0.020743084
+      ],
+      "peak_rss_bytes": 41615360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.015299,
+        0.014996583,
+        0.014945916,
+        0.014948125,
+        0.0158395
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 54607872,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.022191416,
+        0.024133333,
+        0.021674958,
+        0.023859667,
+        0.022766667
+      ],
+      "peak_rss_bytes": 41615360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.016180625,
+        0.016059792,
+        0.019933959,
+        0.016958708,
+        0.015587083
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 54624256,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.026575083,
+        0.025885083,
+        0.02665625,
+        0.026068667,
+        0.025817417
+      ],
+      "peak_rss_bytes": 49807360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "sorted",
+      "rows": 100000,
+      "seconds": [
+        0.015525958,
+        0.015916709,
+        0.016016333,
+        0.0160155,
+        0.015997209
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 54706176,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.027229667,
+        0.02760875,
+        0.026819167,
+        0.026688583,
+        0.026632125
+      ],
+      "peak_rss_bytes": 49807360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.02143375,
+        0.021258666,
+        0.021499042,
+        0.02106675,
+        0.021415416
+      ],
+      "peak_rss_bytes": 41615360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.026765041,
+        0.026704791,
+        0.026461375,
+        0.026669958,
+        0.026664291
+      ],
+      "peak_rss_bytes": 49905664,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.021283833,
+        0.021479583,
+        0.021128,
+        0.021106959,
+        0.021087459
+      ],
+      "peak_rss_bytes": 41615360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "sorted",
+      "rows": 100000,
+      "seconds": [
+        0.016078833,
+        0.015954792,
+        0.016204167,
+        0.016046625,
+        0.015997792
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 54624256,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.021148583,
+        0.021215833,
+        0.021097541,
+        0.02131425,
+        0.026821125
+      ],
+      "peak_rss_bytes": 41615360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "sorted",
+      "rows": 100000,
+      "seconds": [
+        0.01921575,
+        0.01803625,
+        0.019914584,
+        0.018973959,
+        0.020456125
+      ],
+      "sqlite": "3.53.2",
+      "stage": "prepare",
+      "workers": 1,
+      "peak_rss_bytes": 54722560,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "prepare",
+      "index": "sorted",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.02601875,
+        0.025744708,
+        0.025459083,
+        0.026155584,
+        0.025961917
+      ],
+      "peak_rss_bytes": 49823744,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "prepare",
+        "5",
+        "sorted"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.006429458,
+        0.006355541,
+        0.0066005,
+        0.006523083,
+        0.006344125
+      ],
+      "sqlite": "3.53.2",
+      "stage": "variants",
+      "workers": 1,
+      "peak_rss_bytes": 69976064,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.018212166,
+        0.017695542,
+        0.017904458,
+        0.017809375,
+        0.017893584
+      ],
+      "peak_rss_bytes": 64929792,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.013668166,
+        0.013149042,
+        0.012957458,
+        0.012749042,
+        0.013124958
+      ],
+      "peak_rss_bytes": 57769984,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.017799,
+        0.01745,
+        0.017593375,
+        0.017352542,
+        0.017549917
+      ],
+      "peak_rss_bytes": 64946176,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.014423792,
+        0.013000792,
+        0.012984084,
+        0.012476209,
+        0.012415084
+      ],
+      "peak_rss_bytes": 57802752,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.006642125,
+        0.006563167,
+        0.006694292,
+        0.006744166,
+        0.006742542
+      ],
+      "sqlite": "3.53.2",
+      "stage": "variants",
+      "workers": 1,
+      "peak_rss_bytes": 69959680,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.013173,
+        0.013156334,
+        0.013447916,
+        0.013111875,
+        0.013072709
+      ],
+      "peak_rss_bytes": 57802752,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.006478333,
+        0.006541042,
+        0.0065305,
+        0.00662275,
+        0.007030667
+      ],
+      "sqlite": "3.53.2",
+      "stage": "variants",
+      "workers": 1,
+      "peak_rss_bytes": 70074368,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "variants",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.017695416,
+        0.017574959,
+        0.017645292,
+        0.017539709,
+        0.018228958
+      ],
+      "peak_rss_bytes": 65060864,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "variants",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.037108416,
+        0.036802583,
+        0.037165834,
+        0.038588708,
+        0.037386958
+      ],
+      "sqlite": "3.53.2",
+      "stage": "complete",
+      "workers": 1,
+      "peak_rss_bytes": 74563584,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.067903084,
+        0.066429834,
+        0.067575917,
+        0.069356416,
+        0.067842708
+      ],
+      "peak_rss_bytes": 65011712,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.054029625,
+        0.053199709,
+        0.053762041,
+        0.053331959,
+        0.053287875
+      ],
+      "peak_rss_bytes": 57901056,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 0
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.067147083,
+        0.066765292,
+        0.067706917,
+        0.068427583,
+        0.068426667
+      ],
+      "peak_rss_bytes": 64978944,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.053875709,
+        0.053728625,
+        0.053680583,
+        0.055280333,
+        0.055514375
+      ],
+      "peak_rss_bytes": 57917440,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.03787025,
+        0.037591583,
+        0.037381166,
+        0.038026917,
+        0.037758708
+      ],
+      "sqlite": "3.53.2",
+      "stage": "complete",
+      "workers": 1,
+      "peak_rss_bytes": 74596352,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 1
+    },
+    {
+      "implementation": "cpp_simd",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.054411,
+        0.054295791,
+        0.055445042,
+        0.055601375,
+        0.053998292
+      ],
+      "peak_rss_bytes": 57901056,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow_simd",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "rust",
+      "index": "native",
+      "rows": 100000,
+      "seconds": [
+        0.037076708,
+        0.038464458,
+        0.038563833,
+        0.037929916,
+        0.037129708
+      ],
+      "sqlite": "3.53.2",
+      "stage": "complete",
+      "workers": 1,
+      "peak_rss_bytes": 74563584,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 2
+    },
+    {
+      "implementation": "cpp",
+      "rows": 100000,
+      "workers": 1,
+      "stage": "complete",
+      "index": "native",
+      "sqlite": "3.53.2",
+      "seconds": [
+        0.067556917,
+        0.065511708,
+        0.065993625,
+        0.0664435,
+        0.066894417
+      ],
+      "peak_rss_bytes": 65028096,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/order-workflow/cpp/gd_order_workflow",
+        "/Users/kjn/repos/gd-rs/target/order-workflow/fixtures-yrc7c0zo/100000.sqlite",
+        "1",
+        "complete",
+        "5",
+        "native"
+      ],
+      "round": 2
+    }
+  ],
+  "rejection_checks": [
+    {
+      "implementation": "rust",
+      "case": "gross_overflow",
+      "returncode": 101,
+      "stderr": "\nthread 'main' (17589797) panicked at benches/order_workflow/workload.rs:123:70:\ncalled `Option::unwrap()` on a `None` value\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "implementation": "cpp",
+      "case": "gross_overflow",
+      "returncode": 1,
+      "stderr": "amount multiplication overflow\n"
+    },
+    {
+      "implementation": "cpp_simd",
+      "case": "gross_overflow",
+      "returncode": 1,
+      "stderr": "amount multiplication overflow\n"
+    },
+    {
+      "implementation": "rust",
+      "case": "discount_overflow",
+      "returncode": 101,
+      "stderr": "\nthread '<unnamed>' (17589811) panicked at benches/order_workflow/workload.rs:164:14:\ncalled `Option::unwrap()` on a `None` value\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "implementation": "cpp",
+      "case": "discount_overflow",
+      "returncode": 1,
+      "stderr": "amount multiplication overflow\n"
+    },
+    {
+      "implementation": "cpp_simd",
+      "case": "discount_overflow",
+      "returncode": 1,
+      "stderr": "amount multiplication overflow\n"
+    },
+    {
+      "implementation": "rust",
+      "case": "invalid_discount",
+      "returncode": 101,
+      "stderr": "\nthread 'main' (17589822) panicked at benches/order_workflow/driver.rs:156:9:\ninvalid variant parameters\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "implementation": "cpp",
+      "case": "invalid_discount",
+      "returncode": 1,
+      "stderr": "invalid variant parameters\n"
+    },
+    {
+      "implementation": "cpp_simd",
+      "case": "invalid_discount",
+      "returncode": 1,
+      "stderr": "invalid variant parameters\n"
+    }
+  ],
+  "sizes": {
+    "rust_application": {
+      "files": [
+        "benches/order_workflow/workload.rs"
+      ],
+      "lines": 175,
+      "nonblank_lines": 164,
+      "bytes": 5862
+    },
+    "rust_selection_library": {
+      "files": [
+        "src/table/selection.rs"
+      ],
+      "lines": 175,
+      "nonblank_lines": 167,
+      "bytes": 7045
+    },
+    "rust_driver": {
+      "files": [
+        "benches/order_workflow/driver.rs"
+      ],
+      "lines": 220,
+      "nonblank_lines": 214,
+      "bytes": 7675
+    },
+    "cpp_application_and_adapters": {
+      "files": [
+        "benches/cpp-reference/order_workflow/workload.hpp"
+      ],
+      "lines": 154,
+      "nonblank_lines": 153,
+      "bytes": 7541
+    },
+    "cpp_simd_adapter": {
+      "files": [
+        "benches/cpp-reference/order_workflow/simd_table.hpp"
+      ],
+      "lines": 106,
+      "nonblank_lines": 105,
+      "bytes": 5443
+    },
+    "cpp_driver_and_pool": {
+      "files": [
+        "benches/cpp-reference/order_workflow/driver.cpp",
+        "benches/cpp-reference/order_workflow/pool.hpp"
+      ],
+      "lines": 215,
+      "nonblank_lines": 212,
+      "bytes": 11097
+    },
+    "shared_fixture_and_runner": {
+      "files": [
+        "benches/order_workflow/fixture.py",
+        "benches/order_workflow/compare.py"
+      ],
+      "lines": 359,
+      "nonblank_lines": 331,
+      "bytes": 19384
+    },
+    "rust_api_tests": {
+      "files": [
+        "tests/table_selection.rs"
+      ],
+      "lines": 128,
+      "nonblank_lines": 124,
+      "bytes": 4603
+    },
+    "rust_executable": {
+      "unstripped_bytes": 2649600,
+      "stripped_bytes": 2384256,
+      "dynamic_libraries": "/Users/kjn/repos/gd-rs/target/order-workflow/rust-stripped:\n\t/usr/lib/libiconv.2.dylib (compatibility version 7.0.0, current version 7.0.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)"
+    },
+    "cpp_executable": {
+      "unstripped_bytes": 1401952,
+      "stripped_bytes": 1325104,
+      "dynamic_libraries": "/Users/kjn/repos/gd-rs/target/order-workflow/cpp-stripped:\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2200.27.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)"
+    },
+    "cpp_simd_executable": {
+      "unstripped_bytes": 1402328,
+      "stripped_bytes": 1324960,
+      "dynamic_libraries": "/Users/kjn/repos/gd-rs/target/order-workflow/cpp_simd-stripped:\n\t/usr/lib/libc++.1.dylib (compatibility version 1.0.0, current version 2200.27.0)\n\t/usr/lib/libSystem.B.dylib (compatibility version 1.0.0, current version 1359.0.0)"
+    }
+  }
+}

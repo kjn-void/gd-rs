@@ -124,6 +124,15 @@ add_executable(gd_order_workflow order_workflow/driver.cpp)
 target_compile_features(gd_order_workflow PRIVATE cxx_std_20)
 target_link_libraries(gd_order_workflow PRIVATE gd::core Threads::Threads)
 
+add_executable(gd_order_workflow_simd
+    order_workflow/driver.cpp
+    "${GD_SIMD_GENERATED_DIR}/gd_table_simd.cpp"
+)
+target_compile_features(gd_order_workflow_simd PRIVATE cxx_std_20)
+target_compile_definitions(gd_order_workflow_simd PRIVATE GD_WORKFLOW_SIMD)
+target_include_directories(gd_order_workflow_simd BEFORE PRIVATE "${GD_SIMD_GENERATED_DIR}")
+target_link_libraries(gd_order_workflow_simd PRIVATE gd::core Threads::Threads)
+
 add_executable(gd_order_workflow_probes order_workflow/probes.cpp)
 target_compile_features(gd_order_workflow_probes PRIVATE cxx_std_20)
 target_link_libraries(gd_order_workflow_probes PRIVATE gd::core)
