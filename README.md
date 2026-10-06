@@ -59,6 +59,7 @@ The implemented core currently provides:
 - [Interchange formats](docs/high-level/format.md)
 - [SQLite adapter](docs/high-level/sqlite.md)
 - [Benchmark methodology and results](docs/high-level/performance.md)
+- [Rust benchmarks and examples in VS Code](docs/high-level/rust-debugging.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
 - [libc memory-operation scaling](docs/high-level/perf_memory.md)
 

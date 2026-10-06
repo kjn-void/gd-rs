@@ -1,0 +1,567 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Rust example: order_workflow",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--example",
+          "order_workflow",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "order_workflow",
+          "kind": "example"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "${workspaceFolder}/target/vscode-rust/order-workflow-small.sqlite",
+        "${input:workflowWorkers}",
+        "${input:workflowStage}",
+        "1",
+        "${input:workflowIndex}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated",
+      "preLaunchTask": "Rust: prepare order-workflow fixture"
+    },
+    {
+      "name": "Rust benchmark: arguments",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "arguments",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "arguments",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: binary",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "binary",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "binary",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: expression",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "expression",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "expression",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: format",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "format",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "format",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: nullable_maximum",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "nullable_maximum",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "nullable_maximum",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: par_benchmark",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "par_benchmark",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "par_benchmark",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated",
+      "env": {
+        "GD_PAR_ROWS": "10000",
+        "GD_PAR_MAX_ARG": "8",
+        "GD_PAR_WARMUPS": "0",
+        "GD_PAR_REPETITIONS": "1",
+        "RAYON_NUM_THREADS": "4"
+      }
+    },
+    {
+      "name": "Rust benchmark: price_total",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "price_total",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "price_total",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: price_total_500k",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "price_total_500k",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "price_total_500k",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: simd_comments",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "simd_comments",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "simd_comments",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "soa"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: sqlite",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "sqlite",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "sqlite",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: sqlite_to_table",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "sqlite_to_table",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "sqlite_to_table",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: table",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "table",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "table",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: table_copy",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "table_copy",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "table_copy",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: table_nightly_simd (nightly)",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "+nightly",
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "table_nightly_simd",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "table_nightly_simd",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "RUSTFLAGS": "--cfg nightly_simd",
+          "CARGO_TARGET_DIR": "${workspaceFolder}/target/vscode-rust-nightly"
+        }
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: text",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "text",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "text",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    },
+    {
+      "name": "Rust benchmark: value",
+      "type": "lldb",
+      "request": "launch",
+      "cargo": {
+        "args": [
+          "build",
+          "--locked",
+          "--all-features",
+          "--bench",
+          "value",
+          "--profile",
+          "dev"
+        ],
+        "filter": {
+          "name": "value",
+          "kind": "bench"
+        },
+        "cwd": "${workspaceFolder}"
+      },
+      "args": [
+        "--test",
+        "${input:benchmarkFilter}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": [
+        "rust"
+      ],
+      "terminal": "integrated"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "benchmarkFilter",
+      "type": "promptString",
+      "description": "Criterion benchmark name filter (empty runs all cases once)",
+      "default": ""
+    },
+    {
+      "id": "workflowWorkers",
+      "type": "pickString",
+      "description": "Order-workflow workers",
+      "options": [
+        "1",
+        "2",
+        "4",
+        "8"
+      ],
+      "default": "4"
+    },
+    {
+      "id": "workflowStage",
+      "type": "pickString",
+      "description": "Order-workflow stage",
+      "options": [
+        "verify",
+        "import",
+        "prepare",
+        "variants",
+        "complete"
+      ],
+      "default": "verify"
+    },
+    {
+      "id": "workflowIndex",
+      "type": "pickString",
+      "description": "Order-workflow index",
+      "options": [
+        "native",
+        "sorted"
+      ],
+      "default": "native"
+    }
+  ]
+}

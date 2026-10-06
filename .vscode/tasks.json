@@ -1,0 +1,81 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Rust: prepare order-workflow fixture",
+      "type": "process",
+      "command": "python3",
+      "windows": {
+        "command": "python"
+      },
+      "args": [
+        "-c",
+        "from pathlib import Path; import sys; sys.path.insert(0, str(Path.cwd() / 'benches' / 'order_workflow')); from fixture import generate; path = Path('target/vscode-rust/order-workflow-small.sqlite'); generate(path, small=True) if not path.exists() else None"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Rust: build benchmarks and examples (Debug)",
+      "type": "process",
+      "command": "cargo",
+      "args": [
+        "build",
+        "--locked",
+        "--all-features",
+        "--benches",
+        "--examples",
+        "--profile",
+        "dev"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Rust: check all targets",
+      "type": "process",
+      "command": "cargo",
+      "args": [
+        "check",
+        "--locked",
+        "--all-targets",
+        "--all-features"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$rustc"
+      ]
+    },
+    {
+      "label": "Rust: test library and integration tests",
+      "type": "process",
+      "command": "cargo",
+      "args": [
+        "test",
+        "--locked",
+        "--lib",
+        "--tests",
+        "--all-features"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": [
+        "$rustc"
+      ],
+      "group": "test"
+    }
+  ]
+}

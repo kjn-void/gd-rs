@@ -1,5 +1,10 @@
 # Order workflow
 
+For interactive Rust debugging, open the repository root in VS Code and select
+`Rust example: order_workflow`. Its launch configuration builds the example and
+prepares a small SQLite fixture automatically. See the
+[Rust debugging guide](../../docs/high-level/rust-debugging.md).
+
 From the repository root:
 
 ```sh
