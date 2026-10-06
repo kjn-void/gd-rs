@@ -2,7 +2,7 @@
 
 `Table` combines a shared immutable `Arc<Schema>` with one typed vector per column.
 `Row` and `Column` are borrowing views; ordinary cell access returns `ValueRef`, while
-required fixed-width columns can also expose a checked typed slice. Independent
+fixed-width columns also expose checked required or nullable typed slices. Independent
 tables with the same layout can share all schema metadata without sharing row data.
 
 ```mermaid
@@ -278,6 +278,38 @@ returns the required column as `&[T]`. It supports Boolean, fixed-width integer,
 floating-point, and UUID columns. A wrong type returns `ColumnSliceError::TypeMismatch`;
 a nullable column returns `ColumnSliceError::Nullable`.
 
+`Column::as_nullable_slice::<T>` exposes nullable storage as `&[Option<T>]` for the
+same fixed-width types. It checks type and nullability once, leaving only ordinary
+typed indexing and optional-value handling inside the loop. A required column
+returns `ColumnSliceError::Required`; a wrong element type returns `TypeMismatch`.
+The schema controls which interface applies even when a nullable column contains no
+nulls. This does not change storage: required columns use `Vec<T>`, nullable columns
+use `Vec<Option<T>>`.
+
+Mutable output views offer `as_nullable_mut_slice::<T>` for bulk transforms that can
+retain, insert, or remove nulls:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+
+let schema = Schema::new([
+    ColumnSpec::new("amount", DataType::I64).nullable(true),
+])?;
+let mut table = Table::new(schema);
+table.push_row([Value::I64(25)])?;
+table.push_row([Value::Null])?;
+let (_, [amounts]) = table.columns_io([], [0])?;
+for amount in amounts.as_nullable_mut_slice::<i64>()? {
+    *amount = amount.map(|value| value * 2);
+}
+assert_eq!(table.column(0).unwrap().as_nullable_slice::<i64>()?, &[Some(50), None]);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+All typed slices include physical rows, including tombstoned rows. They do not
+change tombstone flags. `select_rows` can skip tombstones while a predicate reads
+typed values by row position, as in the [order workflow](order-workflow.md).
+
 The slice uses standard iterator operations rather than table-specific versions of
 `map`, `filter`, and `fold`:
 
@@ -356,8 +388,8 @@ For code that does not know the column type until runtime, `Column::for_each_val
 matches storage type and nullability once, then calls a `ValueRef` closure for every
 cell. This avoids the repeated storage dispatch and bounds check in `Column::iter`
 without fragmenting the dynamic value API. It is a terminal operation; use `iter` for
-composable or short-circuiting traversal, and `as_slice::<T>` for an explicitly typed
-loop.
+composable or short-circuiting traversal, and `as_slice::<T>` or
+`as_nullable_slice::<T>` for an explicitly typed loop.
 
 ## Parallel processing with Rayon
 

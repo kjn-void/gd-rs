@@ -33,6 +33,15 @@ rounds run Rust/DTO/SIMD, DTO/SIMD/Rust, SIMD/Rust/DTO. Additional groups of thr
 reverse that order. Each implementation occupies every execution position once
 per group; prefer a multiple of three rounds for published measurements.
 
+The Rust application binds nullable numeric columns once through
+`Column::as_nullable_slice::<i64>`, uses row positions for predicates and
+join-result materialization, and updates copied amounts through
+`ColumnMut::as_nullable_mut_slice::<i64>`.
+These operations preserve the nullable schemas and checked arithmetic.
+`query_table_with_schema` reuses one row staging buffer per imported query.
+The [current results](../../docs/high-level/order-workflow-results.md) describe
+these implementations and record hashes of every Rust source file.
+
 GD SIMD compiles the upstream `gd_table_simd.cpp` with the existing generated
 header that removes its syntax placeholder. All input, audit, clean, and variant
 values live in `gd::table::simd::table_8_8`. The counted

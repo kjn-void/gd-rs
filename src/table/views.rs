@@ -11,7 +11,7 @@ use crate::{DataType, ValueRef};
 use super::storage::{ColumnData, ColumnStorage};
 use super::{ColumnSpec, Table};
 
-/// Error returned when requesting a required typed slice from a column.
+/// Error returned when requesting a typed slice from a column.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 pub enum ColumnSliceError {
     /// The requested Rust element type does not match the schema type.
@@ -25,6 +25,12 @@ pub enum ColumnSliceError {
     /// Nullable storage cannot be represented as a dense `&[T]`.
     #[error("the {data_type} column is nullable and has no dense required-value slice")]
     Nullable {
+        /// Logical type declared by the column schema.
+        data_type: DataType,
+    },
+    /// Required storage cannot be borrowed as a slice of optional values.
+    #[error("the {data_type} column is required and has no nullable-value slice")]
+    Required {
         /// Logical type declared by the column schema.
         data_type: DataType,
     },
@@ -42,6 +48,14 @@ mod column_element_private {
         fn required_values_mut(
             column: ColumnMut<'_>,
         ) -> Result<&mut [Self], super::ColumnSliceError>;
+
+        fn nullable_values(
+            column: super::Column<'_>,
+        ) -> Result<&[Option<Self>], super::ColumnSliceError>;
+
+        fn nullable_values_mut(
+            column: ColumnMut<'_>,
+        ) -> Result<&mut [Option<Self>], super::ColumnSliceError>;
     }
 
     macro_rules! impl_column_element {
@@ -82,6 +96,40 @@ mod column_element_private {
                         }),
                     }
                 }
+
+                fn nullable_values(
+                    column: super::Column<'_>,
+                ) -> Result<&[Option<Self>], super::ColumnSliceError> {
+                    match column.storage {
+                        ColumnStorage::$storage(ColumnData::Nullable(values)) => Ok(values),
+                        ColumnStorage::$storage(ColumnData::Required(_)) => {
+                            Err(super::ColumnSliceError::Required {
+                                data_type: column.spec.data_type(),
+                            })
+                        }
+                        _ => Err(super::ColumnSliceError::TypeMismatch {
+                            expected: Self::DATA_TYPE,
+                            actual: column.spec.data_type(),
+                        }),
+                    }
+                }
+
+                fn nullable_values_mut(
+                    column: ColumnMut<'_>,
+                ) -> Result<&mut [Option<Self>], super::ColumnSliceError> {
+                    match column.storage {
+                        ColumnStorage::$storage(ColumnData::Nullable(values)) => Ok(values),
+                        ColumnStorage::$storage(ColumnData::Required(_)) => {
+                            Err(super::ColumnSliceError::Required {
+                                data_type: column.spec.data_type(),
+                            })
+                        }
+                        _ => Err(super::ColumnSliceError::TypeMismatch {
+                            expected: Self::DATA_TYPE,
+                            actual: column.spec.data_type(),
+                        }),
+                    }
+                }
             }
         };
     }
@@ -100,7 +148,7 @@ mod column_element_private {
     impl_column_element!(Uuid, Uuid, Uuid);
 }
 
-/// A fixed-width Rust type that can borrow a required table column as a slice.
+/// A fixed-width Rust type that can borrow a table column as a typed slice.
 ///
 /// This trait is sealed. It is implemented for `bool`, the fixed-width integer
 /// and floating-point primitives, and [`Uuid`].
@@ -176,6 +224,34 @@ impl<'a> Column<'a> {
         <T as column_element_private::Sealed>::required_values(self)
     }
 
+    /// Borrows a nullable fixed-width column as a contiguous slice of options.
+    ///
+    /// Type and nullability are checked once. Each physical row has one element:
+    /// `None` represents null, and `Some(value)` contains the typed value. The
+    /// slice includes tombstoned rows and does not copy or wrap cells in `ValueRef`.
+    /// A nullable column uses this interface even when every cell is populated.
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, DataType, Schema, Table, Value};
+    /// let schema = Schema::new([
+    ///     ColumnSpec::new("amount", DataType::I64).nullable(true),
+    /// ])?;
+    /// let mut table = Table::new(schema);
+    /// table.push_row([Value::I64(25)])?;
+    /// table.push_row([Value::Null])?;
+    /// let amounts = table.column(0).unwrap().as_nullable_slice::<i64>()?;
+    /// assert_eq!(amounts, &[Some(25), None]);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
+    /// schema type, or [`ColumnSliceError::Required`] for a required column.
+    pub fn as_nullable_slice<T: ColumnElement>(self) -> Result<&'a [Option<T>], ColumnSliceError> {
+        <T as column_element_private::Sealed>::nullable_values(self)
+    }
+
     /// Iterates contiguously over this column.
     #[must_use]
     pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
@@ -187,8 +263,8 @@ impl<'a> Column<'a> {
     ///
     /// Unlike [`Column::iter`], this avoids repeating the `ColumnStorage` and
     /// `ColumnData` matches and bounds check for every cell. Values remain
-    /// dynamically represented as [`ValueRef`]; use [`Column::as_slice`] when
-    /// the fixed-width type is known and a fully typed loop is preferred.
+    /// dynamically represented as [`ValueRef`]; use [`Column::as_slice`] or
+    /// [`Column::as_nullable_slice`] for a fully typed fixed-width loop.
     pub fn for_each_value(self, mut operation: impl FnMut(ValueRef<'a>)) {
         macro_rules! copied {
             ($values:expr, $variant:ident) => {
@@ -304,6 +380,40 @@ impl<'a> ColumnMut<'a> {
     /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
     pub fn as_mut_slice<T: ColumnElement>(self) -> Result<&'a mut [T], ColumnSliceError> {
         <T as column_element_private::Sealed>::required_values_mut(self)
+    }
+
+    /// Borrows a nullable fixed-width column as a mutable slice of options.
+    ///
+    /// Type and nullability are checked once, then callers can replace values
+    /// with `Some(value)` or `None` without dynamic cell setters. The exclusive
+    /// borrow prevents table access while the slice is in use. All physical
+    /// rows are included; changing a value does not change its tombstone flag.
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+    /// let schema = Schema::new([
+    ///     ColumnSpec::new("amount", DataType::I64).nullable(true),
+    /// ])?;
+    /// let mut table = Table::new(schema);
+    /// table.push_row([Value::I64(25)])?;
+    /// table.push_row([Value::Null])?;
+    /// let (_, [amounts]) = table.columns_io([], [0])?;
+    /// for amount in amounts.as_nullable_mut_slice::<i64>()? {
+    ///     *amount = amount.map(|value| value * 2);
+    /// }
+    /// assert_eq!(table.cell(0, 0)?, ValueRef::I64(50));
+    /// assert_eq!(table.cell(1, 0)?, ValueRef::Null);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
+    /// schema type, or [`ColumnSliceError::Required`] for a required column.
+    pub fn as_nullable_mut_slice<T: ColumnElement>(
+        self,
+    ) -> Result<&'a mut [Option<T>], ColumnSliceError> {
+        <T as column_element_private::Sealed>::nullable_values_mut(self)
     }
 }
 

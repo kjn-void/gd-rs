@@ -373,8 +373,9 @@ copy cell payloads.
 
 ### Typed bulk column operations
 
-Required fixed-width columns can be checked once and borrowed as an ordinary typed
-slice. The supported element types are `bool`, the fixed-width integer and
+Fixed-width columns can be checked once and borrowed as ordinary typed slices:
+required columns expose `&[T]`, and nullable columns expose `&[Option<T>]`.
+The supported element types are `bool`, the fixed-width integer and
 floating-point primitives, and `Uuid`:
 
 ```rust
@@ -421,7 +422,44 @@ the table does not wrap them in a second collection API. `as_slice` performs run
 type and nullability checks once. It returns `ColumnSliceError::TypeMismatch` for the
 wrong `T` and `ColumnSliceError::Nullable` when a column can contain nulls.
 
-Keeping the returned type as `&[T]` makes the hot loop monomorphic and contiguous. It
+Use `Column::as_nullable_slice::<T>` for nullable storage, including columns whose
+current values are all populated. It returns `&[Option<T>]` without allocating or
+converting cells through `ValueRef`; `None` represents null. A required column
+returns `ColumnSliceError::Required`, and a wrong type returns `TypeMismatch`.
+These checks depend on the schema, not on the observed values.
+
+Nullable columns support the same checked bulk mutation through
+`ColumnMut::as_nullable_mut_slice::<T>`:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+
+let schema = Schema::new([
+    ColumnSpec::new("amount", DataType::I64).nullable(true),
+])
+.unwrap();
+let mut table = Table::new(schema);
+table.push_row([Value::I64(25)]).unwrap();
+table.push_row([Value::Null]).unwrap();
+assert_eq!(
+    table.column(0).unwrap().as_nullable_slice::<i64>().unwrap(),
+    &[Some(25), None],
+);
+
+let (_, [amounts]) = table.columns_io([], [0]).unwrap();
+for amount in amounts.as_nullable_mut_slice::<i64>().unwrap() {
+    *amount = amount.map(|value| value * 2);
+}
+assert_eq!(table.cell(0, 0), Ok(ValueRef::I64(50)));
+assert_eq!(table.cell(1, 0), Ok(ValueRef::Null));
+```
+
+Both required and nullable slices include every physical row, including tombstoned
+rows. A slice mutation changes values, not deletion flags. For live-row filtering,
+use `select_rows` with a predicate that indexes the typed slice by `Row::position`,
+or explicitly consult tombstones when collecting positions yourself.
+
+For required columns, the returned `&[T]` makes the hot loop monomorphic and contiguous. It
 also lets LLVM eliminate bounds checks and auto-vectorize suitable integer reductions
 and element-wise transformations. For a table filter, retain row identity by using
 `enumerate` and collecting positions as above.
@@ -531,8 +569,8 @@ column.for_each_value(|value| {
 ```
 
 Use `iter` when iterator composition or early termination matters. Use
-`for_each_value` for a terminal dynamic scan, and `as_slice::<T>` when the caller knows
-the fixed-width type.
+`for_each_value` for a terminal dynamic scan, and `as_slice::<T>` or
+`as_nullable_slice::<T>` when the caller knows the fixed-width type.
 
 ## Mutation
 

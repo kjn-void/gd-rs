@@ -60,10 +60,6 @@ pub fn load(db: &SqliteDatabase) -> Inputs {
     }
 }
 
-pub fn cell(table: &Table, row: Option<usize>, column: usize) -> ValueRef<'_> {
-    row.map_or(ValueRef::Null, |row| table.cell(row, column).unwrap())
-}
-
 pub fn integer(value: ValueRef<'_>) -> Option<i64> {
     match value {
         ValueRef::I64(value) => Some(value),
@@ -102,23 +98,53 @@ pub fn prepare(input: &Inputs, sorted: bool) -> Prepared {
     };
     let order_customers = join(&input.orders, 1, &input.customers);
     let line_orders = join(&input.lines, 1, &input.orders);
+    let lines: [_; 4] = std::array::from_fn(|i| {
+        input
+            .lines
+            .column(i)
+            .unwrap()
+            .as_nullable_slice::<i64>()
+            .unwrap()
+    });
+    let orders: [_; 4] = std::array::from_fn(|i| {
+        input
+            .orders
+            .column(i)
+            .unwrap()
+            .as_nullable_slice::<i64>()
+            .unwrap()
+    });
+    let names = input.customers.column(1).unwrap();
+    let regions = input
+        .customers
+        .column(2)
+        .unwrap()
+        .as_nullable_slice::<i64>()
+        .unwrap();
+    let active = input
+        .customers
+        .column(3)
+        .unwrap()
+        .as_nullable_slice::<i64>()
+        .unwrap();
+    let value = |number: Option<i64>| number.map_or(Value::Null, Value::I64);
     let mut audit = Table::with_capacity(schema(&AUDIT_NAMES), input.lines.row_count());
     for (line, order) in line_orders {
         let customer = order.and_then(|i| order_customers[i].1);
-        let l = |column| cell(&input.lines, Some(line), column);
-        let o = |column| cell(&input.orders, order, column);
-        let c = |column| cell(&input.customers, customer, column);
-        let quantity = integer(l(2));
-        let price = integer(l(3));
+        let l = |column: usize| lines[column][line];
+        let o = |column: usize| order.and_then(|i| orders[column][i]);
+        let name = customer.map_or(ValueRef::Null, |i| names.get(i).unwrap());
+        let quantity = l(2);
+        let price = l(3);
         let quantity_ok = quantity.is_some_and(|v| v > 0);
         let price_ok = price.is_some_and(|v| v >= 0);
         let mut errors = i64::from(order.is_none());
         errors |= i64::from(order.is_some() && customer.is_none()) * 2;
-        errors |= i64::from(customer.is_some() && c(1).as_str().unwrap_or("").is_empty()) * 4;
-        errors |= i64::from(customer.is_some() && integer(c(3)) == Some(0)) * 8;
+        errors |= i64::from(customer.is_some() && name.as_str().unwrap_or("").is_empty()) * 4;
+        errors |= i64::from(customer.is_some() && customer.and_then(|i| active[i]) == Some(0)) * 8;
         errors |= i64::from(!quantity_ok) * 16;
         errors |= i64::from(!price_ok) * 32;
-        errors |= i64::from(order.is_some() && integer(o(2)).is_none()) * 64;
+        errors |= i64::from(order.is_some() && o(2).is_none()) * 64;
         let amount = if quantity_ok && price_ok {
             Value::I64(quantity.unwrap().checked_mul(price.unwrap()).unwrap())
         } else {
@@ -126,46 +152,58 @@ pub fn prepare(input: &Inputs, sorted: bool) -> Prepared {
         };
         audit
             .push_row([
-                l(0).to_owned(),
-                l(1).to_owned(),
-                o(1).to_owned(),
-                c(1).to_owned(),
-                c(2).to_owned(),
-                o(2).to_owned(),
-                o(3).to_owned(),
-                l(2).to_owned(),
-                l(3).to_owned(),
+                value(l(0)),
+                value(l(1)),
+                value(o(1)),
+                name.to_owned(),
+                value(customer.and_then(|i| regions[i])),
+                value(o(2)),
+                value(o(3)),
+                value(l(2)),
+                value(l(3)),
                 amount,
                 Value::I64(errors),
             ])
             .unwrap();
     }
+    let errors = audit
+        .column(10)
+        .unwrap()
+        .as_nullable_slice::<i64>()
+        .unwrap();
     let clean = audit
-        .filter_rows(|row| row.get(10) == Some(ValueRef::I64(0)))
+        .filter_rows(|row| errors[row.position()] == Some(0))
         .unwrap();
     Prepared { audit, clean }
 }
 
 pub fn variant(clean: &Table, p: &Parameters) -> Table {
     let [region, from_day, to_day, status, minimum, discount_bp] = *p;
+    let regions = clean.column(4).unwrap().as_nullable_slice::<i64>().unwrap();
+    let days = clean.column(5).unwrap().as_nullable_slice::<i64>().unwrap();
+    let statuses = clean.column(6).unwrap().as_nullable_slice::<i64>().unwrap();
+    let gross = clean.column(9).unwrap().as_nullable_slice::<i64>().unwrap();
     let rows = clean.select_rows(|row| {
-        let number = |column| integer(row.get(column).unwrap()).unwrap();
-        (region == -1 || number(4) == region)
-            && number(5) >= from_day
-            && number(5) < to_day
-            && (status == -1 || number(6) == status)
-            && number(9) >= minimum
+        let i = row.position();
+        (region == -1 || regions[i].unwrap() == region)
+            && {
+                let day = days[i].unwrap();
+                day >= from_day && day < to_day
+            }
+            && (status == -1 || statuses[i].unwrap() == status)
+            && gross[i].unwrap() >= minimum
     });
     let mut result = clean.select(&rows, &VARIANT_COLUMNS).unwrap();
-    for row in 0..result.row_count() {
-        let gross = integer(result.cell(row, 5).unwrap()).unwrap();
-        let net = gross
+    let (_, [amounts]) = result.columns_io([], [5]).unwrap();
+    for amount in amounts.as_nullable_mut_slice::<i64>().unwrap() {
+        let net = amount
+            .unwrap()
             .checked_mul(10_000 - discount_bp)
             .unwrap()
             .checked_add(5_000)
             .unwrap()
             / 10_000;
-        result.set_cell(row, 5, Value::I64(net)).unwrap();
+        *amount = Some(net);
     }
     result
 }

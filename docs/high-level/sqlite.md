@@ -45,7 +45,9 @@ data. It buffers **O(rows × columns)** value discriminants before building the 
 owned text and blob payloads are moved into typed columns.
 
 `query_table_with_schema` takes a caller-supplied `Schema` and stages one row at a
-time, using **O(columns)** temporary space in addition to the returned table. Integer
+time in a reusable vector, using **O(columns)** temporary space in addition to the
+returned table. Complete-row validation precedes mutation; owned payloads move into
+the typed columns while the same staging allocation serves the next row. Integer
 widths and unsigned values are range-checked. Boolean columns accept integer 0 or 1.
 UUID columns accept text recognized by the `uuid` crate or a 16-byte blob. Integer-to-float and
 `F64`-to-`F32` conversion can round; a finite `F64` outside the `F32` range is rejected

@@ -59,7 +59,7 @@ appropriate; they do not imply every GD table class has identical behavior.
 | Typed columns, named schema, aliases, nullable cells | Native | Native `Schema`, `ColumnSpec`, `Table` |
 | Table properties and row-local extra named fields | Native; table-class/tag dependent | Native properties and `UnknownFields::Store` |
 | Packed row storage, cell addresses, layout control | Native | Absent: typed column vectors, no compatible packed ABI |
-| Borrow a whole numeric column as a contiguous typed slice | Application: row-strided storage; `harvest<T>` copies values | Native `Column::as_slice<T>` for supported non-nullable columns |
+| Borrow a whole numeric column as a contiguous typed slice | Application: row-strided storage; `harvest<T>` copies values | Native `Column::as_slice<T>` for required columns and `as_nullable_slice<T>` for nullable columns |
 | Borrow checked, disjoint input/output columns for mutation | Application; pointer aliasing is caller responsibility | Native `columns_io`, `column_pair_mut`, typed mutable slices |
 | Insert/read/update a row or cell | Native | Native, with typed errors for width/type/nullability/bounds failures |
 | Allocate empty rows and fill later | Native; payload initialization depends on tags | Absent equivalent: inserted Rust rows must be valid complete rows |

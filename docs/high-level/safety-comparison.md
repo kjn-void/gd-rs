@@ -7,7 +7,7 @@ family in the `external/gd` submodule, with emphasis on mistakes that can cause 
 `cb11cff90d05260a88d59a30c9da421cd4e19c34`.
 
 The APIs are not method-for-method equivalents. Rust has one fixed-schema
-[`Table`](../../src/table.rs#L142), an immutable [`Schema`](../../src/table/schema.rs#L207),
+[`Table`](../../src/table.rs#L194), an immutable [`Schema`](../../src/table/schema.rs#L207),
 and borrowing row, column, index, and ordering views. C++ has several related
 types: `table_column_buffer` (also exposed as `gd::table::dto::table`),
 `gd::table::table`, `gd::table::arguments::table`, and separate index helpers.
@@ -59,7 +59,7 @@ let error = table.cell_named(0, "naem").unwrap_err();
 assert!(matches!(error, TableError::ColumnNotFound(_)));
 ```
 
-[`Table::cell_named`](../../src/table.rs#L520) resolves the name through the
+[`Table::cell_named`](../../src/table.rs#L778) resolves the name through the
 validated schema and returns `ColumnNotFound` when it is absent.
 
 C++ converts the failed lookup into an unsigned index:
@@ -85,9 +85,12 @@ let error = column.as_slice::<u64>().unwrap_err();
 assert!(matches!(error, ColumnSliceError::TypeMismatch { .. }));
 ```
 
-[`Column::as_slice`](../../src/table/views.rs#L175) returns a typed error when
+[`Column::as_slice`](../../src/table/views.rs#L223) returns a typed error when
 `T` does not match the schema and returns only correctly aligned storage when it
-does match.
+does match. Nullable columns use
+[`as_nullable_slice`](../../src/table/views.rs#L251) with the same type check and
+explicit `Option<T>` values. The mutable counterpart exposes only correctly typed
+optional values after checking schema nullability.
 
 C++ makes the requested C++ type an unchecked promise by the caller:
 
@@ -182,7 +185,7 @@ assert!(matches!(error, TableError::RowWidth { expected: 2, actual: 1 }));
 assert_eq!(table.row_count(), 0);
 ```
 
-[`push_row`](../../src/table.rs#L416) stages conversion and validation before
+[`push_row`](../../src/table.rs#L613) stages conversion and validation before
 publishing the row.
 
 The corresponding C++ overload explicitly accepts fewer values than columns:
@@ -332,7 +335,7 @@ sanitizer.
 ### Encapsulation and lifecycle
 
 Rust keeps schema, storage, and row count private and constructs column storage
-from an already validated schema ([`Table` fields](../../src/table.rs#L142)).
+from an already validated schema ([`Table` fields](../../src/table.rs#L194)).
 Duplicate names and aliases are rejected by [`Schema::new`](../../src/table/schema.rs#L220).
 The schema cannot change behind existing rows.
 
@@ -353,7 +356,7 @@ actually `const` is UB. Rust does not provide a mutable view from `&Table`.
 
 Rust refuses to produce overlapping mutable columns. `columns_io` reports an
 input/output overlap or duplicate output, and `column_pair_mut` returns `None`
-for the same column ([implementation](../../src/table.rs#L617)). Row-range
+for the same column ([implementation](../../src/table.rs#L880)). Row-range
 splitting similarly creates disjoint borrows.
 
 C++ exposes mutable raw pointers from table storage and mutable metadata. Its
@@ -465,10 +468,10 @@ assert!(matches!(error, TableError::ConversionFailed { .. }));
 assert_eq!(table.row_count(), 1);
 ```
 
-This follows [`prepare_cell`](../../src/table.rs#L900): exact types use the fast
+This follows [`prepare_cell`](../../src/table.rs#L1230): exact types use the fast
 path, other types require an explicit converter, converter errors are preserved,
 and the result must exactly match the column type and nullability. All cells are
-prepared before [`prepare_row`](../../src/table.rs#L921) permits publication.
+prepared before [`prepare_row`](../../src/table.rs#L1251) permits publication.
 
 The SQLite adapter is stricter still. Given this database:
 
@@ -489,17 +492,18 @@ let result = database.query_table_with_schema(
 assert!(matches!(result, Err(SqliteError::ColumnType { .. })));
 ```
 
-[`query_table_with_schema`](../../src/sqlite.rs#L307) checks result width, reads
-each SQLite value into a staged `Vec<Value>`, and only then calls the atomic table
-insertion. [`typed_value`](../../src/sqlite.rs#L630) accepts SQLite `INTEGER` for
-`U32`, range-checks it with `u32::try_from`, and rejects SQLite `TEXT`. It also
+[`query_table_with_schema`](../../src/sqlite.rs#L320) checks result width, reads
+each SQLite value into one reused staging `Vec<Value>`, and only then calls
+atomic table insertion. The values move into typed columns while the staging
+allocation is retained for the next row. [`typed_value`](../../src/sqlite.rs#L678)
+accepts SQLite `INTEGER` for `U32`, range-checks it with `u32::try_from`, and rejects SQLite `TEXT`. It also
 rejects a non-`0`/`1` Boolean, invalid UTF-8/UUID, null in a required column, and
 the wrong storage class. Textual-number parsing therefore has to be an explicit
 application step (or an intentional SQL expression with SQLite's own documented
 conversion semantics).
 
 The inferred Rust import is also defensive: if one result column contains both
-an integer and text in different rows, [`query_table`](../../src/sqlite.rs#L247)
+an integer and text in different rows, [`query_table`](../../src/sqlite.rs#L259)
 returns `SqliteError::MixedColumnType` instead of guessing a common type.
 
 ### C++: `tag_convert` is implicit, unchecked, and non-atomic

@@ -682,6 +682,14 @@ impl Table {
         Ok(row)
     }
 
+    // SQLite keeps one staging allocation for the entire query. Validate the
+    // complete row before draining it, preserving the ordinary append contract.
+    #[cfg(feature = "sqlite")]
+    pub(crate) fn push_row_buffer(&mut self, values: &mut Vec<Value>) -> Result<usize, TableError> {
+        prepare_row(self.schema(), values)?;
+        self.push_validated_row(values.drain(..))
+    }
+
     fn push_validated_row(
         &mut self,
         values: impl IntoIterator<Item = Value>,
@@ -1282,6 +1290,33 @@ mod tests {
         ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table, TableError,
         UnknownFields, Value, ValueRef,
     };
+
+    #[test]
+    #[cfg(feature = "sqlite")]
+    fn reused_row_buffer_retains_capacity_and_rejects_complete_invalid_rows() {
+        let schema = Schema::new([
+            ColumnSpec::new("id", DataType::I64),
+            ColumnSpec::new("score", DataType::I64).nullable(true),
+        ])
+        .unwrap();
+        let mut table = Table::new(schema);
+        let mut values = Vec::with_capacity(2);
+        let capacity = values.capacity();
+        for (position, id) in (0..3).enumerate() {
+            values.extend([Value::I64(id), Value::Null]);
+            assert_eq!(table.push_row_buffer(&mut values), Ok(position));
+            assert!(values.is_empty());
+            assert_eq!(values.capacity(), capacity);
+        }
+        values.extend([Value::I64(3), Value::from("invalid")]);
+        assert!(matches!(
+            table.push_row_buffer(&mut values),
+            Err(TableError::TypeMismatch { column: 1, .. }),
+        ));
+        assert_eq!(table.row_count(), 3);
+        assert_eq!(table.column(0).unwrap().len(), 3);
+        assert_eq!(table.column(1).unwrap().len(), 3);
+    }
 
     #[test]
     fn column_storage_follows_schema_nullability() {

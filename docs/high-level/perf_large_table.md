@@ -645,8 +645,10 @@ primitive columns.
 
 `Column::as_slice::<T>` exposes dense required columns without exposing the storage
 enum itself. Borrowing ties the slice lifetime to the table and prevents mutation while
-it is in use. Nullable columns deliberately reject this API until they have an explicit
-typed nullable view; callers can continue using `ValueRef` iteration for them.
+it is in use. Nullable columns use `Column::as_nullable_slice::<T>` to expose
+`&[Option<T>]`, with matching mutable access through
+`ColumnMut::as_nullable_mut_slice::<T>`. The dense numeric kernels measured here use
+required columns; their figures do not measure nullable option handling.
 
 The same price-calculation kernel is also measured across RISC-V, AArch64, and
 x86-64 with several single-core cache regimes. See the complete

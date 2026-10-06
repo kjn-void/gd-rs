@@ -79,6 +79,8 @@ def sizes(binaries):
     files = {
         'rust_application': ['benches/order_workflow/workload.rs'],
         'rust_selection_library': ['src/table/selection.rs'],
+        'rust_column_views_library': ['src/table/views.rs'],
+        'rust_sqlite_library': ['src/sqlite.rs'],
         'rust_driver': ['benches/order_workflow/driver.rs'],
         'cpp_application_and_adapters': ['benches/cpp-reference/order_workflow/workload.hpp'],
         'cpp_simd_adapter': ['benches/cpp-reference/order_workflow/simd_table.hpp'],
@@ -162,11 +164,17 @@ def main():
         'samples': args.samples, 'rounds': args.rounds,
         'implementations': {'rust': 'gd::Table', 'cpp': 'gd::table::table_column_buffer',
                             'cpp_simd': 'gd::table::simd::table_8_8 with benchmark adapter'},
+        'rust_column_access': 'generic checked nullable fixed-width slices for preparation, '
+                              'filtering, and amount mutation; one reused SQLite row buffer',
         'process_order': 'rotate starting implementation each round; reverse every three rounds',
         'simd_adapter': 'unmodified gd_table_simd.cpp; syntax-placeholder-only generated header; '
                         'packed null-bitmap column; packed cell/reference getters; owned pointer/schema; '
                         'geometric import reservation; application projected gather and packed filtering',
     }, 'verification': [], 'measurements': []}
+    if sys.platform == 'darwin':
+        report['metadata']['power_settings'] = text(['pmset', '-g', 'custom'])
+        report['metadata']['thermal_state_before'] = text(['pmset', '-g', 'therm'])
+    report['metadata']['process_load_before'] = text(['ps', '-axo', 'pid,pcpu,comm'])
     sqlite_version = None
     OUTPUT.mkdir(parents=True, exist_ok=True)
     # Regenerate under a unique directory: never silently reuse a stale fixture.
@@ -228,7 +236,7 @@ def main():
                     *sorted((ROOT / 'benches/order_workflow').glob('*.py')),
                     *sorted((ROOT / 'benches/cpp-reference/order_workflow').glob('*.cpp')),
                     *sorted((ROOT / 'benches/cpp-reference/order_workflow').glob('*.hpp')),
-                    ROOT / 'src/table/selection.rs', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock',
+                    *sorted((ROOT / 'src').rglob('*.rs')), ROOT / 'Cargo.toml', ROOT / 'Cargo.lock',
                     ROOT / 'benches/cpp-reference/CMakeLists.txt',
                     ROOT / 'benches/cpp-reference/cmake/GdCore.cmake']
     report['metadata']['source_sha256'] = {
@@ -236,6 +244,9 @@ def main():
     report['metadata']['gd_source_unchanged'] = source_fingerprint(gd) == before
     if not report['metadata']['gd_source_unchanged']:
         raise RuntimeError('GD source changed during comparison')
+    report['metadata']['process_load_after'] = text(['ps', '-axo', 'pid,pcpu,comm'])
+    if sys.platform == 'darwin':
+        report['metadata']['thermal_state_after'] = text(['pmset', '-g', 'therm'])
     args.output.write_text(json.dumps(report, indent=2) + '\n')
     print(f'Results: {args.output}', flush=True)
 

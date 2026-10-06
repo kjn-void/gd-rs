@@ -101,9 +101,12 @@ let table = database
 assert_eq!(table.row_count(), 1);
 ```
 
-The explicit path streams rows directly into the requested typed columns and uses
-only O(columns) staging space beyond the returned table. Integers are range-checked;
-Boolean columns accept only 0 or 1; integer results may become floats; UUID columns
+The explicit path streams rows directly into the requested typed columns and reuses
+one O(columns) staging vector for the entire query. A complete row is validated
+before its owned values move into the columns; the staging allocation is retained
+for the next row. This also applies to `load_table`.
+
+Integers are range-checked; Boolean columns accept only 0 or 1; integer results may become floats; UUID columns
 accept either a 16-byte blob or parseable UUID text. Result width, storage class,
 UTF-8, UUID, range, and nullability mismatches are errors.
 

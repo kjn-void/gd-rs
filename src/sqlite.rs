@@ -310,7 +310,8 @@ impl SqliteDatabase {
     /// Integer results are range-checked for the requested integer width. Integers
     /// may also become `F32`/`F64`; Boolean columns accept only 0 or 1. UUID columns
     /// accept a 16-byte blob or UUID text. Nullability is enforced by [`Table`].
-    /// This path uses **O(columns)** staging space per row plus the returned table.
+    /// This path reuses one **O(columns)** staging buffer for the entire query,
+    /// moving each validated row's values into the returned table.
     ///
     /// # Errors
     ///
@@ -332,16 +333,14 @@ impl SqliteDatabase {
         }
         bind_arguments(&mut statement, arguments)?;
 
+        let mut values = Vec::with_capacity(schema.len());
         let mut table = Table::new(schema);
         let mut rows = statement.raw_query();
         while let Some(row) = rows.next()? {
-            let values = table
-                .schema()
-                .iter()
-                .enumerate()
-                .map(|(column, spec)| typed_value(column, spec.data_type(), row.get_ref(column)?))
-                .collect::<Result<Vec<_>, SqliteError>>()?;
-            table.push_row_vec(values)?;
+            for (column, spec) in table.schema().iter().enumerate() {
+                values.push(typed_value(column, spec.data_type(), row.get_ref(column)?)?);
+            }
+            table.push_row_buffer(&mut values)?;
         }
         Ok(table)
     }

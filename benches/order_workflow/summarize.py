@@ -28,7 +28,8 @@ def main(path):
           'not confidence intervals. Ratios divide elapsed times. Peak RSS is the '
           'largest whole-process high-water mark across rounds, including setup.\n')
     if simd:
-        print('GD DTO is the existing `table_column_buffer` application. GD SIMD uses '
+        print('Rust uses checked nullable typed column slices and a reused SQLite row buffer. '
+              'GD DTO uses `table_column_buffer`. GD SIMD uses '
               '`simd::table_8_8`, the unmodified `gd_table_simd.cpp`, and the counted adapter. '
               'The native-index rows compare all three implementations; sorted changes only '
               'the Rust join index. See [adapter details and limits](order-workflow.md#gd-simd-variant).\n')
@@ -77,8 +78,9 @@ def main(path):
     for key, size in data['sizes'].items():
         if 'lines' in size:
             print(f'| {key} | {size["lines"]} | {size["nonblank_lines"]} | {size["bytes"]:,} |')
-    print('\nLines include comments; formatting differs between languages. The Rust selection '
-          'module is counted separately; other library and dependency source is excluded.\n')
+    print('\nLines include comments; formatting differs between languages. Rust selection, '
+          'column-view, and SQLite modules are counted separately; their full reusable APIs '
+          'exceed what this application calls. Other library and dependency source is excluded.\n')
     print('| Standalone program | Unstripped bytes | Stripped bytes |\n|---|---:|---:|')
     for lang in (['rust', 'cpp', 'cpp_simd'] if simd else ['rust', 'cpp']):
         size = data['sizes'][lang + '_executable']
@@ -98,9 +100,19 @@ def main(path):
     for rows in sorted({v['rows'] for v in data['verification']}):
         v = next(v for v in data['verification'] if v['rows'] == rows)
         print(f'- {rows:,} input lines → variant counts `{v["counts"]}`.')
-    print('\n```text')
-    for key, value in data['metadata'].items():
-        print(f'{key}: {value}')
+    print('\nEnvironment details follow. The [raw measurement JSON]'
+          '(measurements/order-workflow-m3max.json) additionally records every source hash, '
+          'command, runtime library, rejection diagnostic, and process-load snapshot.\n')
+    print('```text')
+    metadata_keys = ['utc', 'platform', 'cpu', 'cpu_topology', 'logical_cpus', 'rustc', 'cxx',
+                     'gd_revision', 'gd_rs_revision', 'rust_flags', 'cpp_flags',
+                     'affinity', 'seed', 'samples', 'rounds', 'implementations',
+                     'rust_column_access', 'process_order', 'simd_adapter',
+                     'sqlite_version', 'fixture_sqlite', 'invocation', 'gd_source_unchanged',
+                     'power_settings', 'thermal_state_before', 'thermal_state_after']
+    for key in metadata_keys:
+        if key in data['metadata']:
+            print(f'{key}: {data["metadata"][key]}')
     print('```')
 
 

@@ -13,18 +13,13 @@ and [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp).
 The [full measurement tables](order-workflow-results.md) include sample ranges,
 peak memory, source sizes, executable sizes, and environment details.
 
-The original measurements below compare Rust with GD's DTO table. The runner now
-also builds a GD SIMD variant and compares **all three** on freshly generated
-fixtures. See [GD SIMD variant](#gd-simd-variant) and its
-[three-implementation measurement tables](order-workflow-simd-results.md).
-
 ## Coverage of the GD author's examples
 
-**Both implementations exercise the requested joins, subsets, parameterized
+**All three implementations exercise the requested joins, subsets, parameterized
 variants, database-data validation, and marking or excluding invalid rows.** The
 following maps the author's wording to the concrete operations being measured:
 
-| Author's example | What both applications do | Timed stage |
+| Author's example | What all three applications do | Timed stage |
 |---|---|---|
 | “mixa data mellan tabellerna, kanske joina ihop tre stycken” | Perform two left joins across order lines, orders, and customers, then combine fields from all three in one 11-column audit table. | `prepare` |
 | “plocka ut tårtbitar” | Select subsets of rows and project six columns into separate, independently owned result tables. | `variants` |
@@ -194,90 +189,103 @@ is created for each process and reused for all its iterations.
 The SQL views are a correctness oracle used outside timing; the measured joins
 and filtering execute in the Rust/C++ table applications. The
 [runner](../../benches/order_workflow/compare.py) runs one implementation process
-at a time. The following describes the original two-implementation recorded comparison, excluding the separate
-sanitizer and focused preparation-repeat runs.
+at a time, rotating Rust, GD DTO, and GD SIMD across three process rounds.
+Sanitizer diagnostics run separately from optimized measurements.
 
 ```mermaid
 %%{init: {"flowchart": {"wrappingWidth": 400, "rankSpacing": 35}}}%%
 flowchart TB
-    BUILD["Build optimized Rust and C++ programs"]
+    BUILD["Build optimized Rust, GD DTO, and GD SIMD programs"]
     HANDFIXTURE["Generate the shared 11-line hand fixture<br/>Include expected_audit, expected_clean, expected_variants SQL views"]
     FIXTURE["Generate shared 10k, 100k, and 1M line fixtures<br/>Include the same independent SQL oracle views"]
-    REJECT["Outside timing: both programs must reject<br/>gross overflow, discount overflow, and invalid discount"]
+    REJECT["Outside timing: all three programs must reject<br/>gross overflow, discount overflow, and invalid discount"]
     DATASET["Take next dataset: hand case, then increasing sizes"]
-    VERIFY["Outside timing: both languages at 1, 2, 4, and 8 workers<br/>Also Rust sorted-index diagnostic at one worker<br/>Verify every output cell, NULL, row count, and order against SQL<br/>Check ownership; compare counts/digests across implementations<br/>Require matching runtime SQLite versions"]
+    VERIFY["Outside timing: all three implementations at 1, 2, 4, and 8 workers<br/>Also Rust sorted-index diagnostic at one worker<br/>Verify every output cell, NULL, row count, and order against SQL<br/>Check ownership; compare counts/digests across implementations<br/>Require matching runtime SQLite versions"]
     HAND{"11-line hand fixture?"}
     CASE["Take next stage / index / worker case<br/>import: 1 worker<br/>prepare: 1 worker, native and sorted<br/>variants and complete: 1, 2, 4, 8 workers"]
-    R1["Round 1: Rust process, then C++ process<br/>Each: one discarded warmup, then five timed samples"]
-    R2["Round 2: C++ process, then Rust process<br/>Each: one discarded warmup, then five timed samples"]
+    R1["Round 1: Rust → GD DTO → GD SIMD<br/>Each: one discarded warmup, then five timed samples"]
+    R2["Round 2: GD DTO → GD SIMD → Rust<br/>Each: one discarded warmup, then five timed samples"]
+    R3["Round 3: GD SIMD → Rust → GD DTO<br/>Each: one discarded warmup, then five timed samples"]
     MORECASE{"More cases for this dataset?"}
     MOREDATA{"More datasets?"}
     REPORT["Report timing samples and medians, peak process RSS,<br/>source/executable sizes, versions, and source fingerprints"]
     BUILD --> HANDFIXTURE --> REJECT --> FIXTURE --> DATASET --> VERIFY --> HAND
     HAND -- "yes: correctness only" --> MOREDATA
-    HAND -- "no" --> CASE --> R1 --> R2 --> MORECASE
+    HAND -- "no" --> CASE --> R1 --> R2 --> R3 --> MORECASE
     MORECASE -- "yes" --> CASE
     MORECASE -- "no" --> MOREDATA
     MOREDATA -- "yes" --> DATASET
     MOREDATA -- "no" --> REPORT
 ```
 
-## Original DTO performance summary
+## Performance summary
 
-On an Apple M3 Max (12 performance + 4 efficiency cores), both implementations
-produced the same correct outputs at 10,000, 100,000, and 1,000,000 lines. Rust was
-faster in each measured stage in these builds. C++ had a smaller executable and
-lower peak memory in the single-worker complete-workflow case. Neither result
-establishes that one language or library is universally better.
+The [current measurements](order-workflow-results.md) compare Rust, GD DTO, and
+GD SIMD on the same fixtures. All three produce identical audit, clean, and eight
+variant tables. Timing includes allocation, copying, index construction in
+`prepare`, and destruction within the stage boundaries above.
 
-For **1,000,000 order lines**, median time across ten recorded samples:
+Sources: [Rust application](../../benches/order_workflow/workload.rs),
+[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
+[GD SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
+[raw measurements](measurements/order-workflow-m3max.json).
 
-| Stage | Workers | Rust | C++ GD | C++ / Rust time |
+On the measured M3 Max, one million order lines give these median times across
+three process rounds with five samples each:
+
+| Stage | Workers | Rust ms | GD DTO ms | GD SIMD ms |
 |---|---:|---:|---:|---:|
-| import | 1 | 149.76 ms | 210.07 ms | 1.40× |
-| prepare | 1 | 181.59 ms | 310.76 ms | 1.71× |
-| variants | 1 | 63.71 ms | 185.73 ms | 2.92× |
-| variants | 8 | 14.97 ms | 70.74 ms | 4.73× |
-| complete | 1 | 373.80 ms | 678.30 ms | 1.81× |
-| complete | 8 | 327.82 ms | 578.53 ms | 1.76× |
+| Import | 1 | 122.7 | 214.8 | 193.1 |
+| Prepare, native index | 1 | 149.8 | 289.8 | 243.1 |
+| Eight variants | 1 | 45.0 | 184.8 | 172.1 |
+| Eight variants | 8 | 13.8 | 78.9 | 66.7 |
+| Complete | 1 | 346.0 | 727.4 | 634.6 |
+| Complete | 8 | 307.4 | 625.7 | 531.3 |
 
-Sources: [Rust](../../benches/order_workflow/workload.rs),
-[C++](../../benches/cpp-reference/order_workflow/workload.hpp), and
-[all samples](measurements/order-workflow-m3max.json).
-The in-memory preparation diagnostic using sorted indexes on both sides measured
-**209.95 ms Rust / 296.25 ms C++**.
-The sorted-index adapter reduces Rust's advantage, but a substantial gap remains.
-This diagnostic still includes each implementation's validation and materialization
-costs; it does not isolate storage layout or compiler code generation.
+For this full workflow, DTO takes 2.10× Rust's elapsed time and GD SIMD takes
+1.83× at one worker; the ratios at eight workers are 2.04× and 1.73×.
+GD SIMD takes 13–15% less elapsed time than DTO for `complete`.
+Rust's one-worker sorted-index diagnostic takes 180.4 ms for `prepare`, versus
+149.8 ms with its native hash index. These are observations for this fixture and
+software stack, not general library rankings.
 
-Going from one to eight workers sped up the fixed variant batch by
-**4.26× in Rust** and
-**2.63× in C++**. The complete workflow improved by
-only **1.14×** and **1.17×**, respectively. Only variant production is
-parallel, and the eight tasks have unequal output sizes. Scaling is not monotonic
-in every measured case. This measures parallel work under application-enforced
-ownership and synchronization. GD does not provide a thread-safe shared mutable
-table here.
+Only the variant batch runs concurrently. Moving from one to eight workers makes
+that Rust stage 3.25× faster, while the complete pipeline is 1.13× faster because
+import and preparation remain sequential. Stage medians come from separate
+invocations and should not be added to predict a complete-run median.
 
-Complete-workflow throughput was **2.68 million input lines/s Rust versus 1.47
-million C++** with one worker, and **3.05 versus 1.73 million** with eight workers.
-This normalizes by original order-line count per completed workflow; each workflow
-also imports the customer/order tables and produces all eight variants. It is not
-a count of individual cell operations or output rows.
+Whole-process peak RSS for `complete` is 591.8/670.5 MiB for Rust at one/eight
+workers, 561.1/686.4 MiB for DTO, and 518.3/537.8 MiB for GD SIMD. The stripped
+standalone executables occupy 2,384,304, 1,325,104, and 1,324,960 bytes respectively;
+these include the benchmark driver and dependencies, not just table code.
+The full tables also cover 10,000 and 100,000 lines and every worker count.
 
-Single-worker complete-process peak RSS was **823.7 MiB Rust / 670.2 MiB C++**.
-At eight workers it was **837.2 / 720.2 MiB**. C++'s packed nullable storage is a
-potential contributor, but RSS also includes retained tables, allocator behavior,
-SQLite caches, and the driver; these numbers do not isolate storage efficiency.
+## Rust column access and import
 
-The Rust application is **175 lines / 5,862 bytes**, plus **155 lines / 6,125 bytes**
-of reusable library APIs. C++ application and adapters are **133 lines /
-6,578 bytes**. Lines include comments and reflect different formatting; Rust's
-application has fewer bytes despite more lines. Library implementation size is
-reported separately from the application and harness/test sizes. Stripped standalone
-programs are **2,384,272 bytes Rust / 1,325,104 bytes C++**. This includes their
-respective runtimes, retained libraries, SQLite, and verification/timing code.
+Sources: [Rust application](../../benches/order_workflow/workload.rs),
+[typed column views](../../src/table/views.rs),
+[SQLite adapter](../../src/sqlite.rs), and
+[table append validation](../../src/table.rs).
 
+`query_table_with_schema` streams each query through one reusable `Vec<Value>`.
+It validates a complete row before moving the values into typed columns, retaining
+that staging allocation for the next row. At one million lines, the three imports
+contain 1.25 million rows in total; there is no fresh staging-vector allocation
+for each row. Owned text and binary payloads move into their destination columns.
+
+The application binds numeric columns once using
+`Column::as_nullable_slice::<i64>`. Join-result materialization, validation,
+clean-row selection, and variant predicates then read typed `Option<i64>` values
+by physical row position.
+It copies selected columns into owned results and updates each result's amount
+column through `ColumnMut::as_nullable_mut_slice::<i64>`, retaining checked
+multiply/add arithmetic. `select_rows` continues to skip tombstoned rows.
+
+Type and nullability checks happen when borrowing the columns. Nullable schemas
+remain nullable, including clean and variant tables with fully populated values.
+Storage remains `Vec<Option<i64>>`; the change does not introduce packed validity
+bitmaps or explicit SIMD intrinsics. Strings still use owned compact-string
+storage. No new dependency or global allocator is required.
 
 ## GD SIMD variant
 
@@ -387,128 +395,10 @@ and adapter differences. It cannot be attributed to hardware SIMD filtering.
 Other pack functions or compiler/architecture builds may vectorize; they require
 their own generated-code evidence.
 
-### Fresh three-implementation measurements
-
-The current runner verifies all three implementations against the independent
-SQL oracle at each worker count, including partial packs and empty results in
-the hand fixture. It checks the same ownership and rejection cases, and runs
-one implementation process at a time. Three rounds rotate Rust/DTO/SIMD,
-DTO/SIMD/Rust, SIMD/Rust/DTO; five samples follow each process's warmup. The new
-[measurement tables](order-workflow-simd-results.md) compare fresh runs of all
-three, preserving the historical DTO measurements above.
-
-On 2026-10-06, the M3 Max comparison completed **52 SQL verification invocations**
-and **nine overflow/invalid-discount rejection checks**. Counts and digests matched
-at every worker count. For **1,000,000 lines**, medians across 15 samples were:
-
-| Stage | Workers | Rust | GD DTO | GD SIMD | SIMD time reduction vs DTO |
-|---|---:|---:|---:|---:|---:|
-| import | 1 | 142.98 ms | 220.30 ms | 194.27 ms | 11.8% |
-| prepare | 1 | 186.54 ms | 303.03 ms | 256.11 ms | 15.5% |
-| variants | 1 | 70.36 ms | 186.44 ms | 172.03 ms | 7.7% |
-| variants | 8 | 20.19 ms | 79.30 ms | 64.57 ms | 18.6% |
-| complete | 1 | 404.73 ms | 704.27 ms | 625.59 ms | 11.2% |
-| complete | 8 | 356.11 ms | 601.86 ms | 517.54 ms | 14.0% |
-
-Sources: [Rust application](../../benches/order_workflow/workload.rs),
-[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
-[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
-[all samples and environment](measurements/order-workflow-simd-m3max.json).
-
-GD SIMD reduced elapsed time relative to DTO in every measured case, while Rust
-remained faster than both in these builds. For the million-row complete workflow,
-SIMD took 1.55 times Rust's time with one worker and 1.45 times with eight. Peak RSS
-was 591.9/561.1/518.2 MiB for Rust/DTO/SIMD with one worker, and
-743.5/759.5/562.2 MiB with eight. RSS measures the whole process and varies with
-allocator reuse and worker scheduling; it does not isolate table storage.
-The two C++ stripped programs were both approximately 1.325 MB, versus 2.384 MB
-for Rust. The SIMD adapter adds 106 physical lines / 5,443 bytes beyond the shared
-154-line / 7,541-byte C++ application, with library and driver sizes reported
-separately. These results include adaptation cost and do not establish optimal
-implementations or a pure language/SIMD effect.
-
-The runner paused during untimed million-row verification when an unrelated Unity
-compilation started, and resumed after that load and repository checks finished.
-No timed process ran during the pause. The raw metadata records the pause and
-process-load snapshots. The optimized comparison ran separately from sanitizers.
-
-The 10k SIMD single-worker variant samples included a 10.09 ms outlier, and the
-100k samples also had a wide range. A fresh one-worker repeat with three rotated
-rounds and five samples per process confirmed the direction without those outliers:
-
-| Variant batch, one worker | Rust median (range) | GD DTO median (range) | GD SIMD median (range) |
-|---|---:|---:|---:|
-| 10,000 lines | 0.656 ms (0.639–0.687) | 1.687 ms (1.647–1.845) | 1.212 ms (1.128–1.335) |
-| 100,000 lines | 6.563 ms (6.344–7.031) | 17.695 ms (17.353–18.229) | 13.112 ms (12.415–14.424) |
-
-Sources: [Rust application](../../benches/order_workflow/workload.rs),
-[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
-[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
-[repeat samples and environment](measurements/order-workflow-simd-small-repeat.json).
-The original samples remain in the main table. Reproduce this repeat with
-`./benches/run_order_workflow.sh --skip-build --rows 10000 100000 --workers 1 --samples 5 --rounds 3`.
-
-The original safety findings later in this document concern the DTO executable.
-SIMD diagnostics use the same sanitizer runner with `--implementation cpp_simd`
-and must be interpreted separately from optimized performance measurements.
-The immutable-input/independent-output pool protocol applies to both C++ variants;
-the SIMD adapter creates a private schema and string store for each output.
-
-Sources for the separate SIMD safety run:
-[sanitizer runner](../../benches/order_workflow/check_safety.py),
-[SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp),
-[C++ verifier](../../benches/cpp-reference/order_workflow/driver.cpp), and
-[recorded diagnostics](measurements/order-workflow-simd-safety.json).
-
-| SIMD check: 10,000 lines, eight workers, Debug | Observed result |
-|---|---|
-| ASan + UBSan, fail-fast | Aborted on an unaligned `uint16_t` store in `gd_database_record.cpp:46` |
-| ASan + UBSan, recovery | Completed full SQL/ownership verification; the same alignment UB was reported; no ASan address error was reported |
-| ThreadSanitizer, fail-fast | Completed full verification without a reported race |
-
-These runs used Apple Clang 21 on the same M3 Max, with sanitizer instrumentation
-and no performance claims. Leak detection was disabled on macOS. They provide
-limited evidence for this adapter and pool protocol; they do not establish that
-GD SIMD is free of undefined behavior. The raw file also includes the unchanged
-DTO-focused `index-miss` and `name-view` probes: the former reports a false hit,
-and the latter triggers an ASan error for a non-NUL-terminated name view. Those
-probe outcomes concern their specific upstream APIs, not SIMD output verification.
-
-## Preparation timing repeat
-
-Sources: [Rust application](../../benches/order_workflow/workload.rs),
-[C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
-[shared timing helper](../../benches/order_workflow/compare.py), and
-[repeat samples](measurements/order-workflow-prepare-repeat.json).
-
-The million-line preparation cases were repeated because the main run had wide
-ranges, especially for Rust's sorted-index diagnostic. The repeat used the same
-binaries, a freshly generated and fully verified million-line fixture, one worker,
-and two alternating process rounds with five samples each after a warmup.
-
-| Index | Rust median (range) | C++ median (range) | C++ / Rust time |
-|---|---:|---:|---:|
-| native | 169.31 ms (156.63–173.03) | 295.58 ms (273.17–307.70) | 1.75× |
-| sorted | 189.24 ms (176.82–206.40) | 294.85 ms (279.85–319.84) | 1.56× |
-
-The direction of the result persists; exact stage times vary between runs. These
-repeat measurements supplement the main tables rather than replacing their slower
-samples. A separate full-dataset repeat was excluded because unrelated .NET/Xcode
-builds started during timing. The focused repeat records process-load snapshots
-before and after each invocation and did not encounter that competing build load.
-
-To reproduce the focused repeat, build and generate a million-line fixture as
-described in the [runner instructions](../../benches/order_workflow/README.md), then
-run both drivers in `verify` mode. For each index mode (`native`, `sorted`), invoke
-`DATABASE 1 prepare 5 INDEX` in Rust, C++, C++, Rust order. Each driver supplies its
-own warmup. The [Rust driver](../../benches/order_workflow/driver.rs) and
-[C++ driver](../../benches/cpp-reference/order_workflow/driver.cpp) are the same
-executables used for the main comparison.
-
 ## What the application actually does
 
 The [fixture generator and independent SQL oracle](../../benches/order_workflow/fixture.py)
-create one SQLite file used by both programs. At the largest size it contains
+create one SQLite file used by all three programs. At the largest size it contains
 50,000 customers, 200,000 orders, and 1,000,000 order lines. Smaller fixtures keep
 those proportions. Insertion order is shuffled with a fixed seed; even-numbered
 keys and deliberately missing odd-numbered keys exercise genuine failed lookups,
@@ -537,7 +427,7 @@ new table; they are not just hidden behind deletion markers.
 Amounts use signed 64-bit integer cents. A gross amount exists only when quantity
 and price are valid. Variant amounts use `(gross * (10000 - discount_bp) + 5000) /
 10000`, rounding nonnegative amounts to the nearest cent, with ties rounded up.
-Both applications check multiplication/rounding overflow and reject invalid
+All three applications check multiplication/rounding overflow and reject invalid
 parameter ranges. Overflow aborts the benchmark invocation rather than silently
 wrapping or generating a partially valid output; a production importer would need
 an explicit recovery/error-reporting policy. Generated ordinary inputs stay well
@@ -573,7 +463,7 @@ mutation. A property test compares indexed joins with a simple nested-loop oracl
 on randomized nullable keys. Many-to-many fanout is tested for correctness but is
 not part of the performance dataset, which has unique dimension keys.
 
-The runner also checks that both applications reject gross overflow, discounted
+The runner also checks that all three applications reject gross overflow, discounted
 intermediate overflow, and an out-of-range discount. These are extension boundary
 checks, separate from the timed ordinary data.
 
@@ -587,7 +477,7 @@ Projection/gathering copies selected columns directly instead of rebuilding ever
 row through dynamic values. The native join index is a hash index. Rayon supplies
 the persistent worker pool.
 
-C++ uses **`gd::table::table_column_buffer` (also named `gd::table::dto::table`)**,
+C++ DTO uses **`gd::table::table_column_buffer` (also named `gd::table::dto::table`)**,
 its SQLite cursor, sorted integer indexes, and native `harvest` for copying selected
 rows/columns. This is GD table storage throughout; it is not a substitute vector-of-
 structs implementation. Variable-length names use `rstring`. The
@@ -608,30 +498,31 @@ This is **not** a benchmark of GD's separate `gd::table::table` member-table cla
 or its shared-schema lifecycle. The chosen DTO class directly supports projected
 harvesting and disabling string deduplication. Conclusions about other GD table
 classes would require another implementation; the [SIMD variant](#gd-simd-variant)
-now separately measures GD's packed SIMD table. Likewise, short names that fit
+separately measures GD's packed SIMD table. Likewise, short names that fit
 Rust's compact strings do not represent all long-string/blob workloads.
 
-## What went well, and what did not
+## Implementation tradeoffs
 
-Both implementations successfully express the requested workflow and produce
+All three implementations successfully express the requested workflow and produce
 identical results. GD's runtime schemas, nullable cells, cursor adapter, and
 `harvest` are useful building blocks. Its packed rows use less space per nullable
 integer than Rust's `Option<i64>` columns. The C++ application uses GD's published
 APIs. Concurrent readers with separately owned outputs produced correct results in
-both implementations under the application protocol described below.
+all three implementations under the application protocol described below.
 
 Rust provides predicate filtering, combined projection/gathering, and indexed
 join selection, with documented contracts and tests. The size comparison reports
 the selection module separately from the application. The application can express
 selection and reuse an index without manual lifetime management. Nullable column
 storage and materialized intermediates have memory costs. The tested pipeline
-uses eager materialization; it has no query optimizer, streaming execution, packed
-validity bitmaps, or lazy results.
+uses eager materialization for joins and outputs; it has no query optimizer,
+streaming join execution, packed validity bitmaps, or lazy results. SQLite import
+streams rows into the owned input tables.
 
 GD required care around index semantics, explicit null handling, reference-string
-storage options, and independent ownership across workers. Both applications still
+storage options, and independent ownership across workers. All three applications still
 use positional column numbers. A reordered schema can therefore introduce a
-business-logic bug even if the program compiles. Both implement validation rules
+business-logic bug even if the program compiles. All three implement validation rules
 in application code; neither library knows what an inactive customer or invalid
 price means.
 
@@ -708,16 +599,19 @@ These concurrency conditions do not resolve the GD undefined behavior reported b
 
 Sources: [sanitizer runner](../../benches/order_workflow/check_safety.py),
 [focused C++ probes](../../benches/cpp-reference/order_workflow/probes.cpp),
-[application code](../../benches/cpp-reference/order_workflow/workload.hpp), and
-[recorded diagnostics](measurements/order-workflow-safety.json).
+[application code](../../benches/cpp-reference/order_workflow/workload.hpp),
+[GD DTO diagnostics](measurements/order-workflow-safety.json),
+[GD SIMD diagnostics](measurements/order-workflow-simd-safety.json).
 
 The following findings were reproduced against the unchanged pinned GD source:
 
 | Check | Observed result | Interpretation |
 |---|---|---|
-| Ordinary 10,000-line pipeline, ASan + UBSan, fail-fast | Aborted at an unaligned `uint16_t` store in `gd_table.cpp:63` | The pipeline is not free of detected undefined behavior |
-| Same pipeline, UBSan recovery enabled | Full SQL verification completed; four alignment UB sites were reported; no ASan address error was reported | Correct observed results do not remove the UB |
-| Eight-worker pipeline, ThreadSanitizer | Completed full verification with no reported data race | Supports this particular immutable-input/owned-output pattern, not arbitrary GD concurrency |
+| GD DTO 10,000-line pipeline, ASan + UBSan, fail-fast | Aborted at an unaligned `uint16_t` store in `gd_table.cpp:63` | The pipeline is not free of detected undefined behavior |
+| GD DTO, UBSan recovery enabled | Full SQL verification completed; four alignment UB sites were reported; no ASan address error was reported | Correct observed results do not remove the UB |
+| GD SIMD 10,000-line pipeline, ASan + UBSan, fail-fast | Aborted at an unaligned `uint16_t` store in `gd_database_record.cpp:46` | The packed-table adapter does not remove the shared SQLite record UB |
+| GD SIMD, UBSan recovery enabled | Full SQL verification completed; the database-record alignment site was reported; no ASan address error was reported | Correct observed results do not remove the UB |
+| GD DTO and GD SIMD eight-worker pipelines, ThreadSanitizer | Completed full verification with no reported data race | Supports this particular immutable-input/owned-output pattern, not arbitrary GD concurrency |
 | Raw GD index probe | Searching for 20 in keys 10 and 30 reported a hit on row 1 | Confirms the missing-key workaround is necessary |
 | Column name supplied as a valid two-byte `string_view` without a trailing NUL | ASan aborted on a heap-buffer-overflow read in `names::add` | Adding names from slices/substrings can introduce a memory-safety bug unless the extra readable byte requirement is addressed |
 
@@ -741,7 +635,7 @@ size/schedule. No exploitability assessment was performed. Because UB exists on
 the actual C++ pipeline, its release measurements describe observed behavior on
 this machine, not a guarantee of portable behavior under all optimizations.
 
-Both release applications rejected the two overflow cases and an invalid
+All three release applications rejected the two overflow cases and an invalid
 discount. Rust stopped with a checked-operation panic; C++ returned a caught
 exception. This is fail-fast behavior, not graceful per-row recovery. The complete
 Rust repository checks passed, including formatting, Clippy, all-features and
@@ -755,7 +649,7 @@ not a security certification for the full dependency stack: SQLite is native cod
 and dependencies may contain unsafe implementations. The test results do not prove
 absence of vulnerabilities in either program.
 
-Returned row positions are snapshots in **both** implementations. Rust's join
+Returned row positions are snapshots in **all three** implementations. Rust's join
 result is an owned vector of positions; it does not keep either table borrowed.
 Removing or compacting rows and then reusing positions can still cause a logical
 error. Selection also preserves row extras/properties: projection is not a data-
@@ -790,6 +684,7 @@ git submodule update --init external/gd
 ./benches/run_order_workflow.sh
 python3 benches/order_workflow/summarize.py target/order-workflow/results.json
 python3 benches/order_workflow/check_safety.py
+python3 benches/order_workflow/check_safety.py --implementation cpp_simd
 ./scripts/ci.sh
 ```
 
@@ -798,9 +693,14 @@ checks and smaller runs. The [recorded raw measurements](measurements/order-work
 retain all samples, commands, versions, flags, source fingerprints, verification
 counts/digests, failure checks, memory readings, and linked libraries.
 
-Performance uses optimized assertions-off builds without sanitizers. Both target
-the native CPU and use LTO. Each case has two separate process runs in alternating
-language order, one warmup per process, and five recorded samples per process.
+Performance uses optimized assertions-off builds without sanitizers. All three target
+the native CPU and use LTO. Each case has three separate process rounds with
+rotated implementation order, one warmup per process, and five recorded samples
+per process.
+The million-row invocations additionally check background CPU usage before and
+during timing. An invocation with an observed unrelated process above 60% of one
+CPU is excluded and repeated; the raw data retain excluded samples, observations,
+and the controller source. Accepted timings alone enter the published tables.
 Tables, output allocations, index construction in `prepare`, and destruction are
 timed. Fixture creation, correctness checks, database connection opening, parameter
 loading, and thread-pool creation are excluded. Repeated `variants` runs reuse the
@@ -815,11 +715,11 @@ No CPU affinity was set. Heterogeneous cores, scheduling, caching, allocation, a
 the uneven sizes of the eight tasks affect scaling. Additional workers cannot
 accelerate the serial import/prepare phases in this implementation.
 
-Both measured programs use **SQLite 3.53.2**: Rust through bundled `rusqlite`
+All three measured programs use **SQLite 3.53.2**: Rust through bundled `rusqlite`
 **0.40.2 / libsqlite3-sys 0.38.2**, C++ through the hash-pinned amalgamation in
 the maintained CMake recipe. The runner records the runtime versions and rejects
 a mismatch before timing. Fixture creation uses Python SQLite **3.53.4**, outside
-timing, to produce the single input file consumed by both programs.
+timing, to produce the single input file consumed by all three programs.
 
 Matching the engine version removes one confounder, but SQLite compile-time
 options and adapters are not identical: rusqlite enables additional extensions

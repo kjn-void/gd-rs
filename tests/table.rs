@@ -736,6 +736,136 @@ fn required_fixed_width_columns_expose_typed_slices() {
 }
 
 #[test]
+fn nullable_fixed_width_columns_expose_typed_slices() {
+    macro_rules! check {
+        ($type:ty, $variant:ident, $value:expr) => {{
+            let value: $type = $value;
+            let schema =
+                Schema::new([ColumnSpec::new("value", DataType::$variant).nullable(true)]).unwrap();
+            let mut table = Table::new(schema);
+            assert!(
+                table
+                    .column(0)
+                    .unwrap()
+                    .as_nullable_slice::<$type>()
+                    .unwrap()
+                    .is_empty()
+            );
+            let (_, [column]) = table.columns_io([], [0]).unwrap();
+            assert!(column.as_nullable_mut_slice::<$type>().unwrap().is_empty());
+            table.push_row([Value::$variant(value)]).unwrap();
+            table.push_row([Value::Null]).unwrap();
+            assert_eq!(
+                table
+                    .column(0)
+                    .unwrap()
+                    .as_nullable_slice::<$type>()
+                    .unwrap(),
+                &[Some(value), None],
+            );
+            let (_, [column]) = table.columns_io([], [0]).unwrap();
+            let values = column.as_nullable_mut_slice::<$type>().unwrap();
+            values[0] = None;
+            values[1] = Some(value);
+            assert_eq!(table.cell(0, 0), Ok(ValueRef::Null));
+            assert_eq!(table.cell(1, 0), Ok(ValueRef::$variant(value)));
+        }};
+    }
+    check!(bool, Bool, true);
+    check!(i8, I8, -8);
+    check!(i16, I16, -16);
+    check!(i32, I32, -32);
+    check!(i64, I64, -64);
+    check!(u8, U8, 8);
+    check!(u16, U16, 16);
+    check!(u32, U32, 32);
+    check!(u64, U64, 64);
+    check!(f32, F32, 1.25);
+    check!(f64, F64, 2.5);
+    check!(uuid::Uuid, Uuid, uuid::Uuid::from_u128(42));
+}
+
+#[test]
+fn nullable_slices_check_type_and_schema_nullability() {
+    let schema = Schema::new([
+        ColumnSpec::new("required", DataType::I64),
+        ColumnSpec::new("nullable", DataType::I64).nullable(true),
+        ColumnSpec::new("null", DataType::Null),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    table
+        .push_row([Value::I64(1), Value::I64(2), Value::Null])
+        .unwrap();
+    assert_eq!(
+        table.column(0).unwrap().as_nullable_slice::<i64>(),
+        Err(ColumnSliceError::Required {
+            data_type: DataType::I64
+        }),
+    );
+    // Nullable storage stays nullable even when every value is populated.
+    assert_eq!(
+        table.column(1).unwrap().as_slice::<i64>(),
+        Err(ColumnSliceError::Nullable {
+            data_type: DataType::I64
+        }),
+    );
+    for column in [0, 1] {
+        let expected = ColumnSliceError::TypeMismatch {
+            expected: DataType::U64,
+            actual: DataType::I64,
+        };
+        assert_eq!(
+            table.column(column).unwrap().as_nullable_slice::<u64>(),
+            Err(expected)
+        );
+        let (_, [view]) = table.columns_io([], [column]).unwrap();
+        assert_eq!(view.as_nullable_mut_slice::<u64>(), Err(expected));
+    }
+    let (_, [required]) = table.columns_io([], [0]).unwrap();
+    assert_eq!(
+        required.as_nullable_mut_slice::<i64>(),
+        Err(ColumnSliceError::Required {
+            data_type: DataType::I64
+        }),
+    );
+    assert_eq!(
+        table.column(2).unwrap().as_nullable_slice::<i64>(),
+        Err(ColumnSliceError::TypeMismatch {
+            expected: DataType::I64,
+            actual: DataType::Null
+        }),
+    );
+}
+
+#[test]
+fn nullable_bulk_transform_preserves_nulls_and_tombstones() {
+    let schema = Schema::new([
+        ColumnSpec::new("amount", DataType::I64).nullable(true),
+        ColumnSpec::new("result", DataType::I64).nullable(true),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    for amount in [Value::I64(3), Value::Null, Value::I64(9)] {
+        table.push_row([amount, Value::Null]).unwrap();
+    }
+    table.tombstone_row(2).unwrap();
+    let ([amounts], [results]) = table.columns_io([0], [1]).unwrap();
+    let amounts = amounts.as_nullable_slice::<i64>().unwrap();
+    let results = results.as_nullable_mut_slice::<i64>().unwrap();
+    for (amount, result) in amounts.iter().zip(results) {
+        *result = amount.map(|value| value * 2);
+    }
+    assert_eq!(
+        table.column(1).unwrap().as_nullable_slice::<i64>().unwrap(),
+        &[Some(6), None, Some(18)]
+    );
+    assert_eq!(table.row_count(), 3);
+    assert_eq!(table.live_row_count(), 2);
+    assert!(table.is_tombstoned(2).unwrap());
+}
+
+#[test]
 fn distinct_required_columns_support_typed_bulk_transforms() {
     let schema = Schema::new([
         ColumnSpec::new("arg", DataType::U32),

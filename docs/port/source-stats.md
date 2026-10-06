@@ -1,9 +1,9 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured and revalidated on 2026-10-06. Rust source is gd-rs `20e5158`; GD is
-pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures source shape, not
-implementation quality or feature parity. In particular, the full C++ tree still
+baseline measured and revalidated on 2026-10-06. Rust scopes describe the current
+worktree; GD is pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures
+source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include maintained
 benchmarks; the pinned submodule revision contains no `external/gd/tests` directory, so
@@ -17,21 +17,21 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 27 | 7,294 | 251 | 681 | 2.71 |
-| Rust product + tests (`src`, `tests`) | 39 | 10,733 | 388 | 931 | 2.40 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 57 | 13,949 | 513 | 1,322 | 2.58 |
+| Rust product (`src`) | 27 | 7,412 | 254 | 688 | 2.71 |
+| Rust product + tests (`src`, `tests`) | 39 | 11,017 | 395 | 945 | 2.39 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 57 | 14,273 | 515 | 1,314 | 2.55 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests + maintained benchmarks | 161 | 67,570 | 8,816 | 20,555 | 2.33 |
 
-The requested Rust totals are therefore **7,294 SLOC without test/benchmark code**
-and **13,949 SLOC with both**. Tests account for 3,439 SLOC and benchmarks for 3,216
-SLOC. In the C++ scopes, the pinned baseline has no test directory and the maintained
-benchmark references add 2,983 SLOC, including the GD SIMD order-workflow adapter
+The Rust totals are **7,412 SLOC in `src`** and **14,273 SLOC including `tests`
+and `benches`**. The separate test tree adds 3,605 SLOC and benchmarks add 3,256
+SLOC. Inline unit tests inside `src` are included in every Rust scope. In the C++
+scopes, the pinned baseline has no test directory and the maintained benchmark references add 2,983 SLOC, including the GD SIMD order-workflow adapter
 in this worktree.
 
-These totals should not be read as a claim that Rust needs 11.3% of the code for an
-identical product. The Rust crate implements a deliberately smaller surface, while
+These totals do not establish the source size of an identical product. The Rust
+crate implements a deliberately smaller surface, while
 the C++ measurement includes unrelated and excluded subsystems. The figures are
 useful as repository baselines and for tracking growth, but a subsystem-by-subsystem
 comparison is required before attributing a size difference to language or design.

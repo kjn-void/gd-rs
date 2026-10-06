@@ -177,6 +177,47 @@ fn explicit_schema_converts_bool_unsigned_float_and_uuid() {
 }
 
 #[test]
+fn explicit_schema_streams_owned_values_and_nulls_across_rows() {
+    let database = SqliteDatabase::open_in_memory().unwrap();
+    let schema = Schema::new([
+        ColumnSpec::new("id", DataType::I64),
+        ColumnSpec::new("name", DataType::String).nullable(true),
+        ColumnSpec::new("payload", DataType::Bytes).nullable(true),
+    ])
+    .unwrap();
+    let mut table = database
+        .query_table_with_schema(
+            "SELECT 1, 'a long UTF-8 name: Åsa owns this imported value', x'0102' \
+         UNION ALL SELECT 2, NULL, NULL \
+         UNION ALL SELECT 3, 'another independently owned long name', x'030405'",
+            &Arguments::new(),
+            schema,
+        )
+        .unwrap();
+    drop(database);
+    assert_eq!(table.row_count(), 3);
+    assert_eq!(
+        table.column(0).unwrap().as_slice::<i64>().unwrap(),
+        &[1, 2, 3]
+    );
+    assert_eq!(
+        table.cell(0, 1),
+        Ok(ValueRef::String(
+            "a long UTF-8 name: Åsa owns this imported value"
+        ))
+    );
+    assert_eq!(table.cell(0, 2), Ok(ValueRef::Bytes(&[1, 2])));
+    assert_eq!(table.cell(1, 1), Ok(ValueRef::Null));
+    assert_eq!(table.cell(1, 2), Ok(ValueRef::Null));
+    table.set_cell(0, 1, Value::from("changed")).unwrap();
+    assert_eq!(
+        table.cell(2, 1),
+        Ok(ValueRef::String("another independently owned long name"))
+    );
+    assert_eq!(table.cell(2, 2), Ok(ValueRef::Bytes(&[3, 4, 5])));
+}
+
+#[test]
 fn explicit_schema_rejects_range_type_and_nullability_errors() {
     let database = SqliteDatabase::open_in_memory().unwrap();
     let u8_schema = Schema::new([ColumnSpec::new("small", DataType::U8)]).unwrap();
