@@ -231,16 +231,17 @@ Sources: [Rust application](../../benches/order_workflow/workload.rs),
 [raw measurements](measurements/order-workflow-m3max.json).
 
 On the measured M3 Max, one million order lines give these median times across
-three process rounds with five samples each:
+three process rounds with five samples each. Speedup multipliers divide GD elapsed
+time by gd-rs elapsed time, using the unrounded medians.
 
-| Stage | Workers | Rust ms | GD DTO ms | GD SIMD ms |
-|---|---:|---:|---:|---:|
-| Import | 1 | 122.7 | 214.8 | 193.1 |
-| Prepare, native index | 1 | 149.8 | 289.8 | 243.1 |
-| Eight variants | 1 | 45.0 | 184.8 | 172.1 |
-| Eight variants | 8 | 13.8 | 78.9 | 66.7 |
-| Complete | 1 | 346.0 | 727.4 | 634.6 |
-| Complete | 8 | 307.4 | 625.7 | 531.3 |
+| Stage | Workers | gd-rs ms | GD DTO ms | GD SIMD ms | gd-rs speedup vs DTO | gd-rs speedup vs SIMD |
+|---|---:|---:|---:|---:|---:|---:|
+| Import | 1 | 122.7 | 214.8 | 193.1 | 1.75× | 1.57× |
+| Prepare, native index | 1 | 149.8 | 289.8 | 243.1 | 1.93× | 1.62× |
+| Eight variants | 1 | 45.0 | 184.8 | 172.1 | 4.11× | 3.83× |
+| Eight variants | 8 | 13.8 | 78.9 | 66.7 | 5.70× | 4.82× |
+| Complete | 1 | 346.0 | 727.4 | 634.6 | 2.10× | 1.83× |
+| Complete | 8 | 307.4 | 625.7 | 531.3 | 2.04× | 1.73× |
 
 For this full workflow, DTO takes 2.10× Rust's elapsed time and GD SIMD takes
 1.83× at one worker; the ratios at eight workers are 2.04× and 1.73×.
