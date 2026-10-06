@@ -13,6 +13,10 @@ and gd-rs `f7c7b91`. The current audit covers the C++ sources in the `external/g
 submodule. Tests and benchmarks are kept separate from product code in the reproducible
 counts in [`source-stats.md`](source-stats.md).
 
+Concurrency, UUID, logger, and move-operation findings were added on 2026-10-06 against
+the same GD revision and gd-rs `70c89f2`. Their probes ran on macOS ARM64 (Apple M3 Max,
+Apple Clang) and Linux x86_64 (Intel Core Ultra 5 225H, GCC 13.3).
+
 ## Baseline and confirmed defects
 
 The C++ product tree contains 140 C/C++ files and 64,587 non-comment source lines; the
@@ -167,6 +171,20 @@ cases include:
 - failed conversion behavior;
 - ordering across unlike types.
 
+### Random UUID generation shares one unsynchronized engine
+
+`uuid::new_uuid_s()` and the `uuid(tag_random)` constructor draw from `r64`, which
+uses a process-wide static `std::mt19937_64` and a shared distribution without a lock
+([`gd_uuid.h`](../../external/gd/source/gd_uuid.h)). Concurrent generation is a data
+race on the engine state. Beyond undefined behavior, two threads can read the same state
+and produce the same "random" UUID. The separate `uuid_generate_g` in
+[`gd_types.cpp`](../../external/gd/source/gd_types.cpp) uses a `thread_local` engine
+and does not have this problem; callers must know which of the two generators they use.
+
+gd-rs parses and formats UUIDs but does not generate them. Applications that need random
+UUIDs can enable the `uuid` crate's `v4` feature, which is safe to call from several
+threads.
+
 ## Arguments containers
 
 There are at least four overlapping public representations:
@@ -212,6 +230,30 @@ lead to a leak, double delete, or use-after-free. See
 Rust's ordinary `Arguments` can be wrapped in `Arc` by the application. Mutable sharing
 requires synchronization or ownership-based copying; gd-rs does not export a separate
 packed shared-argument container or a custom reference counter.
+
+### Moving shared arguments deletes the static empty buffer
+
+Every `shared::arguments` object starts with `m_pbuffer` pointing at the process-wide
+static `m_buffer_s`. The move constructor calls `common_construct(arguments&&)`, which
+skips the first release because the new object is still null and then unconditionally
+calls `m_pbuffer->release()` again
+([`gd_arguments_shared.h`](../../external/gd/source/gd_arguments_shared.h)). That
+release targets the static empty buffer. With assertions enabled it trips
+`assert( this != &m_buffer_s )`. Without assertions it decrements the static count from
+1 to 0 and runs `delete[]` on the static object. An AddressSanitizer build without
+assertions aborts at `gd_arguments_shared.h:372`, called from line 972, on a single
+thread moving a one-value object:
+
+```cpp
+gd::argument::shared::arguments a;
+a.append("id", 1);
+gd::argument::shared::arguments b(std::move(a));   // deletes the static m_buffer_s
+```
+
+Every move construction is affected, including implicit ones: the move constructor is
+`noexcept`, so a growing `std::vector<shared::arguments>` moves its elements on
+reallocation. The static buffer is also process-wide mutable state, so concurrent moves
+would race on it as well.
 
 ### Argument serializers reuse stale escape buffers
 
@@ -321,6 +363,62 @@ describes shared columns as suitable for threaded use, but concurrent copy/drop 
 race exactly like the shared argument counter. Rust uses `Arc<Schema>` and makes the
 schema immutable after construction.
 
+The race was reproduced with tables that are each owned by one thread. Only the
+`detail::columns` object is shared, attached the way GD's own documented example does
+it. The owning thread keeps its reference for the entire run and never releases it:
+
+```cpp
+auto pcolumns = gd::table::table::new_columns_s();   // count 1, held by main until exit
+for(int t = 0; t < threads; ++t)
+    workers.emplace_back([pcolumns, iterations] {
+        for(int i = 0; i < iterations; ++i) {
+            gd::table::table owned;                  // thread-local table
+            owned = pcolumns;                        // add_reference()
+        }                                            // ~table: release(), delete at zero
+    });
+// after join, pcolumns->get_reference() should be 1
+```
+
+ThreadSanitizer reports a data race between `add_reference()` (`gd_table_column.h:308`)
+and `release()` (`gd_table_column.h:352`) on both platforms. Release-build outcomes:
+
+| Platform and build | Threads × iterations | Runs | Correct | Count too high (leak) | Freed-memory value | Crash |
+|---|---|---:|---:|---:|---:|---:|
+| ARM64, Apple Clang `-O3` | 4 × 200,000 | 40 | 13 | 10 | 10 | 7 |
+| x86_64, GCC `-O3` | 4 × 200,000 | 440 | 439 | 1 | 0 | 0 |
+| x86_64, GCC `-O3` | 4 × 20,000,000 | 40 | 28 | 12 | 0 | 0 |
+| x86_64, GCC `-O3` | 14 × 20,000,000 | 40 | 21 | 19 | 0 | 0 |
+| x86_64, GCC `-O1` | 4 × 200,000 | 400 | 11 | 79 | 23 | 287 |
+| x86_64, GCC `-O1` | 4 × 20,000,000 | 40 | 0 | 0 | 0 | 40 |
+| x86_64, GCC `-O1` | 14 × 20,000,000 | 40 | 0 | 0 | 0 | 40 |
+
+Crashes were segmentation faults and allocator aborts. A "freed-memory value" is a final
+count read after the columns object had already been deleted.
+
+- **Keeping the owner's reference does not prevent early deletion.** A lost increment
+  lets the count reach zero while the owner still holds the object, after which
+  `release()` deletes it.
+- **x86's stronger memory ordering does not make the counter atomic.** Ordering rules
+  govern when other cores observe loads and stores; `++` and `--` remain separate
+  load, modify, and store steps. Only `lock`-prefixed instructions on x86, or
+  `LDADD`/`LDXR`+`STXR` on ARM64, make them atomic, and a plain `int` gets neither.
+- **The failure mode follows code generation, not the CPU.** Apple Clang and GCC `-O1`
+  emit a separate load, modify, and store for each update, so the count can reach zero
+  early and crash. GCC `-O3` inlined both calls into one read, a store of `count + 1`,
+  and a store of the original value; because a data race is undefined behavior, the
+  compiler may assume no other writer. Other threads' updates are overwritten, and the
+  count can only drift upward, which leaks. The same source on the same x86 CPU
+  therefore ranges from failing once in 440 runs to crashing in every run.
+- **The short x86 `-O3` run rarely fails because the threads barely overlap.** Each run
+  takes about 7 ms, so most threads finish before the next one starts. Longer runs
+  fail in 30–48% of cases.
+
+Locked mode avoids this race. After `set_locked()`, `add_reference()` and `release()`
+only read the `-2` sentinel, and concurrent reads do not race. The owner must then call
+`delete_locked()` after every table using the object is gone. No GD code calls
+`set_locked()`; the documented example and the internal `new_columns_s()` call sites
+use counting mode.
+
 GD table contents are not safe for unsynchronized conflicting access. Even tables with
 independent row buffers can share reference-counted metadata. The application must
 enforce safe publication, lifetimes, storage stability, and synchronization of all
@@ -384,6 +482,43 @@ choices rather than existing gd-rs APIs:
 Rust's text tests cover malformed encodings/escapes and round trips. Public text helpers
 use Rust string lengths instead of C-string terminator assumptions. This is not evidence
 that every GD text overload has been tested for conformance.
+
+### Default UTF-8 strings share copy-on-write buffers through a non-atomic count
+
+A default-constructed `gd::utf8::string`, and the `const char*`, iterator, and
+initializer-list constructors, use reference-counted storage
+([`gd_utf8_string.h:287`](../../external/gd/source/gd_utf8_string.h)). Copying shares
+the buffer and increments `buffer::m_iReferenceCount`, an ordinary `int32_t`, and the
+copy-on-write path checks the count before releasing and cloning. A copy therefore
+looks like an independent value, like `std::string`, but copies handed to different
+threads race on the shared count and can leak, double free, or clone from a buffer
+another thread just freed. C++11 disallowed copy-on-write `std::string` for this
+reason.
+
+Source comments say to use `storage::unique` in threaded code and not to use reference
+counting when a string is accessed from several threads (lines 290 and 517). That
+documents the limitation, but the unsafe mode is the default and the type gives no
+indication at the point where a copy crosses a thread boundary.
+
+### UTF-8 string move assignment shares a buffer without retaining it
+
+`string& operator=(string&& o)` assigns `o.m_pbuffer` without releasing the previous
+buffer or adding a reference, then calls `m_pbuffer->set_null_buffer(o.m_pbuffer)`
+([`gd_utf8_string.h:315`](../../external/gd/source/gd_utf8_string.h)).
+`set_null_buffer` assigns only its by-value parameter (line 550), so `o` keeps the
+buffer. Both strings then own one buffer whose count is still 1, and the destination's
+previous buffer leaks. Destroying both strings is a heap use-after-free; an
+AddressSanitizer build reports it on a single thread:
+
+```cpp
+gd::utf8::string a("first value");
+gd::utf8::string b("second value");
+b = std::move(a);   // a and b share one buffer with count 1; b's old buffer leaks
+```
+
+The move constructor has the same no-op `set_null_buffer` call but adds a reference, so
+it behaves as a shared copy rather than a move. `gd_utf8_string.cpp` is not part of the
+GD core library built by gd-rs's benchmark recipe; the probe compiled it separately.
 
 ### URI decoding uses reserved capacity as an untracked output buffer
 
@@ -526,6 +661,26 @@ contain explicit `TODO: lock this` comments. A thread-safe logger wrapper does n
 make every printer implementation thread-safe. Concurrent file writes and rotation
 can race.
 
+The logger's synchronization is narrower than its name suggests
+([`gd_log_logger.h`](../../external/gd/source/gd_log_logger.h)):
+
+- **The default logger takes no lock.** `logger<iLoggerKey, bThread>` defaults
+  `bThread` to `false`, and `gd::log::get_s()` returns that unsynchronized
+  `logger<0>`.
+- **Opting in locks only printing.** With `bThread = true`, the `print` and
+  `print_always` paths lock a static mutex. `append`, printer removal and `clear`,
+  `set_severity`, and `error_pop` do not, while `check_severity` reads the severity
+  unlocked and printing pushes to the same error vector that `error_pop` removes from.
+- **The printer mutex is unused.** `printer_get_mutex_g()` is defined in
+  [`gd_log_logger_printer.cpp`](../../external/gd/source/gd_log_logger_printer.cpp) but
+  never called.
+- **Timestamps use non-reentrant `localtime`.** Message time and date helpers in
+  [`gd_log_logger.cpp`](../../external/gd/source/gd_log_logger.cpp) and the rotation
+  helpers in [`gd_file_rotate.cpp`](../../external/gd/source/gd_file_rotate.cpp) call
+  `localtime`, which returns a pointer to process-wide static storage. The logger mutex
+  does not cover other loggers (each `iLoggerKey` has its own mutex), file rotation, or
+  application code calling `localtime`. `localtime_r` or `localtime_s` avoid this.
+
 gd-rs does not include a logger. Expected failures use typed `Result` values and produce
 no output. Applications own instrumentation, subscriber selection and rolling-file
 appenders. Likewise:
@@ -538,6 +693,13 @@ appenders. Likewise:
 The POSIX console path includes an explicitly unimplemented operation. Platform APIs
 must have platform-specific tests; unsupported operations should return a typed
 error, not assert.
+
+The SQLite adapter does not compile with Clang 18 against libstdc++ 13 on Ubuntu 24.04.
+[`gd_com.h:110`](../../external/gd/source/gd_com.h), included through
+`gd_database.h`, uses an unqualified `nullptr_t` default template argument. The
+standard guarantees only `std::nullptr_t`; the unqualified name works only where some
+header happens to declare it in the global namespace, as with GCC 13 on the same host
+and Apple Clang on macOS.
 
 These facilities are intentionally not modules in `gd-rs`. CLI schemas belong in an
 application's `clap::Command`; file and path operations use `std`; rotation belongs to
@@ -591,9 +753,11 @@ may still panic, and incorrect validation or serialization can still compile.
 | Owned and borrowed variants depend on layout compatibility and runtime flags | Ownership/lifetime; type safety; memory-unsafe access; undefined behavior | ☑ | Dangling reads, leaks, or double frees after a bad flag or expired view |
 | The `string_view` variant constructor copies `length + 1` source bytes | Bounds validation; memory-unsafe access; undefined behavior | ☑ | One-byte out-of-bounds read at the end of a view |
 | Variant conversions and cross-type comparisons are underspecified | Specification gap; validation; correctness | ☐ | Caller-visible behavior varies across widths, special floats, and unlike types |
+| Random UUID generation uses one unsynchronized static engine | Data race; global state; undefined behavior | ☑ | Corrupted engine state or duplicate "random" UUIDs under concurrent generation |
 | Argument storage has several overlapping packed/owned/borrowed implementations | Duplication; architecture; maintainability | ☐ | Divergent invariants, codecs, ownership rules, and bug fixes |
 | Named argument lookup linearly decodes the packed entries | Algorithmic complexity | ☐ | **O(k n)** work when `k` names are independently looked up among `n` entries |
 | Shared argument buffers use a non-atomic reference count | Data race; ownership/lifetime; undefined behavior | ☑ | Leak, double delete, or use-after-free during concurrent copy/drop |
+| Shared-argument move construction releases the static empty buffer | Ownership/lifetime; global state; memory-unsafe access; undefined behavior | ☑ | Every move construction, including `std::vector` growth, asserts or deletes a static object |
 | Argument serializers reuse stale buffers and can alias an input view with its output | Lifetime/invalidation; memory-unsafe access; serialization correctness; undefined behavior | ☑ | Corrupted URI fields, invalid JSON names, or reads through an invalidated view |
 | Table implementations duplicate layouts and cast between sibling classes | Type safety; architecture; undefined-behavior risk | ☑ | A layout change silently invalidates offset and cast assumptions |
 | The documented columnar table is actually a packed row store | Documentation mismatch; space/cache efficiency | ☐ | Strided column scans and avoidable cache traffic for wide rows |
@@ -602,11 +766,13 @@ may still panic, and incorrect validation or serialization can still compile.
 | The selection-sort range assertion checks `uFrom + uFrom` | Missing argument/range validation | ☐ | Invalid ranges can pass while valid ranges can be rejected |
 | Scalar integer/string table index lookup accepts any non-end `lower_bound` result | Missing result validation; correctness | ☐ | A missing key is reported as the next greater key; composite lookup checks equality |
 | String indexes retain views without mutation invalidation or a generation check | Ownership/lifetime; stale reference; memory-unsafe access | ☑ | Table growth or destruction leaves dangling index keys |
-| Shared table-column metadata uses a non-atomic reference count | Data race; ownership/lifetime; undefined behavior | ☑ | Premature deletion, double deletion, or use-after-free |
+| Shared table-column metadata uses a non-atomic reference count | Data race; ownership/lifetime; undefined behavior | ☑ | Premature deletion, double deletion, or use-after-free; reproduced on ARM64 and x86_64 with per-thread tables |
 | Internal-table copies do not retain their shared column metadata | Ownership/lifetime; memory-unsafe access; undefined behavior | ☑ | The first copy destroyed can leave the other with a dangling schema pointer and cause use-after-free or double release |
 | Table JSON skips alternating columns and omits the outer array | Serialization correctness; missing output validation | ☐ | Silent data loss and output that is not one complete JSON value |
 | Table CSV inserts a comma between records | Serialization correctness | ☐ | Extra empty fields and inconsistent record widths |
 | Text handling duplicates UTF traversal, escaping, and parsing primitives | Duplication; architecture; validation risk | ☐ | Inconsistent boundary rules and a broad memory-safety audit surface |
+| Default UTF-8 strings share copy-on-write buffers through a non-atomic count | Data race; ownership/lifetime; undefined behavior | ☑ | Apparently independent copies leak, double free, or clone freed memory across threads |
+| UTF-8 string move assignment shares a buffer without retaining it | Ownership/lifetime; memory-unsafe access; undefined behavior | ☑ | Heap use-after-free on destruction and a leak of the destination's previous buffer |
 | URI decoding uses reserved vector capacity without increasing size | Container/buffer contract; portability; bounds/lifetime risk | ☑ | Raw output relies on storage beyond the range guaranteed by `vector::data`; the size mismatch alone does not establish UB on every implementation |
 | Multi-byte splitting compares beyond suffix bounds and appends whole suffixes | Bounds validation; memory-unsafe access; undefined behavior; algorithmic complexity | ☑ | Out-of-bounds reads plus **O(n²)** time/output on ordinary input |
 | Trim helpers dereference the exclusive end and mishandle empty views | Bounds validation; memory-unsafe access; undefined behavior | ☑ | One-past-end or invalid empty-range reads |
@@ -619,7 +785,9 @@ may still panic, and incorrect validation or serialization can still compile.
 | Method lookup indexes an empty registry and does not verify exact matches | Missing state/result/bounds validation; memory-unsafe access; correctness; undefined behavior | ☑ | Crash, out-of-bounds access, or dispatch to the wrong function |
 | Function pointers are erased to `void*` and reconstructed from numeric metadata | Type safety; invalid dispatch metadata; undefined behavior | ☑ | Calling through an incompatible function-pointer type |
 | Expression variables use a linear scan for every reference | Algorithmic complexity | ☐ | **O(t v)** lookup work for `t` references over `v` variables |
-| Logger printer/file/rotation state is not consistently synchronized | Data race; I/O correctness; undefined behavior | ☑ | Interleaved writes, corrupted rotation state, or races on shared objects |
+| Logger printer/file/rotation state is not consistently synchronized; the default logger takes no lock and the opt-in lock covers only printing | Data race; I/O correctness; undefined behavior | ☑ | Interleaved writes, corrupted rotation state, or races on printer lists, severity, and the error stack |
+| Logger and rotation timestamps use non-reentrant `localtime` | Data race; non-reentrant API; global state | ☑ | Wrong or torn timestamps when other threads or loggers call `localtime` concurrently |
 | A POSIX console operation is explicitly unimplemented | Missing platform implementation; API completeness | ☐ | Platform-dependent failure or assertion instead of a reported error |
+| `gd_com.h` uses an unqualified `nullptr_t` | Portability; standard conformance | ☐ | The SQLite adapter fails to compile with Clang 18 and libstdc++ 13 |
 | Public-input checks rely extensively on release-disabled assertions | Missing argument/state/bounds validation; undefined-behavior exposure | ☐ | Invalid indexes or pointer arithmetic continue unchecked in release builds |
 | Packed buffers use typed cast loads without a general alignment proof | Alignment; memory-unsafe access; undefined behavior | ☑ | Systemic platform-dependent misaligned access beyond the named examples |
