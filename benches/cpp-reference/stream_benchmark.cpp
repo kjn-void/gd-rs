@@ -56,8 +56,7 @@ std::vector<unsigned> parse_cpu_list(const char* text) {
     std::size_t begin = 0;
     while (begin < input.size()) {
         const auto comma = input.find(',', begin);
-        cpus.push_back(
-            static_cast<unsigned>(std::stoul(input.substr(begin, comma - begin))));
+        cpus.push_back(static_cast<unsigned>(std::stoul(input.substr(begin, comma - begin))));
         if (comma == std::string::npos) {
             break;
         }
@@ -67,8 +66,8 @@ std::vector<unsigned> parse_cpu_list(const char* text) {
 }
 
 template <class Function>
-double parallel_run(std::size_t count, unsigned workers,
-                    const std::vector<unsigned>& cpus, Function&& function) {
+double parallel_run(
+    std::size_t count, unsigned workers, const std::vector<unsigned>& cpus, Function&& function) {
     std::barrier ready(static_cast<std::ptrdiff_t>(workers + 1));
     std::barrier start(static_cast<std::ptrdiff_t>(workers + 1));
     std::atomic<bool> affinity_failed = false;
@@ -159,26 +158,26 @@ int main(int argc, char** argv) {
         triad_times.reserve(repetitions);
 
         for (unsigned repetition = 0; repetition < repetitions; ++repetition) {
-            copy_times.push_back(parallel_run(
-                count, workers, cpus, [&](std::size_t begin, std::size_t end) {
+            copy_times.push_back(
+                parallel_run(count, workers, cpus, [&](std::size_t begin, std::size_t end) {
                     for (auto index = begin; index < end; ++index) {
                         c[index] = a[index];
                     }
                 }));
-            scale_times.push_back(parallel_run(
-                count, workers, cpus, [&](std::size_t begin, std::size_t end) {
+            scale_times.push_back(
+                parallel_run(count, workers, cpus, [&](std::size_t begin, std::size_t end) {
                     for (auto index = begin; index < end; ++index) {
                         b[index] = scalar * c[index];
                     }
                 }));
-            add_times.push_back(parallel_run(
-                count, workers, cpus, [&](std::size_t begin, std::size_t end) {
+            add_times.push_back(
+                parallel_run(count, workers, cpus, [&](std::size_t begin, std::size_t end) {
                     for (auto index = begin; index < end; ++index) {
                         c[index] = a[index] + b[index];
                     }
                 }));
-            triad_times.push_back(parallel_run(
-                count, workers, cpus, [&](std::size_t begin, std::size_t end) {
+            triad_times.push_back(
+                parallel_run(count, workers, cpus, [&](std::size_t begin, std::size_t end) {
                     for (auto index = begin; index < end; ++index) {
                         a[index] = b[index] + scalar * c[index];
                     }
@@ -186,14 +185,12 @@ int main(int argc, char** argv) {
         }
 
         const auto gbps = [count](double streams, double seconds) {
-            return streams * static_cast<double>(count * sizeof(double)) / seconds /
-                   1.0e9;
+            return streams * static_cast<double>(count * sizeof(double)) / seconds / 1.0e9;
         };
         const double checksum = std::accumulate(a, a + count, 0.0);
         std::cout << "workers,copy_gbps,scale_gbps,add_gbps,triad_gbps,checksum\n"
                   << workers << ',' << gbps(2.0, median(copy_times)) << ','
-                  << gbps(2.0, median(scale_times)) << ','
-                  << gbps(3.0, median(add_times)) << ','
+                  << gbps(2.0, median(scale_times)) << ',' << gbps(3.0, median(add_times)) << ','
                   << gbps(3.0, median(triad_times)) << ',' << checksum << '\n';
     } catch (const std::exception& error) {
         std::cerr << "stream_benchmark: " << error.what() << '\n';

@@ -4,6 +4,18 @@ This directory contains the Google Benchmark fixtures used as the C++ GD referen
 for the Criterion benchmarks in the parent directory. Keeping the comparison sources
 here makes the benchmark methodology reviewable from the Rust repository.
 
+All maintained C++ sources use the repository's [.clang-format](../../.clang-format):
+four-space indentation, a 100-column limit, and expanded functions and braced
+control-flow blocks. From the repository root, format the tracked sources with:
+
+```sh
+git ls-files '*.cpp' '*.hpp' '*.h' '*.cc' '*.cxx' '*.c' | xargs clang-format -i
+```
+
+The file list excludes the read-only GD submodule and generated build output.
+Separate logical steps, validation checks, and returns with blank lines.
+`clang-format` preserves this grouping; it does not infer the groups itself.
+
 The build expects the C++ GD git submodule at `external/gd` relative to the `gd-rs`
 repository. Initialize it with `git submodule update --init external/gd` after cloning.
 Override that default with `-DGD_SOURCE_DIR=/absolute/path/to/gd` when configuring
