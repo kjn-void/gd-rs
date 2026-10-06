@@ -12,6 +12,9 @@ The implementation sources are the [Rust application](../../benches/order_workfl
 and [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp).
 The [full measurement tables](order-workflow-results.md) include sample ranges,
 peak memory, source sizes, executable sizes, and environment details.
+The [debugging project](../../external/order-workflow/README.md) provides Visual
+Studio solution generation and VS Code launch configurations for both AoS and
+AoSoA, with a shared SQLite fixture and preconfigured debugger arguments.
 
 ## Coverage of the GD author's examples
 

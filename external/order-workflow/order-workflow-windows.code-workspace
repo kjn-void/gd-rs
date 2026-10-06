@@ -1,0 +1,74 @@
+{
+  "folders": [
+    {
+      "name": "order-workflow",
+      "path": "."
+    }
+  ],
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "GD order-workflow: AoS (Windows)",
+        "type": "cppvsdbg",
+        "request": "launch",
+        "program": "${workspaceFolder:order-workflow}/../../target/order-workflow-vscode/debug/Debug/gd_order_workflow.exe",
+        "args": [
+          "${workspaceFolder:order-workflow}/../../target/order-workflow-vscode/debug/order-workflow-small.sqlite",
+          "${input:gdWorkers}",
+          "${input:gdStage}",
+          "1",
+          "native"
+        ],
+        "cwd": "${workspaceFolder:order-workflow}",
+        "stopOnEntry": false,
+        "preLaunchTask": "GD workflow: build AoS Debug",
+        "externalConsole": false
+      },
+      {
+        "name": "GD order-workflow: AoSoA (Windows)",
+        "type": "cppvsdbg",
+        "request": "launch",
+        "program": "${workspaceFolder:order-workflow}/../../target/order-workflow-vscode/debug/Debug/gd_order_workflow_simd.exe",
+        "args": [
+          "${workspaceFolder:order-workflow}/../../target/order-workflow-vscode/debug/order-workflow-small.sqlite",
+          "${input:gdWorkers}",
+          "${input:gdStage}",
+          "1",
+          "native"
+        ],
+        "cwd": "${workspaceFolder:order-workflow}",
+        "stopOnEntry": false,
+        "preLaunchTask": "GD workflow: build AoSoA Debug",
+        "externalConsole": false
+      }
+    ],
+    "inputs": [
+      {
+        "id": "gdWorkers",
+        "type": "pickString",
+        "description": "Order-workflow workers",
+        "options": [
+          "1",
+          "2",
+          "4",
+          "8"
+        ],
+        "default": "4"
+      },
+      {
+        "id": "gdStage",
+        "type": "pickString",
+        "description": "Order-workflow stage",
+        "options": [
+          "verify",
+          "import",
+          "prepare",
+          "variants",
+          "complete"
+        ],
+        "default": "verify"
+      }
+    ]
+  }
+}

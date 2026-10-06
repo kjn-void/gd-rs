@@ -57,11 +57,11 @@ target_compile_definitions(gd_core PUBLIC GD_DATABASE_SQLITE_USE)
 set(GD_COMPAT_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/gd-compat-include")
 file(MAKE_DIRECTORY "${GD_COMPAT_INCLUDE_DIR}/gd" "${GD_COMPAT_INCLUDE_DIR}/sqlite")
 foreach(header gd_binary.h gd_compiler.h gd_table.h gd_table_column-buffer.h gd_types.h gd_utf8.h)
-    file(WRITE "${GD_COMPAT_INCLUDE_DIR}/gd/${header}"
-        "#pragma once\n#include <${header}>\n")
+    file(GENERATE OUTPUT "${GD_COMPAT_INCLUDE_DIR}/gd/${header}"
+        CONTENT "#pragma once\n#include <${header}>\n")
 endforeach()
-file(WRITE "${GD_COMPAT_INCLUDE_DIR}/sqlite/sqlite3.h"
-    "#pragma once\n#include <sqlite3.h>\n")
+file(GENERATE OUTPUT "${GD_COMPAT_INCLUDE_DIR}/sqlite/sqlite3.h"
+    CONTENT "#pragma once\n#include <sqlite3.h>\n")
 target_include_directories(gd_core PUBLIC "${GD_SOURCE_DIR}/source" "${GD_COMPAT_INCLUDE_DIR}")
 target_link_libraries(gd_core PUBLIC gd_sqlite3)
 

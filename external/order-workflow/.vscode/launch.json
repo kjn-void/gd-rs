@@ -1,0 +1,66 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "GD order-workflow: AoS (macOS / Linux)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../../target/order-workflow-vscode/debug/gd_order_workflow",
+      "args": [
+        "${workspaceFolder}/../../target/order-workflow-vscode/debug/order-workflow-small.sqlite",
+        "${input:gdWorkers}",
+        "${input:gdStage}",
+        "1",
+        "native"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false,
+      "preLaunchTask": "GD workflow: build AoS Debug",
+      "terminal": "integrated"
+    },
+    {
+      "name": "GD order-workflow: AoSoA (macOS / Linux)",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/../../target/order-workflow-vscode/debug/gd_order_workflow_simd",
+      "args": [
+        "${workspaceFolder}/../../target/order-workflow-vscode/debug/order-workflow-small.sqlite",
+        "${input:gdWorkers}",
+        "${input:gdStage}",
+        "1",
+        "native"
+      ],
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false,
+      "preLaunchTask": "GD workflow: build AoSoA Debug",
+      "terminal": "integrated"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "gdWorkers",
+      "type": "pickString",
+      "description": "Order-workflow workers",
+      "options": [
+        "1",
+        "2",
+        "4",
+        "8"
+      ],
+      "default": "4"
+    },
+    {
+      "id": "gdStage",
+      "type": "pickString",
+      "description": "Order-workflow stage",
+      "options": [
+        "verify",
+        "import",
+        "prepare",
+        "variants",
+        "complete"
+      ],
+      "default": "verify"
+    }
+  ]
+}
