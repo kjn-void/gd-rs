@@ -185,8 +185,14 @@ mutable state. In particular:
   Schema-sharing construction paths, including the `tag_columns` overload, increment the source's count
   ([`gd_table_table.cpp`](../../external/gd/source/gd_table_table.cpp)), so two
   threads doing so from one frozen source race.
-- String and binary `reference` storage also uses a non-atomic `int` reference count
-  ([`gd_table.h`](../../external/gd/source/gd_table.h)).
+- Copies of `shared::arguments` and of default (reference-counted) `utf8::string`
+  values share one buffer through a plain `int` count, so copies handed to different
+  threads race ([`gd_arguments_shared.h`](../../external/gd/source/gd_arguments_shared.h),
+  [`gd_utf8_string.h`](../../external/gd/source/gd_utf8_string.h)).
+- String and binary `reference` storage in tables also has a plain `int` count
+  ([`gd_table.h`](../../external/gd/source/gd_table.h)), but it does not cross table
+  boundaries: each table owns its entries, and copying a table copies them
+  ([`gd_table.cpp`](../../external/gd/source/gd_table.cpp)).
 - `r64::new_uuid` draws from a static `std::mt19937_64` without a lock
   ([`gd_uuid.h`](../../external/gd/source/gd_uuid.h)). In contrast,
   `uuid_generate_g` uses a thread-local engine
