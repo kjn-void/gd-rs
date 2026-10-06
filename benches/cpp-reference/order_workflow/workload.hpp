@@ -50,6 +50,17 @@ inline Table Make(const std::vector<std::string_view>& names, std::size_t capaci
     Check(table.prepare());
     return table;
 }
+// GD DTO harvest() adds the selected row count to a prepared destination's
+// reservation, so a pre-sized destination would be allocated twice and copied.
+// The SIMD adapter reserves only when full and needs the capacity up front.
+inline Table MakeHarvestTarget(const std::vector<std::string_view>& names, std::size_t rows) {
+#ifdef GD_WORKFLOW_SIMD
+    return Make(names, rows);
+#else
+    static_cast<void>(rows);
+    return Make(names);
+#endif
+}
 inline Table Read(Database& db, const std::string& name, const std::vector<std::string_view>& columns) {
     auto table = Make(columns);
     gd::database::sqlite::cursor cursor(&db);
@@ -116,7 +127,7 @@ inline Prepared Prepare(const Inputs& input) {
     std::vector<std::uint64_t> valid;
     for(std::uint64_t row = 0; row < audit.get_row_count(); ++row)
         if(audit.cell_get_variant_view(row, 10u).as_int64() == 0) valid.push_back(row);
-    auto clean = Make(auditNames, valid.size());
+    auto clean = MakeHarvestTarget(auditNames, valid.size());
     audit.harvest({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, valid, clean);
     return {std::move(audit), std::move(clean)};
 }
@@ -140,7 +151,7 @@ inline Table Variant(const Table& clean, const Parameters& p) {
            (status == -1 || n(6) == status) && n(9) >= minimum) rows.push_back(row);
     }
 #endif
-    auto result = Make({"line_id", "name", "region", "day", "status", "amount_cents"}, rows.size());
+    auto result = MakeHarvestTarget({"line_id", "name", "region", "day", "status", "amount_cents"}, rows.size());
     clean.harvest(variantColumns, rows, result);
     for(std::uint64_t row = 0; row < result.get_row_count(); ++row) {
         const auto gross = result.cell_get_variant_view(row, 5u).as_int64();

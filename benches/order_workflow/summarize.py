@@ -28,8 +28,8 @@ def main(path):
           'not confidence intervals. Ratios divide elapsed times. Peak RSS is the '
           'largest whole-process high-water mark across rounds, including setup.\n')
     if simd:
-        print('Rust uses checked nullable typed column slices and a reused SQLite row buffer. '
-              'GD DTO uses `table_column_buffer`. GD SIMD uses '
+        print('gd-rs (SoA) uses checked nullable typed column slices and a reused SQLite row buffer. '
+              'GD AoS uses `table_column_buffer`. GD AoSoA uses '
               '`simd::table_8_8`, the unmodified `gd_table_simd.cpp`, and the counted adapter. '
               'The native-index rows compare all three implementations; sorted changes only '
               'the Rust join index. See [adapter details and limits](order-workflow.md#gd-simd-variant).\n')
@@ -39,7 +39,7 @@ def main(path):
               '[C++](../../benches/cpp-reference/order_workflow/workload.hpp), '
               '[GD SIMD adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp).\n')
         if simd:
-            print('| Stage | Workers | Index | Rust ms (range) | GD DTO ms (range) | GD SIMD ms (range) | DTO/Rust | SIMD/Rust | SIMD/DTO |')
+            print('| Stage | Workers | Index | gd-rs (SoA) ms (range) | GD (AoS) ms (range) | GD (AoSoA) ms (range) | AoS/gd-rs | AoSoA/gd-rs | AoSoA/AoS |')
             print('|---|---:|---|---:|---:|---:|---:|---:|---:|')
         else:
             print('| Stage | Workers | Index | Rust ms (range) | C++ ms (range) | C++/Rust | Rust peak MiB | C++ peak MiB |')
@@ -61,7 +61,7 @@ def main(path):
                       f'{max(memory[(*key,"rust")])/2**20:.1f} | {max(memory[(*key,"cpp")])/2**20:.1f} |')
         print()
         if simd:
-            print('| Stage | Workers | Index | Rust peak MiB | GD DTO peak MiB | GD SIMD peak MiB |')
+            print('| Stage | Workers | Index | gd-rs (SoA) peak MiB | GD (AoS) peak MiB | GD (AoSoA) peak MiB |')
             print('|---|---:|---|---:|---:|---:|')
             for key in dict.fromkeys(k[:4] for k in groups if k[0] == rows):
                 _, stage, workers, index = key
@@ -90,6 +90,14 @@ def main(path):
           'JSON emitter. Both use system dynamic libraries, listed in the raw JSON. '
           'These are program footprints, not intrinsic table-library sizes.\n')
     print('## Verification and environment\n')
+    if 'background_cpu_guard' in data['metadata']:
+        guard = data['metadata']['background_cpu_guard']
+        print('Timing invocations check background CPU usage before and during warmup and samples. '
+              f'The controller waits while an unrelated process exceeds {guard["threshold_percent_of_one_cpu"]}% '
+              'of one CPU and repeats any invocation with observed activity. Excluded samples, '
+              'observations, and the controller source are retained in the raw JSON; only accepted '
+              'timings enter the tables. Source fingerprints identify the measured current worktree; '
+              'the recorded Git revision is its base revision.\n')
     print('Sources: [fixture and SQL oracle](../../benches/order_workflow/fixture.py), '
           '[Rust verifier](../../benches/order_workflow/driver.rs), '
           '[C++ verifier](../../benches/cpp-reference/order_workflow/driver.cpp).\n')

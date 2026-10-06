@@ -22,12 +22,12 @@ divided by the number of functions recognized by Lizard.
 | Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 57 | 14,273 | 515 | 1,314 | 2.55 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 161 | 67,570 | 8,816 | 20,555 | 2.33 |
+| C++ product + tests + maintained benchmarks | 161 | 67,575 | 8,817 | 20,557 | 2.33 |
 
 The Rust totals are **7,412 SLOC in `src`** and **14,273 SLOC including `tests`
 and `benches`**. The separate test tree adds 3,605 SLOC and benchmarks add 3,256
 SLOC. Inline unit tests inside `src` are included in every Rust scope. In the C++
-scopes, the pinned baseline has no test directory and the maintained benchmark references add 2,983 SLOC, including the GD SIMD order-workflow adapter
+scopes, the pinned baseline has no test directory and the maintained benchmark references add 2,988 SLOC, including the GD SIMD order-workflow adapter
 in this worktree.
 
 These totals do not establish the source size of an identical product. The Rust

@@ -237,27 +237,27 @@ time by gd-rs elapsed time, using the unrounded medians.
 
 | Stage | Workers | gd-rs (SoA) ms | GD (AoS) ms | GD (AoSoA) ms | gd-rs speedup vs AoS | gd-rs speedup vs AoSoA |
 |---|---:|---:|---:|---:|---:|---:|
-| Import | 1 | 122.7 | 214.8 | 193.1 | 1.75× | 1.57× |
-| Prepare, native index | 1 | 149.8 | 289.8 | 243.1 | 1.93× | 1.62× |
-| Eight variants | 1 | 45.0 | 184.8 | 172.1 | 4.11× | 3.83× |
-| Eight variants | 8 | 13.8 | 78.9 | 66.7 | 5.70× | 4.82× |
-| Complete | 1 | 346.0 | 727.4 | 634.6 | 2.10× | 1.83× |
-| Complete | 8 | 307.4 | 625.7 | 531.3 | 2.04× | 1.73× |
+| Import | 1 | 126.3 | 212.1 | 196.5 | 1.68× | 1.56× |
+| Prepare, native index | 1 | 177.7 | 321.7 | 278.3 | 1.81× | 1.57× |
+| Eight variants | 1 | 46.3 | 185.1 | 176.4 | 3.99× | 3.81× |
+| Eight variants | 8 | 13.8 | 77.2 | 67.4 | 5.58× | 4.88× |
+| Complete | 1 | 354.3 | 721.9 | 655.3 | 2.04× | 1.85× |
+| Complete | 8 | 326.5 | 619.1 | 540.0 | 1.90× | 1.65× |
 
-For this full workflow, GD AoS takes 2.10× the elapsed time of gd-rs, and GD AoSoA takes
-1.83× at one worker; the ratios at eight workers are 2.04× and 1.73×.
-GD AoSoA takes 13–15% less elapsed time than GD AoS for `complete`.
-Rust's one-worker sorted-index diagnostic takes 180.4 ms for `prepare`, versus
-149.8 ms with its native hash index. These are observations for this fixture and
+For this full workflow, GD AoS takes 2.04× the elapsed time of gd-rs, and GD AoSoA takes
+1.85× at one worker; the ratios at eight workers are 1.90× and 1.65×.
+GD AoSoA takes 9–13% less elapsed time than GD AoS for `complete`.
+Rust's one-worker sorted-index diagnostic takes 195.8 ms for `prepare`, versus
+177.7 ms with its native hash index. These are observations for this fixture and
 software stack, not general library rankings.
 
 Only the variant batch runs concurrently. Moving from one to eight workers makes
-that Rust stage 3.25× faster, while the complete pipeline is 1.13× faster because
+that Rust stage 3.35× faster, while the complete pipeline is 1.09× faster because
 import and preparation remain sequential. Stage medians come from separate
 invocations and should not be added to predict a complete-run median.
 
-Whole-process peak RSS for `complete` is 591.8/670.5 MiB for gd-rs at one/eight
-workers, 561.1/686.4 MiB for GD AoS, and 518.3/537.8 MiB for GD AoSoA. The stripped
+Whole-process peak RSS for `complete` is 591.9/601.6 MiB for gd-rs at one/eight
+workers, 521.6/536.2 MiB for GD AoS, and 518.2/536.8 MiB for GD AoSoA. The stripped
 standalone executables occupy 2,384,304, 1,325,104, and 1,324,960 bytes respectively;
 these include the benchmark driver and dependencies, not just table code.
 The full tables also cover 10,000 and 100,000 lines and every worker count.
@@ -496,6 +496,14 @@ key. That workaround is visible in `Join`, counted in application size, and
 included in timing. GD's existing `join_s` scans for the first matching row; the
 benchmark instead uses its sorted index to avoid quadratic joining at scale.
 
+Harvest destinations use the reservation policy required by each implementation.
+GD AoS prepares clean and variant tables without pre-reserving the selected row
+count, because its native `harvest` adds that count to the destination's existing
+reservation. This avoids allocating and copying a second oversized buffer.
+GD AoSoA reserves the selected count up front for the adapter's cell-by-cell gather.
+The shared application's `MakeHarvestTarget` applies these policies; all allocation,
+copying, and destruction remain inside the relevant timed stages.
+
 This is **not** a benchmark of GD's separate `gd::table::table` member-table class
 or its shared-schema lifecycle. The chosen DTO class directly supports projected
 harvesting and disabling string deduplication. Conclusions about other GD table
@@ -573,8 +581,11 @@ These requirements follow from the actual operations. GD's
 and calls unsynchronized `row_add` on the destination; its table buffers, row
 counts, and column vectors are ordinary mutable state. The
 [string/binary reference counter](../../external/gd/source/gd_table.h) is a plain
-`int` incremented/decremented without atomics. The separate member-table class
-also has a [plain integer schema reference counter](../../external/gd/source/gd_table_column.h).
+`int` incremented/decremented without atomics, but each table owns its own entries
+and table copies copy them, so the workflow's tables do not share these counters.
+The separate member-table class has a
+[plain integer schema reference counter](../../external/gd/source/gd_table_column.h)
+that is shared between tables.
 Consequently, distinct wrapper objects are not by themselves evidence that their
 shared backing storage or reference-count operations can be used concurrently.
 That class's `set_locked()` sets a sentinel that disables reference counting; it
@@ -699,8 +710,8 @@ Performance uses optimized assertions-off builds without sanitizers. All three t
 the native CPU and use LTO. Each case has three separate process rounds with
 rotated implementation order, one warmup per process, and five recorded samples
 per process.
-The million-row invocations additionally check background CPU usage before and
-during timing. An invocation with an observed unrelated process above 60% of one
+Timing invocations check background CPU usage before and during warmup and samples.
+An invocation with an observed unrelated process above 60% of one
 CPU is excluded and repeated; the raw data retain excluded samples, observations,
 and the controller source. Accepted timings alone enter the published tables.
 Tables, output allocations, index construction in `prepare`, and destruction are
