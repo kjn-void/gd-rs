@@ -206,6 +206,7 @@ def main():
         'gd_rs_revision': text(['git', '-C', ROOT, 'rev-parse', 'HEAD']),
         'gd_source_sha256': before,
         'source_sha256': {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths if p.is_file()},
+        'binary_sha256': {name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in binaries.items()},
         'rust_flags': 'release -O3; codegen-units=1; lto=thin; target-cpu=native; no-default-features; features=rayon; --locked',
         'cpp_flags': 'Release -O3 -DNDEBUG -march=native; interprocedural optimization ON; sanitizers OFF',
         'affinity': 'OS scheduling, no affinity; persistent pools, exactly one static row task per worker; one process at a time',
@@ -270,11 +271,19 @@ def main():
         report['metadata']['measurement_complete'] = True
     finally:
         report['metadata']['gd_source_unchanged'] = fingerprint(gd / 'source') == before
+        report['metadata']['source_unchanged'] = all(
+            hashlib.sha256((ROOT / name).read_bytes()).hexdigest() == digest
+            for name, digest in report['metadata']['source_sha256'].items())
+        report['metadata']['binaries_unchanged'] = all(
+            hashlib.sha256(binaries[name].read_bytes()).hexdigest() == digest
+            for name, digest in report['metadata']['binary_sha256'].items())
         if sys.platform == 'darwin':
             report['metadata']['thermal_state_after'] = text(['pmset', '-g', 'therm'])
         args.output.write_text(json.dumps(report, indent=2) + '\n')
     if not report['metadata']['gd_source_unchanged']:
         raise RuntimeError('GD source fingerprint changed')
+    if not report['metadata']['source_unchanged'] or not report['metadata']['binaries_unchanged']:
+        raise RuntimeError('Source or executable changed during measurement')
     print(f'Wrote {args.output}', flush=True)
 
 

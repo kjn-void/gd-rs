@@ -75,12 +75,25 @@ Sources: [Rust](driver.rs), [GD](../cpp-reference/text_workflow.cpp),
 [runner and oracle](compare.py). The [report](../../docs/high-level/text-workflow-results.md)
 records the measured matrix and context.
 
+Regenerate the report and chart from the completed primary matrix. Include fresh
+rechecks when supplied; the generator checks that their source and executable
+hashes match the primary run:
+
+```sh
+python3 benches/text_workflow/summarize.py \
+  docs/high-level/measurements/text-workflow-m3max.json \
+  --confirmations docs/high-level/measurements/text-workflow-confirmations.json \
+  --markdown docs/high-level/text-workflow-results.md \
+  --chart docs/high-level/measurements/text-workflow-m3max.png
+```
+
 ## UTF-8 read-validation comparison
 
 The [paired runner](compare_validation.py) isolates the removal of repeated UTF-8
 validation from fixed-buffer reads. It runs the unchanged Rust workload against
 two optimized executables, alternating their order each round and checking both
-against the independent oracle results in the original raw report. Writes accept
+against the independent oracle results in the [archived checked-read report](../../docs/high-level/measurements/archive/text-workflow-checked-read.json).
+The main four-way report and chart use freshly measured optimized reads. Writes accept
 valid UTF-8 through `&str`; bounds, capacity, and nullability checks remain.
 
 To rebuild the checked-read baseline, check out commit `d0000f7` in a separate

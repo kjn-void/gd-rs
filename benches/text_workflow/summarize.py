@@ -12,7 +12,7 @@ SOURCES = ('Sources: [Rust workloads](../../benches/text_workflow/driver.rs), '
            '[runner and independent oracle](../../benches/text_workflow/compare.py).')
 
 
-def render(report, raw_name, chart_name):
+def render(report, raw_name, chart_name, confirmations=None, confirmation_name=None):
     meta = report['metadata']
     records = report['summary']
     lookup = {(r['rows'], r['text_bytes'], r['workers'], r['operation'], r['implementation']): r for r in records}
@@ -21,6 +21,12 @@ def render(report, raw_name, chart_name):
     workers = sorted({r['workers'] for r in records})
     largest = max(sizes)
     rows = ['# Text filtering and transforms: GD and gd-rs', '',
+            'All graphs and tables below use a fresh four-way measurement of the current '
+            'implementation. Fixed-buffer reads trust valid string writes without rescanning UTF-8; '
+            'bounds, capacity, and nullability checks remain. The '
+            '[paired before/after experiment](text-validation-results.md) and '
+            '[archived checked-read matrix](measurements/archive/text-workflow-checked-read.json) '
+            'retain the earlier implementation for comparison.', '',
             'This comparison exercises text directly in ordinary application tables: '
             'filtering, rewriting a string column, and filtering plus materializing and transforming rows. '
             'It compares four representations of the same five-column data.', '',
@@ -129,10 +135,11 @@ def render(report, raw_name, chart_name):
              '(16 bytes) plus each reserved slot. Region capacity is 8 bytes, message capacity is its byte '
              'length, and output capacity is message length plus 3. Slots are reserved even for nulls; '
              'this benchmark has no nulls. Larger-than-needed capacities increase the footprint.', '',
-             '## What the experiment establishes', '',
+             '## What the experiment establishes', '', SOURCES, '',
              'Text is supported in the gd-rs column layout, including filtering, longer output strings, '
              'owned materialization, and parallel writes. The fixed buffer removes per-cell string allocations '
-             'but adds offsets, reserved capacity, and UTF-8 validation on borrow. It is an alternative storage '
+             'but adds offsets and reserved capacity. UTF-8 validity is established by string-typed writes; '
+             'reads do not validate stored text again. It is an alternative storage '
              'contract rather than a guaranteed speed improvement. The measurements above determine which '
              'implementation is faster for each tested operation and size.', '',
              'The comparison covers fixed-length ASCII messages and one selectivity. Unicode boundary behavior '
@@ -144,7 +151,8 @@ def render(report, raw_name, chart_name):
              'randomized equivalence with ordinary tables, UTF-8 byte limits, null/empty values, failed-write '
              'atomicity, copies, append between layouts, compaction, index/sort/format integration, and scoped '
              'parallel mutation. Separate C++ AddressSanitizer runs passed the oracle on 1, 32, and 1,001 rows '
-             'with one and eight workers for both C++ representations and all three operations. '
+             'with one and eight workers for both C++ representations and all three operations; '
+             '[all 36 checks are recorded](measurements/text-workflow-asan.json). '
              'Sanitized executables were not used for performance measurements.', '',
              'Reproduce the final matrix:', '', '```sh',
              './benches/run_text_workflow.sh --samples ' + str(meta['samples']) + ' --rounds ' + str(meta['rounds']) +
@@ -153,6 +161,45 @@ def render(report, raw_name, chart_name):
              'The [benchmark README](../../benches/text_workflow/README.md) describes smaller runs '
              'and the diagnostic mode. The [report generator](../../benches/text_workflow/summarize.py) '
              'recreates these tables and optional charts from the raw JSON.', '']
+    findings = ['## Findings', '', SOURCES, '',
+                'The fastest representation depends on the operation, message length, and worker count. '
+                f'At {largest:,} rows, the lowest primary medians are:', '',
+                '| Text bytes | Workers | Filtering | Rewriting | Pipeline |',
+                '|---:|---:|---|---|---|']
+    for length in lengths:
+        for worker in workers:
+            winners = []
+            for operation in names:
+                fastest = min(IMPLEMENTATIONS, key=lambda impl: lookup[largest, length, worker, operation, impl]['median_ns'])
+                winners.append(LABELS[fastest])
+            findings.append(f'| {length} | {worker} | ' + ' | '.join(winners) + ' |')
+    findings += ['', 'Close medians under contention can exchange order between runs. '
+                 'The full tables and fresh rechecks below retain the numerical differences and ranges.', '']
+    at = rows.index('## Conditions and interpretation')
+    rows[at:at] = findings
+    if confirmations is not None:
+        confirmed = {(r['rows'], r['text_bytes'], r['workers'], r['operation'], r['implementation']): r
+                     for r in confirmations['summary']}
+        rechecks = ['## Rechecks and variability', '', SOURCES, '',
+                    f'After the full matrix, {len(confirmed)} configurations were repeated in '
+                    f'{confirmations["metadata"]["rounds"]} fresh rotated process rounds. '
+                    f'All {len(confirmations["verification"])} separate output checks and '
+                    f'{len(confirmations["measurements"])} timed processes matched the oracle. '
+                    'The recheck uses the same source and executable hashes. '
+                    'Primary medians are retained; recheck ranges are process-median ranges, '
+                    'not confidence intervals. '
+                    f'[Raw rechecks](measurements/{confirmation_name}) retain every sample and load check.', '',
+                    '| Rows | Text bytes | Workers | Operation | Implementation | Primary (ms) | Recheck (ms) | Recheck range (ms) |',
+                    '|---:|---:|---:|---|---|---:|---:|---:|']
+        for key, record in sorted(confirmed.items()):
+            primary = lookup[key]
+            count, length, worker, operation, implementation = key
+            rechecks.append(f'| {count:,} | {length} | {worker} | {operation} | {LABELS[implementation]} | '
+                            f'{primary["median_ns"] / 1e6:.3f} | {record["median_ns"] / 1e6:.3f} | '
+                            f'{record["min_round_median_ns"] / 1e6:.3f}–{record["max_round_median_ns"] / 1e6:.3f} |')
+        rechecks += ['']
+        at = rows.index('## What the experiment establishes')
+        rows[at:at] = rechecks
     return '\n'.join(rows)
 
 
@@ -191,11 +238,20 @@ def main():
     parser.add_argument('results', type=Path)
     parser.add_argument('--markdown', type=Path)
     parser.add_argument('--chart', type=Path)
+    parser.add_argument('--confirmations', type=Path, help='fresh matrix rechecks to render alongside primary results')
     args = parser.parse_args()
     report = json.loads(args.results.read_text())
     if not report['metadata'].get('measurement_complete', True):
         raise RuntimeError('The measurement matrix is incomplete; do not publish a partial run.')
-    content = render(report, args.results.name, args.chart.name if args.chart else None)
+    confirmations = json.loads(args.confirmations.read_text()) if args.confirmations else None
+    if confirmations is not None:
+        if not confirmations['metadata']['measurement_complete']:
+            raise RuntimeError('The recheck matrix is incomplete.')
+        for field in ['source_sha256', 'binary_sha256']:
+            if confirmations['metadata'][field] != report['metadata'][field]:
+                raise RuntimeError('Rechecks must use the same source and executables as the primary matrix.')
+    content = render(report, args.results.name, args.chart.name if args.chart else None,
+                     confirmations, args.confirmations.name if args.confirmations else None)
     if args.markdown:
         args.markdown.write_text(content)
     else:

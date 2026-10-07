@@ -20,7 +20,7 @@ def main():
     parser.add_argument('--checked', type=Path, required=True, help='original checked-read executable')
     parser.add_argument('--trusted', type=Path, default=compare.ROOT / 'target/release/examples/text_workflow')
     parser.add_argument('--baseline-report', type=Path,
-                        default=compare.ROOT / 'docs/high-level/measurements/text-workflow-m3max.json')
+                        default=compare.ROOT / 'docs/high-level/measurements/archive/text-workflow-checked-read.json')
     parser.add_argument('--rows', type=int, nargs='+', default=[32, 100, 1000, 10000, 100000, 1000000])
     parser.add_argument('--samples', type=int, default=7)
     parser.add_argument('--rounds', type=int, default=4)
