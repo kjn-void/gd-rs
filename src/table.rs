@@ -5,6 +5,7 @@ mod compaction;
 mod composite;
 mod concurrent;
 pub mod debug;
+mod fixed_string;
 mod index;
 mod ordering;
 mod row_mut;
@@ -19,6 +20,7 @@ pub use append::ColumnMapping;
 pub use compaction::RowCompaction;
 pub use composite::CompositeIndex;
 pub use concurrent::ConcurrentTableBuilder;
+pub use fixed_string::{FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut};
 pub use index::{ColumnIndex, IndexKeyRef};
 pub use ordering::{NullOrder, RowOrder, SortDirection};
 pub use row_mut::{RowMut, RowsMut};
@@ -77,6 +79,16 @@ pub enum TableError {
     NullNotAllowed {
         /// Positional column index.
         column: usize,
+    },
+    /// A UTF-8 value exceeds a fixed-capacity string column.
+    #[error("column {column} string uses {actual} bytes, exceeding its {capacity}-byte slot")]
+    StringTooLong {
+        /// Positional column index.
+        column: usize,
+        /// Maximum UTF-8 byte length.
+        capacity: usize,
+        /// Supplied UTF-8 byte length.
+        actual: usize,
     },
     /// A row position is outside the table.
     #[error("row {row} is out of bounds for {row_count} rows")]
@@ -214,7 +226,14 @@ impl Table {
         let schema = schema.into();
         let columns = schema
             .iter()
-            .map(|column| ColumnStorage::new(column.data_type(), column.is_nullable(), capacity))
+            .map(|column| match column.fixed_string_capacity() {
+                Some(bytes) => ColumnStorage::FixedString(fixed_string::FixedStringData::new(
+                    bytes,
+                    column.is_nullable(),
+                    capacity,
+                )),
+                None => ColumnStorage::new(column.data_type(), column.is_nullable(), capacity),
+            })
             .collect();
         let extras = ExtrasStorage::with_capacity(schema.unknown_fields(), capacity);
         Self {
@@ -1223,6 +1242,15 @@ fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), 
             expected: spec.data_type(),
             actual,
         });
+    }
+    if let (Some(capacity), Value::String(text)) = (spec.fixed_string_capacity(), value) {
+        if text.len() > capacity {
+            return Err(TableError::StringTooLong {
+                column,
+                capacity,
+                actual: text.len(),
+            });
+        }
     }
     Ok(())
 }

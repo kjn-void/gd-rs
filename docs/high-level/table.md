@@ -21,6 +21,34 @@ flowchart TD
 This is different from the C++ `table_column_buffer`, whose fixed payload buffer is
 row-major despite “columnar” wording in its documentation.
 
+## String storage choices
+
+The default string column remains a vector of `CompactString` descriptors. On a
+64-bit host a descriptor occupies 24 bytes, with short text stored inline and
+longer text separately allocated. Typed descriptor slices allow bulk reads and
+mutation without a dynamic value wrapper for each cell.
+
+`ColumnSpec::fixed_string(name, capacity)` instead gives each string column one
+contiguous byte buffer containing fixed-capacity slots. A parallel descriptor
+vector stores each row's byte offset and length; a reserved length represents
+null and zero represents an empty string. On a 64-bit host descriptors use
+16 bytes per cell, in addition to the reserved slot bytes. Each column owns its
+buffer independently, preserving disjoint input/output column borrows.
+
+Writes copy UTF-8 into the existing slot and change its length, with no per-cell
+allocation. Oversized input is rejected without truncation or mutation. Nullable
+cells still reserve a complete slot. Copies and compaction rebuild independent,
+contiguous buffers and rebase offsets. Row views and fixed-string views can split
+slots and descriptors together for safe parallel mutation, using only safe Rust.
+
+This representation trades bounded storage and fewer allocations for unused slot
+capacity and another offset lookup. The current safe byte-buffer implementation
+validates UTF-8 when borrowing a string. It does not promise faster operations
+than `CompactString`, especially for inline short strings. See the
+[API examples](../api/tables.md#fixed-capacity-string-buffers) and the
+[text comparison](text-workflow-results.md) for workloads, measured results, and
+their limits.
+
 ## Schema and rows
 
 Primary names and aliases are unique across different columns. Schema lookup uses

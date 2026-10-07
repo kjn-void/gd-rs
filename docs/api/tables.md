@@ -35,6 +35,73 @@ returns `TableError::DuplicateColumnName` rather than selecting one ambiguous co
 A `DataType::Null` column is always nullable. Other columns are non-nullable unless
 `nullable(true)` is specified.
 
+### Fixed-capacity string buffers
+
+Ordinary `DataType::String` columns retain `CompactString` storage: short UTF-8
+values fit inside their descriptors, and longer values own separate allocations.
+Use `ColumnSpec::fixed_string(name, capacity)` to select fixed-capacity storage.
+The logical type remains `DataType::String`. Each string column owns one byte
+buffer and an offset/length descriptor per physical row; every row reserves
+`capacity` bytes, including null and empty cells. Capacity is measured in UTF-8
+bytes. Zero capacity or a capacity above `isize::MAX` panics at schema construction.
+
+```rust
+use gd::{ColumnSpec, DataType, FixedStringError, Schema, Table, Value};
+
+let schema = Schema::new([
+    ColumnSpec::new("id", DataType::U64),
+    ColumnSpec::fixed_string("name", 32).nullable(true),
+])?;
+let mut table = Table::new(schema);
+table.push_row([Value::U64(1), Value::from("Åsa")])?;
+table.push_row([Value::U64(2), Value::Null])?;
+
+let names = table.column(1).unwrap().fixed_strings().unwrap();
+assert_eq!(names.capacity(), 32);
+assert_eq!(names.get(0), Some(Some("Åsa")));
+assert_eq!(names.get(1), Some(None));
+assert_eq!(names.get(2), None);
+
+let (_, output) = table.column_pair_mut(0, 1).unwrap();
+let mut names = output.fixed_strings_mut().unwrap();
+names.set(1, Some(""))?; // Empty and null are distinct.
+assert_eq!(names.get(1), Some(Some("")));
+assert!(matches!(
+    names.set(0, Some(&"x".repeat(33))),
+    Err(FixedStringError::TooLong { capacity: 32, actual: 33 })
+));
+assert_eq!(names.get(0), Some(Some("Åsa"))); // Failed writes preserve the value.
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+`ColumnSpec::fixed_string_capacity()` reports this policy. Dynamic table and row
+writes reject oversized values with `TableError::StringTooLong`, including values
+produced by converters. Complete-row insertion and table append remain atomic.
+Appending between ordinary strings and fixed buffers, or between different slot
+capacities, validates and copies into the destination layout.
+
+`Column::fixed_strings()` and `ColumnMut::fixed_strings_mut()` return `None` for
+other storage layouts. `FixedStrings::iter()` borrows strings without allocating.
+`FixedStringsMut::set()` returns `FixedStringError` for bounds, size, or nullability
+errors before changing a cell. It bypasses input conversion because its inputs
+already have the exact logical string type. `cell_mut()` and `iter_mut()` expose
+`FixedStringCellMut`, whose `set()` replaces a value and `as_str_mut()` supports
+safe operations that preserve byte length, such as ASCII case conversion.
+
+`FixedStringsMut::split_at(mid)` partitions both index descriptors and byte slots
+into disjoint ranges that can be sent to scoped workers. Positions in either view
+are relative to that view; splitting outside its length panics. The existing
+`RowsMut` splitting and Rayon row mutation also support these buffers. Views
+include tombstoned physical rows. Copies own independent buffers; compaction and
+gather rebuild offsets, while replacing a string preserves its slot offset.
+
+Ordinary string columns additionally support
+`as_slice::<compact_str::CompactString>()` and
+`as_nullable_slice::<compact_str::CompactString>()`, plus the corresponding mutable
+slice methods. These expose the existing descriptors without changing the storage
+representation. Requesting these slices from fixed-buffer strings returns
+`ColumnSliceError::FixedStringBuffer`; use the fixed-string views instead.
+
 ### Explicit column conversion
 
 Table writes remain strict unless a column declares a named `ColumnConverter`. The

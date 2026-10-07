@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured and revalidated on 2026-10-06. Rust scopes describe the current
+baseline measured and revalidated on 2026-10-07. Rust scopes describe the current
 worktree; GD is pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
@@ -17,18 +17,18 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 27 | 7,412 | 254 | 688 | 2.71 |
-| Rust product + tests (`src`, `tests`) | 39 | 11,017 | 395 | 945 | 2.39 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 57 | 14,280 | 515 | 1,314 | 2.55 |
+| Rust product (`src`) | 28 | 7,888 | 270 | 726 | 2.69 |
+| Rust product + tests (`src`, `tests`) | 41 | 11,788 | 418 | 1,006 | 2.41 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 60 | 15,346 | 550 | 1,428 | 2.60 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 161 | 67,670 | 8,817 | 20,557 | 2.33 |
+| C++ product + tests + maintained benchmarks | 162 | 67,932 | 8,840 | 20,649 | 2.34 |
 
-The Rust totals are **7,412 SLOC in `src`** and **14,280 SLOC including `tests`
-and `benches`**. The separate test tree adds 3,605 SLOC and benchmarks add 3,263
+The Rust totals are **7,888 SLOC in `src`** and **15,346 SLOC including `tests`
+and `benches`**. The separate test tree adds 3,900 SLOC and benchmarks add 3,558
 SLOC. Inline unit tests inside `src` are included in every Rust scope. In the C++
-scopes, the pinned baseline has no test directory and the maintained benchmark references add 3,083 SLOC, including the GD SIMD order-workflow adapter
-in this worktree.
+scopes, the pinned baseline has no test directory and the maintained benchmark references add 3,345 SLOC, including the GD SIMD order-workflow adapter
+and the GD/std::string text-workflow cases in this worktree.
 
 These totals do not establish the source size of an identical product. The Rust
 crate implements a deliberately smaller surface, while

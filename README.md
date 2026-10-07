@@ -23,6 +23,7 @@ The implemented core currently provides:
 - ordered `Arguments` with duplicate and positional entries;
 - reusable lifetime-bound `ahash` indexes;
 - validated schemas and typed column storage;
+- ordinary UTF-8 strings and fixed-capacity shared column buffers with checked writes;
 - borrowing row and column views;
 - lazily allocated row tombstones with stable positions, live-row views, and
   explicit compaction;
@@ -61,6 +62,7 @@ The implemented core currently provides:
 - [Benchmark methodology and results](docs/high-level/performance.md)
 - [Rust benchmarks and examples in VS Code](docs/high-level/rust-debugging.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
+- [Text filtering and transform comparison](docs/high-level/text-workflow-results.md)
 - [libc memory-operation scaling](docs/high-level/perf_memory.md)
 
 ### Porting record

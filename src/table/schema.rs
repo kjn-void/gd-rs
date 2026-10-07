@@ -119,6 +119,7 @@ pub struct ColumnSpec {
     data_type: DataType,
     nullable: bool,
     converter: Option<ColumnConverter>,
+    fixed_string_capacity: Option<usize>,
 }
 
 /// Policy for names that are not declared as schema columns or aliases.
@@ -140,7 +141,48 @@ impl ColumnSpec {
             data_type,
             nullable: data_type == DataType::Null,
             converter: None,
+            fixed_string_capacity: None,
         }
+    }
+
+    /// Creates a required UTF-8 column with fixed-capacity slots in one shared buffer.
+    ///
+    /// Each row stores a byte offset and length. Writes reject strings larger
+    /// than `capacity` bytes instead of truncating them. Nullability, conversion,
+    /// row views, selection, append, and compaction retain their usual semantics.
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, Schema, Table, Value, ValueRef};
+    /// let mut table = Table::new(Schema::new([
+    ///     ColumnSpec::fixed_string("name", 32).nullable(true),
+    /// ])?);
+    /// table.push_row([Value::from("Åsa")])?;
+    /// table.push_row([Value::Null])?;
+    /// let (_, [column]) = table.columns_io([], [0])?;
+    /// let mut strings = column.fixed_strings_mut().unwrap();
+    /// strings.set(1, Some("Ada"))?;
+    /// assert_eq!(table.cell(1, 0)?, ValueRef::String("Ada"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Panics
+    /// Panics when `capacity` is zero or exceeds `isize::MAX`.
+    #[must_use]
+    pub fn fixed_string(name: impl Into<CompactString>, capacity: usize) -> Self {
+        assert!(
+            capacity > 0 && isize::try_from(capacity).is_ok(),
+            "invalid fixed string capacity"
+        );
+        Self {
+            fixed_string_capacity: Some(capacity),
+            ..Self::new(name, DataType::String)
+        }
+    }
+
+    /// Returns the fixed UTF-8 slot capacity, or `None` for ordinary storage.
+    #[must_use]
+    pub const fn fixed_string_capacity(&self) -> Option<usize> {
+        self.fixed_string_capacity
     }
 
     /// Sets an alternate lookup name.

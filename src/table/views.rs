@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{DataType, ValueRef};
 
 use super::storage::{ColumnData, ColumnStorage};
-use super::{ColumnSpec, Table};
+use super::{ColumnSpec, FixedStrings, FixedStringsMut, Table};
 
 /// Error returned when requesting a typed slice from a column.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
@@ -22,6 +22,9 @@ pub enum ColumnSliceError {
         /// Logical type declared by the column schema.
         actual: DataType,
     },
+    /// Fixed string buffers cannot be represented as `CompactString` slices.
+    #[error("the string column uses fixed buffer storage; use fixed_strings instead")]
+    FixedStringBuffer,
     /// Nullable storage cannot be represented as a dense `&[T]`.
     #[error("the {data_type} column is nullable and has no dense required-value slice")]
     Nullable {
@@ -38,6 +41,7 @@ pub enum ColumnSliceError {
 
 mod column_element_private {
     use super::{ColumnData, ColumnMut, ColumnStorage, DataType};
+    use compact_str::CompactString;
     use uuid::Uuid;
 
     pub trait Sealed: Sized {
@@ -73,6 +77,9 @@ mod column_element_private {
                                 data_type: column.spec.data_type(),
                             })
                         }
+                        ColumnStorage::FixedString(_) if Self::DATA_TYPE == DataType::String => {
+                            Err(super::ColumnSliceError::FixedStringBuffer)
+                        }
                         _ => Err(super::ColumnSliceError::TypeMismatch {
                             expected: Self::DATA_TYPE,
                             actual: column.spec.data_type(),
@@ -89,6 +96,9 @@ mod column_element_private {
                             Err(super::ColumnSliceError::Nullable {
                                 data_type: column.spec.data_type(),
                             })
+                        }
+                        ColumnStorage::FixedString(_) if Self::DATA_TYPE == DataType::String => {
+                            Err(super::ColumnSliceError::FixedStringBuffer)
                         }
                         _ => Err(super::ColumnSliceError::TypeMismatch {
                             expected: Self::DATA_TYPE,
@@ -107,6 +117,9 @@ mod column_element_private {
                                 data_type: column.spec.data_type(),
                             })
                         }
+                        ColumnStorage::FixedString(_) if Self::DATA_TYPE == DataType::String => {
+                            Err(super::ColumnSliceError::FixedStringBuffer)
+                        }
                         _ => Err(super::ColumnSliceError::TypeMismatch {
                             expected: Self::DATA_TYPE,
                             actual: column.spec.data_type(),
@@ -124,6 +137,9 @@ mod column_element_private {
                                 data_type: column.spec.data_type(),
                             })
                         }
+                        ColumnStorage::FixedString(_) if Self::DATA_TYPE == DataType::String => {
+                            Err(super::ColumnSliceError::FixedStringBuffer)
+                        }
                         _ => Err(super::ColumnSliceError::TypeMismatch {
                             expected: Self::DATA_TYPE,
                             actual: column.spec.data_type(),
@@ -134,6 +150,7 @@ mod column_element_private {
         };
     }
 
+    impl_column_element!(CompactString, String, String);
     impl_column_element!(bool, Bool, Bool);
     impl_column_element!(i8, I8, I8);
     impl_column_element!(i16, I16, I16);
@@ -148,12 +165,14 @@ mod column_element_private {
     impl_column_element!(Uuid, Uuid, Uuid);
 }
 
-/// A fixed-width Rust type that can borrow a table column as a typed slice.
+/// A Rust storage element that can borrow a table column as a typed slice.
 ///
 /// This trait is sealed. It is implemented for `bool`, the fixed-width integer
-/// and floating-point primitives, and [`Uuid`].
+/// and floating-point primitives, [`Uuid`], and [`CompactString`] for ordinary
+/// string storage. Fixed string buffers use [`Column::fixed_strings`] instead.
 pub trait ColumnElement: column_element_private::Sealed {}
 
+impl ColumnElement for CompactString {}
 impl ColumnElement for bool {}
 impl ColumnElement for i8 {}
 impl ColumnElement for i16 {}
@@ -209,22 +228,35 @@ impl<'a> Column<'a> {
         self.storage.get(row)
     }
 
-    /// Borrows a required fixed-width column as one contiguous typed slice.
+    /// Borrows fixed-capacity UTF-8 storage, or returns `None` for other layouts.
+    #[must_use]
+    pub fn fixed_strings(self) -> Option<FixedStrings<'a>> {
+        match self.storage {
+            ColumnStorage::FixedString(values) => Some(values.view()),
+            _ => None,
+        }
+    }
+
+    /// Borrows a required column as one contiguous typed storage slice.
     ///
     /// Type and nullability are checked once before returning the slice. Loops
     /// over the result contain no per-cell table lookup, dynamic value tag, or
     /// null discriminant, making this the preferred interface for numerical
     /// column operations and compiler auto-vectorization.
+    /// Ordinary strings use `T = CompactString`; fixed string buffers use
+    /// [`Self::fixed_strings`] instead.
     ///
     /// # Errors
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] when requesting string
+    /// descriptors from a fixed string buffer.
     pub fn as_slice<T: ColumnElement>(self) -> Result<&'a [T], ColumnSliceError> {
         <T as column_element_private::Sealed>::required_values(self)
     }
 
-    /// Borrows a nullable fixed-width column as a contiguous slice of options.
+    /// Borrows a nullable column as a contiguous slice of typed storage options.
     ///
     /// Type and nullability are checked once. Each physical row has one element:
     /// `None` represents null, and `Some(value)` contains the typed value. The
@@ -248,6 +280,8 @@ impl<'a> Column<'a> {
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Required`] for a required column.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed string storage
+    /// requested as `CompactString` descriptors.
     pub fn as_nullable_slice<T: ColumnElement>(self) -> Result<&'a [Option<T>], ColumnSliceError> {
         <T as column_element_private::Sealed>::nullable_values(self)
     }
@@ -261,10 +295,11 @@ impl<'a> Column<'a> {
     /// Calls `operation` for every cell after dispatching the column's storage
     /// type and nullability once.
     ///
-    /// Unlike [`Column::iter`], this avoids repeating the `ColumnStorage` and
-    /// `ColumnData` matches and bounds check for every cell. Values remain
+    /// Unlike [`Column::iter`], this avoids repeating storage-kind and
+    /// nullability dispatch for every cell. Values remain
     /// dynamically represented as [`ValueRef`]; use [`Column::as_slice`] or
-    /// [`Column::as_nullable_slice`] for a fully typed fixed-width loop.
+    /// [`Column::as_nullable_slice`] for a fully typed loop, or
+    /// [`Column::fixed_strings`] for fixed string buffers.
     pub fn for_each_value(self, mut operation: impl FnMut(ValueRef<'a>)) {
         macro_rules! copied {
             ($values:expr, $variant:ident) => {
@@ -323,6 +358,11 @@ impl<'a> Column<'a> {
             ColumnStorage::U64(values) => copied!(values, U64),
             ColumnStorage::F32(values) => copied!(values, F32),
             ColumnStorage::F64(values) => copied!(values, F64),
+            ColumnStorage::FixedString(values) => {
+                for value in values.view().iter() {
+                    operation(value.map_or(ValueRef::Null, ValueRef::String));
+                }
+            }
             ColumnStorage::String(values) => {
                 borrowed!(values, String, |value: &'a CompactString| value.as_str());
             }
@@ -351,6 +391,16 @@ impl fmt::Debug for ColumnMut<'_> {
 }
 
 impl<'a> ColumnMut<'a> {
+    /// Borrows fixed-capacity UTF-8 storage for allocation-free reads and writes.
+    /// Returns `None` for other storage layouts.
+    #[must_use]
+    pub fn fixed_strings_mut(self) -> Option<FixedStringsMut<'a>> {
+        match self.storage {
+            ColumnStorage::FixedString(values) => Some(values.view_mut()),
+            _ => None,
+        }
+    }
+
     /// Returns this column's schema definition.
     #[must_use]
     pub const fn spec(&self) -> &'a ColumnSpec {
@@ -369,7 +419,7 @@ impl<'a> ColumnMut<'a> {
         self.len() == 0
     }
 
-    /// Borrows a required fixed-width column as one contiguous mutable slice.
+    /// Borrows a required column as one contiguous mutable storage slice.
     ///
     /// Type and nullability are checked once before returning the slice. The
     /// exclusive borrow prevents table access while callers mutate its values.
@@ -378,11 +428,13 @@ impl<'a> ColumnMut<'a> {
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed string storage
+    /// requested as `CompactString` descriptors.
     pub fn as_mut_slice<T: ColumnElement>(self) -> Result<&'a mut [T], ColumnSliceError> {
         <T as column_element_private::Sealed>::required_values_mut(self)
     }
 
-    /// Borrows a nullable fixed-width column as a mutable slice of options.
+    /// Borrows a nullable column as a mutable slice of typed storage options.
     ///
     /// Type and nullability are checked once, then callers can replace values
     /// with `Some(value)` or `None` without dynamic cell setters. The exclusive
@@ -410,6 +462,8 @@ impl<'a> ColumnMut<'a> {
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Required`] for a required column.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed string storage
+    /// requested as `CompactString` descriptors.
     pub fn as_nullable_mut_slice<T: ColumnElement>(
         self,
     ) -> Result<&'a mut [Option<T>], ColumnSliceError> {

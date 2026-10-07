@@ -125,3 +125,8 @@ pedantic = "warn"
 name = "order_workflow"
 path = "benches/order_workflow/driver.rs"
 required-features = ["sqlite", "rayon"]
+
+[[example]]
+name = "text_workflow"
+path = "benches/text_workflow/driver.rs"
+required-features = ["rayon"]

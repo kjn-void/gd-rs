@@ -68,13 +68,23 @@ impl ColumnStorage {
                 f64::total_cmp,
             ),
             Self::String(values) => ordered!(values),
+            Self::FixedString(values) => {
+                let view = values.view();
+                let get = |row| {
+                    view.get(row).ok_or(TableError::RowOutOfBounds {
+                        row,
+                        row_count: view.len(),
+                    })
+                };
+                compare_optional(get(left)?, get(right)?, direction, null_order, str::cmp)
+            }
             Self::Bytes(values) => ordered!(values),
             Self::Uuid(values) => ordered!(values),
         })
     }
 }
 
-fn compare_optional<T>(
+fn compare_optional<T: ?Sized>(
     left: Option<&T>,
     right: Option<&T>,
     direction: SortDirection,

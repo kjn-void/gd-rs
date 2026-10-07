@@ -38,8 +38,9 @@ pub use table::debug as table_debug;
 pub use table::{
     Column, ColumnConversionError, ColumnConverter, ColumnElement, ColumnIndex, ColumnMapping,
     ColumnMut, ColumnSelectionError, ColumnSliceError, ColumnSpec, CompositeIndex,
-    ConcurrentTableBuilder, IndexKeyRef, NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut,
-    Schema, SelectedRow, SortDirection, Table, TableError, TableSelection, UnknownFields,
+    ConcurrentTableBuilder, FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut,
+    IndexKeyRef, NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut, Schema, SelectedRow,
+    SortDirection, Table, TableError, TableSelection, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

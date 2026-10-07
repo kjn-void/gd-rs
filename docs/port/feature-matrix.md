@@ -57,6 +57,7 @@ appropriate; they do not imply every GD table class has identical behavior.
 | Capability | GD | gd-rs |
 |---|---|---|
 | Typed columns, named schema, aliases, nullable cells | Native | Native `Schema`, `ColumnSpec`, `Table` |
+| Bounded text slots and buffer offsets | Native DTO inline bounded strings and indexed references | Native `ColumnSpec::fixed_string`: per-column fixed slots with checked UTF-8 writes and row offset/length descriptors |
 | Table properties and row-local extra named fields | Native; table-class/tag dependent | Native properties and `UnknownFields::Store` |
 | Packed row storage, cell addresses, layout control | Native | Absent: typed column vectors, no compatible packed ABI |
 | Borrow a whole numeric column as a contiguous typed slice | Application: row-strided storage; `harvest<T>` copies values | Native `Column::as_slice<T>` for required columns and `as_nullable_slice<T>` for nullable columns |
@@ -81,6 +82,7 @@ Sources: [GD DTO API](../../external/gd/source/gd_table_column-buffer.h),
 [GD argument table](../../external/gd/source/gd_table_arguments.h),
 [Rust table](../../src/table.rs), [Rust schema](../../src/table/schema.rs),
 [Rust views](../../src/table/views.rs), [Rust selection](../../src/table/selection.rs), [Rust borrowed views](../../src/table/selection_view.rs),
+[Rust fixed string buffers](../../src/table/fixed_string.rs),
 [Rust append](../../src/table/append.rs),
 [Rust compaction](../../src/table/compaction.rs).
 Selection returns snapshots, borrowed views, or owned copies; gd-rs does not expose a general

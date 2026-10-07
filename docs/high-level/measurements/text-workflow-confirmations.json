@@ -1,0 +1,3643 @@
+{
+  "purpose": "Independent process rechecks of large-table rankings and unusually wide round ranges; primary four-round medians are retained",
+  "load_samples": [
+    {
+      "utc": "2026-10-07T10:52:13.508599+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 74092,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/154.0.8037.57/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 23.9
+    },
+    {
+      "utc": "2026-10-07T10:52:16.441209+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 14.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 14.5
+    },
+    {
+      "utc": "2026-10-07T10:52:18.576885+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 13.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 18.8
+    },
+    {
+      "utc": "2026-10-07T10:52:21.656833+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 14.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.6,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 20.1
+    },
+    {
+      "utc": "2026-10-07T10:52:23.790740+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 14.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 19.7
+    },
+    {
+      "utc": "2026-10-07T10:52:27.198790+00:00",
+      "processes": [
+        {
+          "pid": 1050,
+          "cpu_percent": 39.3,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 1110,
+          "cpu_percent": 15.0,
+          "command": "/usr/libexec/spotlightknowledged.updater"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 66.5
+    },
+    {
+      "utc": "2026-10-07T10:52:29.330004+00:00",
+      "processes": [
+        {
+          "pid": 1050,
+          "cpu_percent": 161.5,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 8.9,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 170.4
+    },
+    {
+      "utc": "2026-10-07T10:52:31.468306+00:00",
+      "processes": [
+        {
+          "pid": 1050,
+          "cpu_percent": 54.3,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 90652,
+          "cpu_percent": 25.3,
+          "command": "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Renderer).app/Contents/MacOS/Code Helper (Renderer)"
+        },
+        {
+          "pid": 62763,
+          "cpu_percent": 13.6,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 11.7,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 116.1
+    },
+    {
+      "utc": "2026-10-07T10:53:03.648099+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.9,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 6.0,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 18.9
+    },
+    {
+      "utc": "2026-10-07T10:53:06.990188+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.8,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.2,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 35.2
+    },
+    {
+      "utc": "2026-10-07T10:53:09.128405+00:00",
+      "processes": [
+        {
+          "pid": 37446,
+          "cpu_percent": 22.5,
+          "command": "/Applications/Windows App.app/Contents/MacOS/Windows App"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.6,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 39.8
+    },
+    {
+      "utc": "2026-10-07T10:53:12.300620+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 18.3,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 74093,
+          "cpu_percent": 7.0,
+          "command": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/systemstats"
+        },
+        {
+          "pid": 74092,
+          "cpu_percent": 5.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/154.0.8037.57/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.1,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 54.2
+    },
+    {
+      "utc": "2026-10-07T10:53:14.436726+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 12.6
+    },
+    {
+      "utc": "2026-10-07T10:53:17.984171+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 18.3,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.1,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 35.6
+    },
+    {
+      "utc": "2026-10-07T10:53:20.125095+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 12.1
+    },
+    {
+      "utc": "2026-10-07T10:53:23.557452+00:00",
+      "processes": [
+        {
+          "pid": 1050,
+          "cpu_percent": 44.5,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 7402,
+          "cpu_percent": 30.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.2,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 92.3
+    },
+    {
+      "utc": "2026-10-07T10:53:25.696219+00:00",
+      "processes": [
+        {
+          "pid": 1050,
+          "cpu_percent": 44.9,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 57.5
+    },
+    {
+      "utc": "2026-10-07T10:53:30.018778+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 6.6,
+          "command": "/sbin/launchd"
+        }
+      ],
+      "aggregate_cpu_percent": 18.8
+    },
+    {
+      "utc": "2026-10-07T10:53:32.154240+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 16.4,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 33.7
+    },
+    {
+      "utc": "2026-10-07T10:53:36.577871+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.6,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 17.8
+    },
+    {
+      "utc": "2026-10-07T10:53:38.715309+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.8,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 30.0
+    },
+    {
+      "utc": "2026-10-07T10:53:43.393952+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.3,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 6.6,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 36.5
+    },
+    {
+      "utc": "2026-10-07T10:53:45.531839+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 13.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.1,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 18.2
+    },
+    {
+      "utc": "2026-10-07T10:53:50.182912+00:00",
+      "processes": [
+        {
+          "pid": 7581,
+          "cpu_percent": 34.3,
+          "command": "/Applications/Slack.app/Contents/MacOS/Slack"
+        },
+        {
+          "pid": 7587,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Slack.app/Contents/Frameworks/Slack Helper (Renderer).app/Contents/MacOS/Slack Helper (Renderer)"
+        },
+        {
+          "pid": 7583,
+          "cpu_percent": 9.9,
+          "command": "/Applications/Slack.app/Contents/Frameworks/Slack Helper.app/Contents/MacOS/Slack Helper"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 9.4,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 554,
+          "cpu_percent": 8.0,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd"
+        }
+      ],
+      "aggregate_cpu_percent": 73.8
+    },
+    {
+      "utc": "2026-10-07T10:53:52.326751+00:00",
+      "processes": [
+        {
+          "pid": 7581,
+          "cpu_percent": 35.9,
+          "command": "/Applications/Slack.app/Contents/MacOS/Slack"
+        },
+        {
+          "pid": 7583,
+          "cpu_percent": 15.4,
+          "command": "/Applications/Slack.app/Contents/Frameworks/Slack Helper.app/Contents/MacOS/Slack Helper"
+        },
+        {
+          "pid": 7587,
+          "cpu_percent": 12.1,
+          "command": "/Applications/Slack.app/Contents/Frameworks/Slack Helper (Renderer).app/Contents/MacOS/Slack Helper (Renderer)"
+        },
+        {
+          "pid": 554,
+          "cpu_percent": 10.7,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 8.4,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 88.1
+    },
+    {
+      "utc": "2026-10-07T10:53:55.880691+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 13.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 13.1
+    },
+    {
+      "utc": "2026-10-07T10:53:58.018883+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 13.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 62763,
+          "cpu_percent": 8.4,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        }
+      ],
+      "aggregate_cpu_percent": 21.5
+    },
+    {
+      "utc": "2026-10-07T10:54:01.435019+00:00",
+      "processes": [
+        {
+          "pid": 1,
+          "cpu_percent": 14.5,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 624,
+          "cpu_percent": 8.9,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        }
+      ],
+      "aggregate_cpu_percent": 36.0
+    },
+    {
+      "utc": "2026-10-07T10:54:03.571146+00:00",
+      "processes": [
+        {
+          "pid": 793,
+          "cpu_percent": 31.4,
+          "command": "/usr/libexec/sysmond"
+        },
+        {
+          "pid": 62763,
+          "cpu_percent": 16.9,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 7.0,
+          "command": "/usr/sbin/systemstats"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.6,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.2,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 78.3
+    },
+    {
+      "utc": "2026-10-07T10:54:07.151780+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 17.9
+    },
+    {
+      "utc": "2026-10-07T10:54:09.289918+00:00",
+      "processes": [
+        {
+          "pid": 37446,
+          "cpu_percent": 22.5,
+          "command": "/Applications/Windows App.app/Contents/MacOS/Windows App"
+        },
+        {
+          "pid": 62763,
+          "cpu_percent": 18.7,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 684,
+          "cpu_percent": 6.1,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.1,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 64.1
+    },
+    {
+      "utc": "2026-10-07T10:54:12.914989+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 6.6,
+          "command": "/usr/sbin/systemstats"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 24.0
+    },
+    {
+      "utc": "2026-10-07T10:54:15.047701+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.4,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 29.1
+    },
+    {
+      "utc": "2026-10-07T10:54:18.553185+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 11.7
+    },
+    {
+      "utc": "2026-10-07T10:54:20.686010+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.4,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 7581,
+          "cpu_percent": 13.6,
+          "command": "/Applications/Slack.app/Contents/MacOS/Slack"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 7587,
+          "cpu_percent": 7.0,
+          "command": "/Applications/Slack.app/Contents/Frameworks/Slack Helper (Renderer).app/Contents/MacOS/Slack Helper (Renderer)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.6,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 55.8
+    },
+    {
+      "utc": "2026-10-07T10:54:24.135957+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 14.0,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 26.2
+    },
+    {
+      "utc": "2026-10-07T10:54:26.267897+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 70676,
+          "cpu_percent": 5.2,
+          "command": "opencode"
+        }
+      ],
+      "aggregate_cpu_percent": 17.9
+    },
+    {
+      "utc": "2026-10-07T10:54:29.747395+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.8,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.6,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.1,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 40.2
+    },
+    {
+      "utc": "2026-10-07T10:54:31.882766+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 9.8,
+          "command": "/sbin/launchd"
+        }
+      ],
+      "aggregate_cpu_percent": 21.5
+    },
+    {
+      "utc": "2026-10-07T10:54:35.537267+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.8,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 29.9
+    },
+    {
+      "utc": "2026-10-07T10:54:37.665565+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 13.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 13.2
+    },
+    {
+      "utc": "2026-10-07T10:54:42.015598+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.7,
+          "command": "/usr/sbin/systemstats"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 23.6
+    },
+    {
+      "utc": "2026-10-07T10:54:44.146903+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 11.7
+    },
+    {
+      "utc": "2026-10-07T10:54:48.732457+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 12.2
+    },
+    {
+      "utc": "2026-10-07T10:54:50.870439+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 18.3,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.1,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 36.0
+    },
+    {
+      "utc": "2026-10-07T10:54:55.284313+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 18.3,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 70676,
+          "cpu_percent": 5.6,
+          "command": "opencode"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.2,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 41.3
+    },
+    {
+      "utc": "2026-10-07T10:54:57.428588+00:00",
+      "processes": [
+        {
+          "pid": 90653,
+          "cpu_percent": 34.1,
+          "command": "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Renderer).app/Contents/MacOS/Code Helper (Renderer)"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 13.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 47.2
+    },
+    {
+      "utc": "2026-10-07T10:55:01.913173+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 19.6,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 14.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 624,
+          "cpu_percent": 11.7,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 9.4,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 620,
+          "cpu_percent": 5.1,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 62764,
+          "cpu_percent": 5.1,
+          "command": "/System/Library/Frameworks/VideoToolbox.framework/Versions/A/XPCServices/VTDecoderXPCService.xpc/Contents/MacOS/VTDecoderXPCService"
+        }
+      ],
+      "aggregate_cpu_percent": 64.9
+    },
+    {
+      "utc": "2026-10-07T10:55:04.053211+00:00",
+      "processes": [
+        {
+          "pid": 793,
+          "cpu_percent": 22.0,
+          "command": "/usr/libexec/sysmond"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 7.5,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 41.7
+    },
+    {
+      "utc": "2026-10-07T10:55:07.391615+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 62763,
+          "cpu_percent": 12.2,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        }
+      ],
+      "aggregate_cpu_percent": 24.9
+    },
+    {
+      "utc": "2026-10-07T10:55:09.529737+00:00",
+      "processes": [
+        {
+          "pid": 37446,
+          "cpu_percent": 21.1,
+          "command": "/Applications/Windows App.app/Contents/MacOS/Windows App"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.1,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        },
+        {
+          "pid": 7402,
+          "cpu_percent": 5.1,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        }
+      ],
+      "aggregate_cpu_percent": 43.5
+    },
+    {
+      "utc": "2026-10-07T10:55:12.869921+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 11.7,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 6.6,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 18.3
+    },
+    {
+      "utc": "2026-10-07T10:55:15.004710+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 13.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 13.1
+    },
+    {
+      "utc": "2026-10-07T10:55:18.760431+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 12.2
+    },
+    {
+      "utc": "2026-10-07T10:55:20.896956+00:00",
+      "processes": [
+        {
+          "pid": 62763,
+          "cpu_percent": 17.3,
+          "command": "/System/Library/ExtensionKit/Extensions/DisplaysExt.appex/Contents/MacOS/DisplaysExt"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        }
+      ],
+      "aggregate_cpu_percent": 29.5
+    },
+    {
+      "utc": "2026-10-07T10:55:24.811751+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 12.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.1,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 17.3
+    }
+  ],
+  "measurements": [
+    {
+      "implementation": "gd",
+      "rows": 10000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 1,
+      "samples_ns": [
+        144221.84375,
+        142806.316406,
+        141880.535156,
+        141502.765625,
+        144078.613281
+      ],
+      "iterations": 256,
+      "build_ns": "1681208",
+      "count": 10000,
+      "digest": "8454848143085721413",
+      "peak_rss_bytes": 4980736,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "10000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 10000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 2,
+      "samples_ns": [
+        143392.253906,
+        141856.445312,
+        142430.175781,
+        142449.054688,
+        141801.429688
+      ],
+      "iterations": 256,
+      "build_ns": "1423875",
+      "count": 10000,
+      "digest": "8454848143085721413",
+      "peak_rss_bytes": 5062656,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "10000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 10000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 3,
+      "samples_ns": [
+        142114.421875,
+        141726.886719,
+        140830.238281,
+        140311.199219,
+        142875.164062
+      ],
+      "iterations": 256,
+      "build_ns": "1499875",
+      "count": 10000,
+      "digest": "8454848143085721413",
+      "peak_rss_bytes": 4980736,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "10000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 100000,
+      "text_bytes": 16,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 1,
+      "build_ns": "13890750",
+      "count": 100000,
+      "digest": "17169169010528269001",
+      "iterations": 16,
+      "samples_ns": [
+        1690414.0625,
+        1696994.75,
+        1699479.1875,
+        1732018.25,
+        1707674.4375
+      ],
+      "peak_rss_bytes": 11091968,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "100000",
+        "16",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 100000,
+      "text_bytes": 16,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 2,
+      "build_ns": "10907834",
+      "count": 100000,
+      "digest": "17169169010528269001",
+      "iterations": 32,
+      "samples_ns": [
+        1297907.5625,
+        1300951.84375,
+        1303360.65625,
+        1303565.09375,
+        1306291.65625
+      ],
+      "peak_rss_bytes": 11091968,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "100000",
+        "16",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 100000,
+      "text_bytes": 16,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 3,
+      "build_ns": "10828375",
+      "count": 100000,
+      "digest": "17169169010528269001",
+      "iterations": 32,
+      "samples_ns": [
+        1760989.59375,
+        1812351.5625,
+        1783858.0625,
+        1781381.5,
+        1766044.28125
+      ],
+      "peak_rss_bytes": 11124736,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "100000",
+        "16",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 1,
+      "build_ns": "182250083",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 8,
+      "samples_ns": [
+        3378380.25,
+        3373895.75,
+        3375343.75,
+        3379458.25,
+        3438817.75
+      ],
+      "peak_rss_bytes": 348635136,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 2,
+      "build_ns": "179833750",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 8,
+      "samples_ns": [
+        3572812.5,
+        3490166.625,
+        3683020.75,
+        3740854.125,
+        3582510.375
+      ],
+      "peak_rss_bytes": 348602368,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 3,
+      "build_ns": "186785417",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 8,
+      "samples_ns": [
+        3468474.0,
+        3429453.125,
+        3510822.875,
+        3498869.75,
+        3499442.625
+      ],
+      "peak_rss_bytes": 348635136,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 1,
+      "build_ns": "112720459",
+      "count": 1000000,
+      "digest": "1294494616338092213",
+      "iterations": 2,
+      "samples_ns": [
+        14579812.5,
+        14638562.5,
+        14659604.0,
+        14654458.5,
+        14706062.5
+      ],
+      "peak_rss_bytes": 90341376,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "16",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 2,
+      "build_ns": "108033875",
+      "count": 1000000,
+      "digest": "1294494616338092213",
+      "iterations": 2,
+      "samples_ns": [
+        13887291.5,
+        13950083.0,
+        13872666.5,
+        13949479.0,
+        13901291.5
+      ],
+      "peak_rss_bytes": 90341376,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "16",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 3,
+      "build_ns": "108387958",
+      "count": 1000000,
+      "digest": "1294494616338092213",
+      "iterations": 2,
+      "samples_ns": [
+        15207396.0,
+        15241916.5,
+        15286250.0,
+        15163145.5,
+        14986416.5
+      ],
+      "peak_rss_bytes": 90341376,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "16",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 1,
+      "samples_ns": [
+        14232312.5,
+        14961104,
+        14491083.5,
+        14127104.5,
+        14187375
+      ],
+      "iterations": 2,
+      "build_ns": "140572834",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 311459840,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 2,
+      "samples_ns": [
+        13942562.5,
+        13850458.5,
+        13892854,
+        13596166.5,
+        14131020.5
+      ],
+      "iterations": 2,
+      "build_ns": "138894667",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 311459840,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 3,
+      "samples_ns": [
+        14302750,
+        13902062.5,
+        14090166.5,
+        14452854,
+        14159041.5
+      ],
+      "iterations": 2,
+      "build_ns": "135883667",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 311459840,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 1,
+      "samples_ns": [
+        10761927,
+        10593489.5,
+        10589343.75,
+        10558812.5,
+        11440187.5
+      ],
+      "iterations": 4,
+      "build_ns": "134503417",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 414007296,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 2,
+      "samples_ns": [
+        10661312.5,
+        10614145.75,
+        10425052,
+        10414500,
+        10425947.75
+      ],
+      "iterations": 4,
+      "build_ns": "135258042",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 414007296,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 3,
+      "samples_ns": [
+        10785031.25,
+        10620885.5,
+        10590906.25,
+        10558427,
+        10540614.5
+      ],
+      "iterations": 4,
+      "build_ns": "132956125",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 414007296,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 1,
+      "build_ns": "210080334",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 4,
+      "samples_ns": [
+        7526718.75,
+        7572156.25,
+        7573021.0,
+        7544083.5,
+        7530812.5
+      ],
+      "peak_rss_bytes": 334741504,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 2,
+      "build_ns": "206931417",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 4,
+      "samples_ns": [
+        7481510.5,
+        7487583.5,
+        7469521.0,
+        7475333.25,
+        7465677.0
+      ],
+      "peak_rss_bytes": 334757888,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "filter",
+      "repeat": 3,
+      "build_ns": "212598208",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 4,
+      "samples_ns": [
+        7677312.5,
+        7587010.5,
+        7830666.5,
+        8126229.25,
+        8092103.999999999
+      ],
+      "peak_rss_bytes": 334741504,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 1,
+      "samples_ns": [
+        41902250,
+        42084459,
+        42004167,
+        42207333,
+        42374000
+      ],
+      "iterations": 1,
+      "build_ns": "136655667",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 309755904,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 2,
+      "samples_ns": [
+        42116583,
+        42181041,
+        42365000,
+        42359958,
+        42511958
+      ],
+      "iterations": 1,
+      "build_ns": "138238625",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 309755904,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 3,
+      "samples_ns": [
+        41822834,
+        41987250,
+        42004541,
+        42051000,
+        42289833
+      ],
+      "iterations": 1,
+      "build_ns": "137221042",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 309755904,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 1,
+      "samples_ns": [
+        41637125,
+        41598708,
+        41543500,
+        41585041,
+        41557875
+      ],
+      "iterations": 1,
+      "build_ns": "132782083",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 412286976,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 2,
+      "samples_ns": [
+        41912833,
+        41651042,
+        41604750,
+        41704791,
+        41612125
+      ],
+      "iterations": 1,
+      "build_ns": "131456667",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 412270592,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 3,
+      "samples_ns": [
+        41618959,
+        41592709,
+        41636166,
+        42273458,
+        41582583
+      ],
+      "iterations": 1,
+      "build_ns": "134505416",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 412286976,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 1,
+      "build_ns": "178407583",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 2,
+      "samples_ns": [
+        12780021.0,
+        12690187.5,
+        12629750.0,
+        12646729.0,
+        12614917.0
+      ],
+      "peak_rss_bytes": 540803072,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 2,
+      "build_ns": "180603916",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 4,
+      "samples_ns": [
+        11899083.5,
+        11906625.0,
+        11899062.5,
+        11901375.0,
+        11900791.75
+      ],
+      "peak_rss_bytes": 540803072,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 3,
+      "build_ns": "186782667",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 4,
+      "samples_ns": [
+        11835708.25,
+        11875052.0,
+        11831333.25,
+        11817396.0,
+        11833937.5
+      ],
+      "peak_rss_bytes": 540835840,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 1,
+      "build_ns": "208723792",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 4,
+      "samples_ns": [
+        11316437.5,
+        11373437.5,
+        11377614.5,
+        11392135.5,
+        11378604.0
+      ],
+      "peak_rss_bytes": 333496320,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 2,
+      "build_ns": "212478750",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 4,
+      "samples_ns": [
+        11382885.5,
+        11413468.75,
+        11451583.25,
+        11382833.25,
+        11377656.25
+      ],
+      "peak_rss_bytes": 333463552,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "transform",
+      "repeat": 3,
+      "build_ns": "211253416",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 4,
+      "samples_ns": [
+        11352885.5,
+        11374250.0,
+        11409437.5,
+        11361791.75,
+        11380093.75
+      ],
+      "peak_rss_bytes": 333463552,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 1,
+      "samples_ns": [
+        21286646,
+        21815812.5,
+        21816021,
+        21679375,
+        21595854.5
+      ],
+      "iterations": 2,
+      "build_ns": "140478458",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 332087296,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 2,
+      "samples_ns": [
+        21847812.5,
+        22101312.5,
+        21916521,
+        22032708.5,
+        22074458
+      ],
+      "iterations": 2,
+      "build_ns": "136436250",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 332087296,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 3,
+      "samples_ns": [
+        21440791.5,
+        21789812.5,
+        22277417,
+        22088479.5,
+        21730208
+      ],
+      "iterations": 2,
+      "build_ns": "141858500",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 332087296,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 1,
+      "samples_ns": [
+        24960479,
+        25372854,
+        25312166.5,
+        25215645.5,
+        25125604.5
+      ],
+      "iterations": 2,
+      "build_ns": "131763417",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 441384960,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 2,
+      "samples_ns": [
+        24955333,
+        25903709,
+        25693541,
+        25408833,
+        25518042
+      ],
+      "iterations": 1,
+      "build_ns": "133786333",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 441335808,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 3,
+      "samples_ns": [
+        24782625,
+        25118250,
+        27428583,
+        25924625,
+        24861209
+      ],
+      "iterations": 1,
+      "build_ns": "131679667",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 441335808,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 1,
+      "build_ns": "183304417",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 2,
+      "samples_ns": [
+        18472312.5,
+        17491687.5,
+        17192708.5,
+        17167000.0,
+        17380291.5
+      ],
+      "peak_rss_bytes": 385073152,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 2,
+      "build_ns": "184504583",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 2,
+      "samples_ns": [
+        16146687.5,
+        15813833.5,
+        15911916.500000002,
+        16287770.5,
+        16201521.0
+      ],
+      "peak_rss_bytes": 385073152,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 3,
+      "build_ns": "185067708",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 2,
+      "samples_ns": [
+        18093791.5,
+        17323250.0,
+        17402458.0,
+        17367500.0,
+        17213125.0
+      ],
+      "peak_rss_bytes": 385105920,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 1,
+      "build_ns": "211766250",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 2,
+      "samples_ns": [
+        18215792.0,
+        19189812.5,
+        18407229.0,
+        18317145.5,
+        18064604.5
+      ],
+      "peak_rss_bytes": 356352000,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 2,
+      "build_ns": "210870208",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 2,
+      "samples_ns": [
+        18194833.5,
+        18040729.5,
+        18203896.0,
+        18260895.5,
+        18346479.5
+      ],
+      "peak_rss_bytes": 356384768,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "operation": "pipeline",
+      "repeat": 3,
+      "build_ns": "212501875",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 2,
+      "samples_ns": [
+        18298500.0,
+        18225062.5,
+        18264167.0,
+        18382687.5,
+        18123270.5
+      ],
+      "peak_rss_bytes": 356384768,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 1,
+      "samples_ns": [
+        2738585.9375,
+        2767687.5,
+        2730091.125,
+        2742700.5625,
+        2749974
+      ],
+      "iterations": 16,
+      "build_ns": "136388416",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 311951360,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 2,
+      "samples_ns": [
+        2813119.75,
+        2761937.5,
+        2737460.9375,
+        2747369.8125,
+        2720690.0625
+      ],
+      "iterations": 16,
+      "build_ns": "138978750",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 311984128,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 3,
+      "samples_ns": [
+        2716614.625,
+        2685257.8125,
+        2713320.3125,
+        2714351.5625,
+        2737309.875
+      ],
+      "iterations": 16,
+      "build_ns": "142519208",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 311836672,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 1,
+      "samples_ns": [
+        2263111.9375,
+        2256557.3125,
+        2256223.9375,
+        2250960.9375,
+        2263187.5
+      ],
+      "iterations": 16,
+      "build_ns": "133858250",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 414564352,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 2,
+      "samples_ns": [
+        2317721.375,
+        2309690.125,
+        2317200.5625,
+        2334757.8125,
+        2309835.9375
+      ],
+      "iterations": 16,
+      "build_ns": "134909209",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 414285824,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 3,
+      "samples_ns": [
+        2306487,
+        2298085.9375,
+        2337143.1875,
+        2268692.75,
+        2330575.5
+      ],
+      "iterations": 16,
+      "build_ns": "138650708",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "peak_rss_bytes": 414646272,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 1,
+      "build_ns": "184283334",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 32,
+      "samples_ns": [
+        935080.71875,
+        931860.6875,
+        942011.71875,
+        922993.5,
+        921645.8125
+      ],
+      "peak_rss_bytes": 350109696,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 2,
+      "build_ns": "183629458",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 32,
+      "samples_ns": [
+        1062505.1875,
+        1061386.71875,
+        1059593.75,
+        1070626.3125,
+        1066541.6875
+      ],
+      "peak_rss_bytes": 350420992,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 3,
+      "build_ns": "186339750",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 32,
+      "samples_ns": [
+        964897.15625,
+        968494.8125,
+        965023.4375,
+        966260.40625,
+        955250.0
+      ],
+      "peak_rss_bytes": 350044160,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 1,
+      "build_ns": "214142416",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 32,
+      "samples_ns": [
+        1186183.59375,
+        1184606.78125,
+        1245510.4375,
+        1280328.125,
+        1219752.59375
+      ],
+      "peak_rss_bytes": 336461824,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 2,
+      "build_ns": "218176542",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 32,
+      "samples_ns": [
+        1251763.03125,
+        1238397.125,
+        1287421.875,
+        1201690.125,
+        1211378.90625
+      ],
+      "peak_rss_bytes": 336363520,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "filter",
+      "repeat": 3,
+      "build_ns": "219970459",
+      "count": 66667,
+      "digest": "9429985086750467876",
+      "iterations": 32,
+      "samples_ns": [
+        1260419.28125,
+        1346109.375,
+        1345782.53125,
+        1307733.0625,
+        1199712.21875
+      ],
+      "peak_rss_bytes": 336363520,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "filter",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 1,
+      "samples_ns": [
+        10247666.75,
+        10731531.25,
+        10838468.75,
+        11302541.75,
+        10960406.25
+      ],
+      "iterations": 4,
+      "build_ns": "139633125",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 309985280,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 2,
+      "samples_ns": [
+        10760552.25,
+        11519552.25,
+        10718125,
+        10736270.75,
+        10749145.75
+      ],
+      "iterations": 4,
+      "build_ns": "142968458",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 310018048,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 3,
+      "samples_ns": [
+        10427958.5,
+        10716812.5,
+        11179916.75,
+        10735604,
+        10790760.5
+      ],
+      "iterations": 4,
+      "build_ns": "147381792",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 309985280,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 1,
+      "samples_ns": [
+        5911614.625,
+        5917510.375,
+        5957031.25,
+        5931776,
+        6156479.125
+      ],
+      "iterations": 8,
+      "build_ns": "132779041",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 412516352,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 2,
+      "samples_ns": [
+        5916005.125,
+        5932562.5,
+        5930484.375,
+        6128994.75,
+        5917265.625
+      ],
+      "iterations": 8,
+      "build_ns": "134646791",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 412499968,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 3,
+      "samples_ns": [
+        5917703.125,
+        5922541.625,
+        5943573,
+        5971031.25,
+        6144041.625
+      ],
+      "iterations": 8,
+      "build_ns": "140550167",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "peak_rss_bytes": 412418048,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 1,
+      "build_ns": "185605792",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 8,
+      "samples_ns": [
+        3815057.375,
+        3779010.375,
+        3819723.875,
+        3922755.125,
+        3753208.375
+      ],
+      "peak_rss_bytes": 541097984,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 2,
+      "build_ns": "185891833",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 8,
+      "samples_ns": [
+        3724703.125,
+        3688812.5,
+        3669270.875,
+        3751546.875,
+        3763062.5
+      ],
+      "peak_rss_bytes": 541097984,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 3,
+      "build_ns": "186572084",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 8,
+      "samples_ns": [
+        3698640.625,
+        3680421.875,
+        3707104.25,
+        3849573.0,
+        3756026.125
+      ],
+      "peak_rss_bytes": 541130752,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 1,
+      "build_ns": "213421708",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 16,
+      "samples_ns": [
+        3369539.0625,
+        3387716.1875,
+        3149119.8125,
+        3306455.6875,
+        3487354.1875
+      ],
+      "peak_rss_bytes": 333660160,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 2,
+      "build_ns": "224326166",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 8,
+      "samples_ns": [
+        3062828.125,
+        3614552.125,
+        3654041.75,
+        3572463.625,
+        3457781.25
+      ],
+      "peak_rss_bytes": 333725696,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "transform",
+      "repeat": 3,
+      "build_ns": "218014041",
+      "count": 1000000,
+      "digest": "8693138999046472213",
+      "iterations": 8,
+      "samples_ns": [
+        3648369.875,
+        3388848.875,
+        3440208.25,
+        3405119.75,
+        3541151.0
+      ],
+      "peak_rss_bytes": 333643776,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "transform",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 1,
+      "samples_ns": [
+        4126536.5,
+        4118005.125,
+        4105385.375,
+        4066640.625,
+        4071880.125
+      ],
+      "iterations": 8,
+      "build_ns": "145066458",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 385662976,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 2,
+      "samples_ns": [
+        4095453.125,
+        4058041.625,
+        4064317.75,
+        4058265.625,
+        4077734.375
+      ],
+      "iterations": 8,
+      "build_ns": "143928291",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 383893504,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 3,
+      "samples_ns": [
+        4056265.625,
+        4114911.375,
+        4115349,
+        4121833.375,
+        4043724
+      ],
+      "iterations": 8,
+      "build_ns": "142699500",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 386465792,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 1,
+      "samples_ns": [
+        6983479.25,
+        6988854.25,
+        7081208.25,
+        7246396,
+        7156052
+      ],
+      "iterations": 4,
+      "build_ns": "134378208",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 443088896,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 2,
+      "samples_ns": [
+        7023489.75,
+        7156854.25,
+        6903687.5,
+        6892739.5,
+        6867531.25
+      ],
+      "iterations": 4,
+      "build_ns": "137124666",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 442957824,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 3,
+      "samples_ns": [
+        7059072.75,
+        7038145.75,
+        7182072.75,
+        8030791.5,
+        7195385.5
+      ],
+      "iterations": 4,
+      "build_ns": "146311916",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "peak_rss_bytes": 443006976,
+      "command": [
+        "target/text-workflow/cpp/gd_text_workflow",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 1,
+      "build_ns": "184115625",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 8,
+      "samples_ns": [
+        5874026.0,
+        6163177.125,
+        6241875.0,
+        6299328.125,
+        6223828.125
+      ],
+      "peak_rss_bytes": 385826816,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 2,
+      "build_ns": "192161375",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 4,
+      "samples_ns": [
+        5990552.25,
+        6248000.0,
+        6413447.75,
+        6055729.25,
+        6335572.75
+      ],
+      "peak_rss_bytes": 386433024,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 3,
+      "build_ns": "184757583",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 8,
+      "samples_ns": [
+        6206640.625,
+        6138713.5,
+        6358385.375,
+        6257796.875,
+        6137739.625
+      ],
+      "peak_rss_bytes": 386695168,
+      "command": [
+        "target/release/examples/text_workflow",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 1,
+      "build_ns": "212710334",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 16,
+      "samples_ns": [
+        3108598.9375,
+        3163330.75,
+        3096437.5,
+        3040401.0,
+        2990515.625
+      ],
+      "peak_rss_bytes": 363970560,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 2,
+      "build_ns": "215841792",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 16,
+      "samples_ns": [
+        3096356.8125,
+        3007544.25,
+        3086908.875,
+        3139033.875,
+        3069862.0
+      ],
+      "peak_rss_bytes": 363905024,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "operation": "pipeline",
+      "repeat": 3,
+      "build_ns": "217975166",
+      "count": 66667,
+      "digest": "3147086776866431871",
+      "iterations": 16,
+      "samples_ns": [
+        3146122.375,
+        3252773.4375,
+        3083171.875,
+        3051273.4375,
+        3152828.125
+      ],
+      "peak_rss_bytes": 364003328,
+      "command": [
+        "target/release/examples/text_workflow",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "pipeline",
+        "5",
+        "25",
+        "time"
+      ]
+    }
+  ],
+  "source_sha256": {
+    "Cargo.lock": "b9da6e1deb720058fa9f399811aa1c9fb28206c7b2370197b400473b56e7a6fb",
+    "Cargo.toml": "de76f6c2c85f0da01ed3cad8d62fcecdc235ea848af79778077fce5af87d415d",
+    "benches/cpp-reference/CMakeLists.txt": "7151fe15c635fdc4eceb35a72a9dd17fcb8c403e0feba825d2e0518bfea9823d",
+    "benches/cpp-reference/cmake/GdCore.cmake": "61a01e646c87d26c86cb0c2518490c24380546978c4331d5a7de147edf3ae282",
+    "benches/cpp-reference/text_workflow.cpp": "f546f7dd542fcc1c592ea8740e4ec934b1d47c3d071849fcf665bf059e36acd0",
+    "benches/text_workflow/README.md": "3d4f21850b1dfad8bf9f16063034cfb94afaa1f77a1f03442e4e9aff419e5ced",
+    "benches/text_workflow/compare.py": "dd81d11f6cb968ba14593c81cf406553aedd9ea8b8408d00953ae3745c2f4f40",
+    "benches/text_workflow/driver.rs": "9c9c843a0e1d57be4d780f22ae51cd708fe86ded20e9ef14ecfb766fb8db6ff3",
+    "benches/text_workflow/summarize.py": "6b8f1dd650c2fff4d84c9fd713feb19dd422ff117f86a3c7d2ce87a9ae827837",
+    "src/arguments.rs": "d83c0cd10c77efba2fb57d2accfa3653706cc1e6c060ebc9cfd322858f9515e1",
+    "src/binary.rs": "737c4c98690cc0262cd8830a934fb7d302a13222c0ecbc645e87c2c37353c44b",
+    "src/expression.rs": "4258e7e216d24c5d15ae5e0f656dbc7a5ba5656eb75052acb98cd1aaa16a8191",
+    "src/format.rs": "d403c86c308ed1b1d4781b3bc426facc673371dc52dcc391f2ecfa9e46a21840",
+    "src/format_import.rs": "ba1e44e7277ef87cb5787ed90dd0bc82c09fcbea78ef8d75ca72a2f54a269d81",
+    "src/lib.rs": "c5d4ab1538a8a9f2a45433f087db808cd77d7e1f5345106da39e08e821c6b01d",
+    "src/sqlite.rs": "520f4c7b8fbbefd647486c38b980dc7d70e09146adf99f10056af7cb9df3c147",
+    "src/table/append.rs": "81a67d28f495cb7e81cb8beeea57b7286261a9ad33d5ced1ed04d4c869822940",
+    "src/table/compaction.rs": "3ac29b4c7a7734b0392b6b4e493d03765780601c28ab0f1bd6a6287e0a7e4849",
+    "src/table/composite.rs": "93612a42644dd58bda0cfa80cf05d4711cda9ae755932d76a02f9beef671c9e5",
+    "src/table/concurrent.rs": "bd624ffec43e2cd4152f12dcc08252ab0022f7f9325003a32d3fa6dd47416af7",
+    "src/table/debug.rs": "52fe2cbdd2de0b6fbed0cd31b8356a5c26c145b6bf3adda8a77103117f938452",
+    "src/table/fixed_string.rs": "98d8c3201ff2ba6f9a109bc46a5e3b3533e9766178d844cc092ea4325be7a9fd",
+    "src/table/index.rs": "eee502f79542ca2cb5a70f45b0c474536ca5eaad37daa2c19de6e10ddef31cd4",
+    "src/table/ordering.rs": "c10bde5b2373d965d1f9122f58d524256152a4fbbdba00cb75c3e01f71877733",
+    "src/table/row_mut.rs": "588ac0dc0ab730eb59e3a513ec3e8ae52a876941f501a3b0e78af0b5d1a908b0",
+    "src/table/schema.rs": "03ea16fd3b38c4c2430f551a6ffe600fbefd2402ad6e92fa9b9bc70aaf538782",
+    "src/table/selection.rs": "eaee85fbbffb1c529e001a5bc33d883f846cdbeda7727aca13a2a2fbe0345188",
+    "src/table/selection_view.rs": "99c93c6b3bb150de6ff9d747ed03e7c4227ee9828bf0a554e39675a6dabd810e",
+    "src/table/storage.rs": "3cfb390b1edcaca451f11209c211adc3b8fdc98b106ec735c4c187a8fbc9064f",
+    "src/table/tombstones.rs": "6cdc70ee80a424fbf59e3c4338a0ee28b51d4e1bfdad355c6bf374348a12e8c1",
+    "src/table/views.rs": "c466afc25c21fb9f58eaa7f2f235e21e3b9169c3706c451426561056be7a993e",
+    "src/table.rs": "70c7742579a8681a3f5041abb5fdb2acf118b7ea39aeb37cf596c2360ab09ae4",
+    "src/text.rs": "dc9a03192a74b73cffb238089c5322d0cedd21c045a26433cf316877e5bcfa30",
+    "src/value/borrowed.rs": "e06f320a30c1f7a5ad759b23845913c9dd098504c2e3f0ec2300e912cdbdd55d",
+    "src/value/data_type.rs": "63f7b1d4f67634eab008387a749bd9e29e158207847393e3dd9562ab8e0a6955",
+    "src/value/owned.rs": "dab6759d95cd60558ae888a3ab4cce79a8839bd3906927b2b3d89b9271d410af",
+    "src/value.rs": "0ec4f96eb64ce0900cc31af119891e9a1581476917462f5ea1da4eca425ac6ff"
+  }
+}

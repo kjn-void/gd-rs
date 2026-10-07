@@ -120,6 +120,10 @@ endif()
 
 # Standalone application for size and end-to-end comparisons (no benchmark framework).
 find_package(Threads REQUIRED)
+add_executable(gd_text_workflow text_workflow.cpp)
+target_compile_features(gd_text_workflow PRIVATE cxx_std_20)
+target_link_libraries(gd_text_workflow PRIVATE gd::core Threads::Threads)
+
 add_executable(gd_order_workflow order_workflow/driver.cpp)
 target_compile_features(gd_order_workflow PRIVATE cxx_std_20)
 target_link_libraries(gd_order_workflow PRIVATE gd::core Threads::Threads)
