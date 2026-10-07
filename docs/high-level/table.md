@@ -39,11 +39,14 @@ Writes copy UTF-8 into the existing slot and change its length, with no per-cell
 allocation. Oversized input is rejected without truncation or mutation. Nullable
 cells still reserve a complete slot. Copies and compaction rebuild independent,
 contiguous buffers and rebase offsets. Row views and fixed-string views can split
-slots and descriptors together for safe parallel mutation, using only safe Rust.
+slots and descriptors together for safe parallel mutation.
 
 This representation trades bounded storage and fewer allocations for unused slot
-capacity and another offset lookup. The current safe byte-buffer implementation
-validates UTF-8 when borrowing a string. It does not promise faster operations
+capacity and another offset lookup. UTF-8 validity is established at the write
+boundary through string-typed input. Reads retain bounds checks but use three
+small internal unchecked conversions to avoid rescanning stored text. Private
+bytes and descriptors, checked writes, and safe `str` mutation maintain the
+invariant. It does not promise faster operations
 than `CompactString`, especially for inline short strings. See the
 [API examples](../api/tables.md#fixed-capacity-string-buffers) and the
 [text comparison](text-workflow-results.md) for workloads, measured results, and

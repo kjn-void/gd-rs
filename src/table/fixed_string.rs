@@ -1,4 +1,11 @@
 //! Fixed-capacity UTF-8 cells addressed through offsets into a column buffer.
+//!
+//! Non-null cell prefixes are valid UTF-8: insertion and replacement accept only
+//! `&str`, copies preserve bytes and lengths, and mutable string borrows permit
+//! only UTF-8-preserving safe operations. Private descriptors and byte buffers
+//! prevent callers from breaking this invariant. Reads trust it instead of
+//! scanning stored text again; slot suffixes outside the current length need
+//! not form valid UTF-8 after a shorter replacement.
 
 use thiserror::Error;
 
@@ -172,7 +179,8 @@ impl<'a> FixedStrings<'a> {
     pub const fn capacity(self) -> usize {
         self.capacity
     }
-    /// Reads a relative row: outer `None` means out of bounds, inner `None` null.
+    /// Reads a relative row without revalidating UTF-8.
+    /// Outer `None` means out of bounds, inner `None` null.
     #[must_use]
     // Private descriptors and safe setters guarantee UTF-8 and in-bounds slices.
     #[allow(clippy::missing_panics_doc)]
@@ -182,10 +190,14 @@ impl<'a> FixedStrings<'a> {
             return Some(None);
         }
         let begin = index.offset - self.base;
-        Some(Some(
-            std::str::from_utf8(&self.buffer[begin..begin + index.length])
-                .expect("validated UTF-8 slot"),
-        ))
+        let bytes = &self.buffer[begin..begin + index.length];
+        // SAFETY: private descriptors select exactly a non-null prefix written
+        // from &str. Copy, append, and compaction preserve its bytes and length;
+        // safe mutable str borrows preserve UTF-8. Safe slicing checks bounds.
+        // from_utf8 would needlessly rescan this established write invariant.
+        #[allow(unsafe_code)]
+        let text = unsafe { std::str::from_utf8_unchecked(bytes) };
+        Some(Some(text))
     }
     /// Iterates over physical cells in row order without allocating strings.
     #[must_use]
@@ -319,17 +331,27 @@ pub struct FixedStringCellMut<'a> {
 }
 
 impl FixedStringCellMut<'_> {
-    /// Reads the current value, with `None` representing null.
+    /// Reads the current value without revalidating UTF-8; `None` means null.
     #[must_use]
     // Safe setters maintain the private length and UTF-8 invariants.
     #[allow(clippy::missing_panics_doc)]
     pub fn get(&self) -> Option<&str> {
-        (*self.length != NULL_LENGTH)
-            .then(|| std::str::from_utf8(&self.slot[..*self.length]).expect("validated UTF-8 slot"))
+        if *self.length == NULL_LENGTH {
+            return None;
+        }
+        let bytes = &self.slot[..*self.length];
+        // SAFETY: the private length selects the valid UTF-8 prefix maintained
+        // by &str writes and safe str mutation. The shared borrow prevents edits
+        // while this result lives. Safe slicing checks bounds; from_utf8 would
+        // rescan bytes whose validity was already established at the write boundary.
+        #[allow(unsafe_code)]
+        let text = unsafe { std::str::from_utf8_unchecked(bytes) };
+        Some(text)
     }
     /// Borrows the current UTF-8 value for operations that preserve byte length.
     ///
     /// Safe `str` mutation, such as `make_ascii_uppercase`, preserves UTF-8.
+    /// The borrow trusts the write invariant without revalidating stored text.
     #[must_use]
     // Safe str mutation cannot invalidate the private UTF-8 invariant.
     #[allow(clippy::missing_panics_doc)]
@@ -337,7 +359,15 @@ impl FixedStringCellMut<'_> {
         if *self.length == NULL_LENGTH {
             return None;
         }
-        Some(std::str::from_utf8_mut(&mut self.slot[..*self.length]).expect("validated UTF-8 slot"))
+        let bytes = &mut self.slot[..*self.length];
+        // SAFETY: the private length selects a prefix initialized from &str or
+        // modified through safe str operations. This exclusive slot borrow
+        // prevents aliases, and safe &mut str operations preserve UTF-8 and byte
+        // length. Safe slicing checks bounds; checked conversion would rescan
+        // the write invariant rather than establish a new one.
+        #[allow(unsafe_code)]
+        let text = unsafe { std::str::from_utf8_unchecked_mut(bytes) };
+        Some(text)
     }
     /// Replaces the value without allocating, truncating, or changing its offset.
     ///

@@ -1,5 +1,10 @@
 # Text filtering and transforms: GD and gd-rs
 
+This report records the initial implementation, which revalidated UTF-8 on every
+fixed-buffer read. The current implementation establishes validity at the write
+boundary; see the [paired before/after comparison](text-validation-results.md).
+The original measurements below are retained as the checked-read baseline.
+
 This comparison exercises text directly in ordinary application tables: filtering, rewriting a string column, and filtering plus materializing and transforming rows. It compares four representations of the same five-column data.
 
 | Case | Storage and access |

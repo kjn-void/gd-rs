@@ -74,3 +74,30 @@ do not isolate language cost or prove a universal AoS/SoA ranking.
 Sources: [Rust](driver.rs), [GD](../cpp-reference/text_workflow.cpp),
 [runner and oracle](compare.py). The [report](../../docs/high-level/text-workflow-results.md)
 records the measured matrix and context.
+
+## UTF-8 read-validation comparison
+
+The [paired runner](compare_validation.py) isolates the removal of repeated UTF-8
+validation from fixed-buffer reads. It runs the unchanged Rust workload against
+two optimized executables, alternating their order each round and checking both
+against the independent oracle results in the original raw report. Writes accept
+valid UTF-8 through `&str`; bounds, capacity, and nullability checks remain.
+
+To rebuild the checked-read baseline, check out commit `d0000f7` in a separate
+checkout, then build with the flags below and copy its executable to
+`target/text-validation/checked-read` in the current checkout. The recorded run
+used the original executable preserved before rebuilding; binary hashes are
+included in the raw results.
+
+```sh
+env -u CARGO_ENCODED_RUSTFLAGS RUSTFLAGS='-C target-cpu=native' \
+  cargo build --release --locked --example text_workflow \
+  --no-default-features --features rayon
+python3 benches/text_workflow/compare_validation.py \
+  --checked target/text-validation/checked-read
+```
+
+The same build command produces the trusted-read executable in the current
+checkout. See the [follow-up report](../../docs/high-level/text-validation-results.md).
+Use `--allow-contended` only for explicitly labelled diagnostics when competing
+host activity cannot be avoided; it retains load samples and labels the raw data.

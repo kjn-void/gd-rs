@@ -88,6 +88,13 @@ already have the exact logical string type. `cell_mut()` and `iter_mut()` expose
 `FixedStringCellMut`, whose `set()` replaces a value and `as_str_mut()` supports
 safe operations that preserve byte length, such as ASCII case conversion.
 
+UTF-8 validity is established at the write boundary: input is `&str` or an
+already-valid owned string, and byte decoding must validate before producing it.
+Reads and mutable string borrows trust this invariant without scanning stored
+text again. Bounds, byte capacity, and nullability remain checked. The storage
+keeps raw bytes and descriptors private; the three internal unchecked UTF-8
+conversions rely on checked string writes and UTF-8-preserving safe mutation.
+
 `FixedStringsMut::split_at(mid)` partitions both index descriptors and byte slots
 into disjoint ranges that can be sent to scoped workers. Positions in either view
 are relative to that view; splitting outside its length panics. The existing

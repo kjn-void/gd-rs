@@ -274,6 +274,60 @@ fn ordinary_string_slices_and_storage_errors_are_explicit() {
     assert!(std::panic::catch_unwind(|| ColumnSpec::fixed_string("bad", 0)).is_err());
 }
 
+#[test]
+fn trusted_utf8_borrows_handle_shorter_replacements_and_split_slots() {
+    let mut t =
+        Table::new(Schema::new([ColumnSpec::fixed_string("text", 9).nullable(true)]).unwrap());
+    for text in ["å🙂xyz", "🙂åabc", "abcé🙂"] {
+        t.push_row([Value::from(text)]).unwrap();
+    }
+    let view = t.columns_io([], [0]).unwrap().1.into_iter().next().unwrap();
+    let (mut empty, remainder) = view.fixed_strings_mut().unwrap().split_at(0);
+    assert!(empty.cell_mut(0).is_none());
+    let (mut left, mut right) = remainder.split_at(1);
+    // Old continuation bytes remain in each slot's unused suffix. Only the
+    // new prefix is a string; treating the entire slot as UTF-8 would be wrong.
+    left.set(0, Some("x")).unwrap();
+    let mut cell = left.cell_mut(0).unwrap();
+    assert_eq!(cell.get(), Some("x"));
+    cell.as_str_mut().unwrap().make_ascii_uppercase();
+    assert_eq!(cell.get(), Some("X"));
+    right.set(0, None).unwrap();
+    assert_eq!(right.cell_mut(0).unwrap().get(), None);
+    assert!(right.cell_mut(0).unwrap().as_str_mut().is_none());
+    right.set(0, Some("")).unwrap();
+    assert_eq!(right.as_view().get(0), Some(Some("")));
+    let mut cell = right.cell_mut(1).unwrap();
+    cell.as_str_mut().unwrap().make_ascii_uppercase();
+    assert_eq!(cell.get(), Some("ABCé🙂"));
+    assert!(cell.set(Some("🙂🙂🙂")).is_err());
+    assert_eq!(cell.get(), Some("ABCé🙂"));
+
+    let mut copy = t.copy_rows(&[2, 0, 1, 2]).unwrap();
+    copy.append(&t).unwrap();
+    copy.tombstone_row(1).unwrap();
+    copy.compact();
+    assert!(copy.pop_row());
+    copy.push_row([Value::from("🙂éåx")]).unwrap();
+    assert_eq!(
+        copy.column(0)
+            .unwrap()
+            .fixed_strings()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>(),
+        [
+            Some("ABCé🙂"),
+            Some(""),
+            Some("ABCé🙂"),
+            Some("X"),
+            Some(""),
+            Some("🙂éåx")
+        ]
+    );
+    assert_eq!(t.cell(2, 0).unwrap(), ValueRef::String("ABCé🙂"));
+}
+
 proptest! {
     #[test]
     fn fixed_and_ordinary_tables_agree_after_edits_and_gathers(

@@ -6,6 +6,13 @@ family in the `external/gd` submodule, with emphasis on mistakes that can cause 
 `gd-rs` commit `cc0ed9ea5b4c3849fa8709186399abed1e9fbfcc` and `gd` commit
 `cb11cff90d05260a88d59a30c9da421cd4e19c34`.
 
+The later fixed-string storage uses three internal unchecked UTF-8 conversions
+to avoid validating reads repeatedly. Its safe API accepts string-typed writes
+and keeps raw bytes and descriptors private; see the
+[write/read invariant](../api/tables.md#fixed-capacity-string-buffers) and
+[implementation](../../src/table/fixed_string.rs). The no-`unsafe` observations
+below apply to the audited revision, before this storage was added.
+
 The APIs are not method-for-method equivalents. Rust has one fixed-schema
 [`Table`](../../src/table.rs#L194), an immutable [`Schema`](../../src/table/schema.rs#L207),
 and borrowing row, column, index, and ordering views. C++ has several related

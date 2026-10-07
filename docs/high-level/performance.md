@@ -4,6 +4,8 @@ The [text filtering and transform comparison](text-workflow-results.md) compares
 GD preallocated buffers, C++ `std::string` rows, existing gd-rs strings, and gd-rs fixed-capacity buffers across small and large
 tables with one and eight workers. Its own report records the current toolchains,
 workload, and measurement conditions separately from the older results below.
+The [UTF-8 validation follow-up](text-validation-results.md) measures the effect
+of trusting valid stored strings on reads, using paired runs of the same workload.
 
 The C++ reference uses Google Benchmark and the pinned CMake release presets. Rust uses
 Criterion and Cargo's release profile. The M3 Max and Core Ultra performance-core
