@@ -191,7 +191,7 @@ impl Arguments {
     }
 
     /// Returns an iterator in insertion order.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &Argument> + DoubleEndedIterator {
         self.entries.iter()
     }

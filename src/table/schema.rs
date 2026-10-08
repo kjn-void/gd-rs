@@ -313,7 +313,7 @@ impl Schema {
     }
 
     /// Returns column definitions in positional order.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn iter(&self) -> impl ExactSizeIterator<Item = &ColumnSpec> + DoubleEndedIterator {
         self.columns.iter()
     }

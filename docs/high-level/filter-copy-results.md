@@ -10,6 +10,8 @@ GD copies each matched complete inline row with `std::memcpy`. The STL case uses
 
 Sources: [Rust driver](../../benches/filter_copy/driver.rs), [C++ driver](../../benches/cpp-reference/filter_copy.cpp), [runner/oracle](../../benches/filter_copy/compare.py), [shared-record API](../../src/table/shared_record.rs); the Arc case has no C++ `shared_ptr` counterpart in this test; [method and commands](../../benches/filter_copy/README.md).
 
+Timed sources are preserved in [commit `6c9158f`](https://github.com/kjn-void/gd-rs/tree/6c9158f4d87b2be8e1f5f6361567448c76a4947d). The published source fingerprints match that commit. Build that snapshot to reproduce the measured sources byte for byte.
+
 **These are diagnostics under each machine’s current background load.** All runs explicitly enabled contended-diagnostic mode; observed load is recorded per host below. Target allocation, filtering, row indices, synchronization, copying, and destruction are timed. Source generation, pool startup, and full verification are outside timing. Arc cleanup decrements handles while the source remains alive, so it does not free record or string payloads. Native optimized builds use LTO without sanitizers. Five rotated process rounds contain seven calibrated batches each; each reported time is the median of the five round medians.
 
 ## Relative performance

@@ -114,15 +114,17 @@ cmake --build target/filter-copy/asan --target gd_filter_copy -j 4
 PYTHONDONTWRITEBYTECODE=1 python3 benches/filter_copy/check_safety.py
 
 python3 benches/filter_copy/summarize.py \
-  --input target/filter-copy/m3max.json target/filter-copy/m6.json \
-          target/filter-copy/rk3588.json \
-  --confirmations target/filter-copy/m3max-confirmations.json \
-                  target/filter-copy/m6-confirmations.json \
-                  target/filter-copy/rk3588-confirmations.json \
-  --string-layout target/filter-copy/string-layout-m3max.txt \
-                  target/filter-copy/string-layout-m6.txt \
-                  target/filter-copy/string-layout-rk3588.txt \
-  --sharing-strategies target/filter-copy/sharing-strategies.json
+  --input docs/high-level/measurements/filter-copy-m3max.json \
+          docs/high-level/measurements/filter-copy-m6.json \
+          docs/high-level/measurements/filter-copy-rk3588.json \
+  --confirmations docs/high-level/measurements/filter-copy-m3max-confirmations.json \
+                  docs/high-level/measurements/filter-copy-m6-confirmations.json \
+                  docs/high-level/measurements/filter-copy-rk3588-confirmations.json \
+  --string-layout docs/high-level/measurements/filter-copy-m3max-string-layout.txt \
+                  docs/high-level/measurements/filter-copy-m6-string-layout.txt \
+                  docs/high-level/measurements/filter-copy-rk3588-string-layout.txt \
+  --sharing-strategies docs/high-level/measurements/filter-copy-sharing-strategies-m3max.json \
+  --source-snapshot 6c9158f4d87b2be8e1f5f6361567448c76a4947d
 ```
 
 The optional M3 Max sharing experiment is reproducible with:

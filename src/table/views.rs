@@ -287,7 +287,7 @@ impl<'a> Column<'a> {
     }
 
     /// Iterates contiguously over this column.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
         (0..self.len()).map(move |row| self.get(row).unwrap_or(ValueRef::Null))
     }
@@ -516,7 +516,7 @@ impl<'a> Row<'a> {
     }
 
     /// Iterates over the row's cells in schema order.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
         (0..self.len()).map(move |column| self.get(column).unwrap_or(ValueRef::Null))
     }

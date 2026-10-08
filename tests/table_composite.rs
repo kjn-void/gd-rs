@@ -41,8 +41,8 @@ fn composite_index_preserves_duplicates_and_separates_null_and_deleted_rows() {
     assert_eq!(index.columns(), &[0, 1]);
     assert!(std::ptr::eq(index.table(), std::ptr::from_ref(&table)));
     assert_eq!(index.rows([1_i64.into(), 2_i64.into()]), &[0, 2]);
-    assert!(index.rows([1_i64.into(), 4_i64.into()]).is_empty());
-    assert!(index.rows([1_u64.into(), 2_i64.into()]).is_empty());
+    assert_eq!(index.rows([1_i64.into(), 4_i64.into()]), [] as [usize; 0]);
+    assert_eq!(index.rows([1_u64.into(), 2_i64.into()]), [] as [usize; 0]);
     assert_eq!(index.distinct_key_count(), 2);
     assert_eq!(index.null_rows(), &[3, 4]);
     assert_eq!(index.tombstoned_rows(), &[5, 6]);
@@ -192,10 +192,9 @@ fn keys_and_join_components_are_validated_even_without_rows() {
         empty.left_join_rows_composite([2, 1], &index),
         Err(TableError::ColumnOutOfBounds { .. })
     ));
-    assert!(
-        index
-            .rows([IndexKeyRef::String("1"), 2_i64.into()])
-            .is_empty()
+    assert_eq!(
+        index.rows([IndexKeyRef::String("1"), 2_i64.into()]),
+        [] as [usize; 0]
     );
 }
 

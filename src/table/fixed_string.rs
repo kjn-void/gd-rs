@@ -200,7 +200,7 @@ impl<'a> FixedStrings<'a> {
         Some(Some(text))
     }
     /// Iterates over physical cells in row order without allocating strings.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     // The iterator generates only in-bounds positions.
     #[allow(clippy::missing_panics_doc)]
     pub fn iter(self) -> impl ExactSizeIterator<Item = Option<&'a str>> + DoubleEndedIterator {

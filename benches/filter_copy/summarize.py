@@ -5,7 +5,9 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import re
 import statistics
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 NAMES = {'gd': 'GD memcpy', 'std': 'C++ STL std::string', 'compact': 'gd-rs CompactString',
@@ -152,6 +154,7 @@ def main():
     parser.add_argument('--confirmations', type=Path, nargs=3)
     parser.add_argument('--string-layout', type=Path, nargs=3)
     parser.add_argument('--sharing-strategies', type=Path)
+    parser.add_argument('--source-snapshot', help='full Git commit containing the measured sources')
     parser.add_argument('--output', type=Path, default=ROOT / 'docs/high-level/filter-copy-results.md')
     args = parser.parse_args()
     hosts = []
@@ -162,6 +165,18 @@ def main():
         for key in ['source_sha256', 'gd_source_sha256', 'oracle_sha256']:
             if data['metadata'][key] != hosts[0][2]['metadata'][key]:
                 raise ValueError(f'Host sources/oracles differ: {key}')
+    snapshot_note = None
+    if args.source_snapshot:
+        if not re.fullmatch(r'[0-9a-f]{40}', args.source_snapshot):
+            raise ValueError('source snapshot must be a full Git commit')
+        for name, digest in hosts[0][2]['metadata']['source_sha256'].items():
+            source = subprocess.check_output(['git', 'show', f'{args.source_snapshot}:{name}'], cwd=ROOT)
+            if hashlib.sha256(source).hexdigest() != digest:
+                raise ValueError(f'measured source differs from snapshot: {name}')
+        snapshot_note = ('Timed sources are preserved in '
+                         f'[commit `{args.source_snapshot[:7]}`](https://github.com/kjn-void/gd-rs/tree/{args.source_snapshot}). '
+                         'The published source fingerprints match that commit. Build that snapshot '
+                         'to reproduce the measured sources byte for byte.')
     destination = args.output.parent / 'measurements'
     destination.mkdir(parents=True, exist_ok=True)
     for (slug, _, _, _), source in zip(hosts, args.input):
@@ -202,6 +217,7 @@ def main():
              'GD copies each matched complete inline row with `std::memcpy`. The STL case uses standard `std::vector` and ordinary `std::string` copy operations. gd-rs is Yoshman’s SoA implementation, tested with native `CompactString` storage and its fixed-buffer string support. These first four variants create independent record and string storage.', '',
              '**The fifth variant uses the new `SharedRecordTable<S>` API, backed by `Vec<Arc<S>>`.** Its one column holds handles to structs containing the same five fields; the strings use `CompactString`. Filtering clones only Arc handles and shares record payloads. The target survives source destruction, and `get_mut` uses copy-on-write when `S: Clone`, but payload cloning on mutation is outside this test. This changes ownership and storage layout, so its speed is not a measure of deep-copy performance. The original dynamic `Table` remains unchanged.', '',
              f'Sources: {LINKS}; [method and commands](../../benches/filter_copy/README.md).', '',
+             *([snapshot_note, ''] if snapshot_note else []),
              '**These are diagnostics under each machine’s current background load.** All runs explicitly enabled contended-diagnostic mode; observed load is recorded per host below. Target allocation, filtering, row indices, synchronization, copying, and destruction are timed. Source generation, pool startup, and full verification are outside timing. Arc cleanup decrements handles while the source remains alive, so it does not free record or string payloads. Native optimized builds use LTO without sanitizers. Five rotated process rounds contain seven calibrated batches each; each reported time is the median of the five round medians.', '',
              '## Relative performance', '', f'Sources: {LINKS}. Each ratio is `GD time / variant time` on the same host; **above 1× means faster than GD**. The all-case geometric mean weights all 12 combinations equally. Compiler, standard-library, core topology, and load differences prevent attributing cross-host changes solely to the CPU.', '',
              '| Host | GD memcpy | C++ STL std::string | gd-rs CompactString | gd-rs fixed buffer | gd-rs Arc (shared) |',

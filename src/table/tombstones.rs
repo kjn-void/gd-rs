@@ -153,7 +153,7 @@ mod tests {
 
         assert!(tombstones.set(3, false, 8));
         assert_eq!(tombstones.count(), 0);
-        assert!(tombstones.flags.is_empty());
+        assert_eq!(tombstones.flags, [] as [bool; 0]);
         assert_eq!(tombstones.flags.capacity(), 0);
         assert!(tombstones.flags().is_none());
     }

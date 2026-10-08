@@ -102,7 +102,7 @@ impl<'a> SelectedRow<'a> {
     }
 
     /// Iterates fixed cells in projected column order, without copying payloads.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn iter(self) -> impl ExactSizeIterator<Item = ValueRef<'a>> + DoubleEndedIterator {
         self.columns
             .iter()
@@ -170,7 +170,7 @@ impl<'a> TableSelection<'a> {
     }
 
     /// Iterates every selected physical row, in selection order.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn rows(&self) -> impl ExactSizeIterator<Item = SelectedRow<'_>> + DoubleEndedIterator {
         self.positions.iter().map(|&position| SelectedRow {
             source: Row {

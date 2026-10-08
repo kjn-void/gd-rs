@@ -148,7 +148,7 @@ impl<'a> RowOrder<'a> {
     /// Iterates over borrowing row views in key order.
     ///
     /// Every physical row is yielded, including tombstoned rows.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn rows(&self) -> impl ExactSizeIterator<Item = Row<'a>> + DoubleEndedIterator + '_ {
         self.positions.iter().copied().map(|row| Row {
             table: self.table,

@@ -29,11 +29,11 @@ fn join_preserves_duplicates_order_nulls_and_live_rows() {
             .len(),
         4
     );
-    assert!(
+    assert_eq!(
         keys(&[])
             .left_join_rows(0, &right.index(0).unwrap())
-            .unwrap()
-            .is_empty()
+            .unwrap(),
+        [] as [(usize, Option<usize>); 0]
     );
     assert!(matches!(
         left.left_join_rows(1, &right.index(0).unwrap()),

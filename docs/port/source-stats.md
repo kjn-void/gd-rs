@@ -18,14 +18,14 @@ divided by the number of functions recognized by Lizard.
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 29 | 8,012 | 286 | 750 | 2.62 |
-| Rust product + tests (`src`, `tests`) | 43 | 12,064 | 441 | 1,043 | 2.37 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 64 | 16,068 | 592 | 1,539 | 2.60 |
+| Rust product + tests (`src`, `tests`) | 43 | 12,063 | 441 | 1,043 | 2.37 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 64 | 16,067 | 592 | 1,539 | 2.60 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests + maintained benchmarks | 164 | 68,185 | 8,861 | 20,726 | 2.34 |
 
-The Rust totals are **8,012 SLOC in `src`** and **16,068 SLOC including `tests`
-and `benches`**. The separate test tree adds 4,052 SLOC and benchmarks add 4,004
+The Rust totals are **8,012 SLOC in `src`** and **16,067 SLOC including `tests`
+and `benches`**. The separate test tree adds 4,051 SLOC and benchmarks add 4,004
 SLOC, including the shared-record API, ownership tests, whole-record workflow and
 sharing strategy experiment.
 Inline unit tests inside `src` are included in every Rust scope. In the C++

@@ -953,7 +953,7 @@ impl Table {
     }
 
     /// Iterates over borrowing row views.
-    #[must_use]
+    #[must_use = "iterators are lazy and must be consumed"]
     pub fn rows(&self) -> impl ExactSizeIterator<Item = Row<'_>> + DoubleEndedIterator {
         (0..self.row_count).map(|row| Row { table: self, row })
     }
@@ -1335,7 +1335,7 @@ mod tests {
         for (position, id) in (0..3).enumerate() {
             values.extend([Value::I64(id), Value::Null]);
             assert_eq!(table.push_row_buffer(&mut values), Ok(position));
-            assert!(values.is_empty());
+            assert_eq!(values, []);
             assert_eq!(values.capacity(), capacity);
         }
         values.extend([Value::I64(3), Value::from("invalid")]);
