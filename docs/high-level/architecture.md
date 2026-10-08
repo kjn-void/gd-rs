@@ -23,6 +23,8 @@ flowchart TD
     Builder --> Orx["orx-concurrent-vec"]
     Table --> ColumnIndex["ColumnIndex"]
     Table --> Rayon["Rayon row partitioning (feature)"]
+    SharedRecords["SharedRecordTable&lt;S&gt;"] --> ArcRecords["Vec&lt;Arc&lt;S&gt;&gt;"]
+    SharedRecords --> Rayon
     Binary["Binary cursors / hex / byte search"]
     Text["Text and parsing"] --> Value
     Value --> Expression["Expression engine / context / program"]
@@ -51,6 +53,13 @@ directly. Re-exporting those crates here would add coupling without a GD-specifi
 abstraction.
 
 ## Ownership model
+
+`SharedRecordTable<S>` is a typed alternative to dynamic `Table`: its single
+column stores `Arc<S>` handles. Filtering and gathering copy references while
+record fields and strings stay shared. Targets survive source destruction.
+`get_mut` uses `Arc::make_mut`, so editing a shared record first clones `S`; any
+interior sharing follows `S`'s own implementation. Dynamic value, SQL, formatting,
+schema and index adapters remain specific to `Table`.
 
 ```mermaid
 flowchart LR

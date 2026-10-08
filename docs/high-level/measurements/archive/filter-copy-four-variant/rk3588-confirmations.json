@@ -1,0 +1,1882 @@
+{
+  "metadata": {
+    "utc": "2026-10-08T20:48:16.800700+00:00",
+    "host": "rock",
+    "primary_sha256": "6e74c32440bb7bb1e5f8668781ebc05747e188e29039ab5539e40794a97c6eb9",
+    "source_sha256": {
+      "Cargo.lock": "b9da6e1deb720058fa9f399811aa1c9fb28206c7b2370197b400473b56e7a6fb",
+      "Cargo.toml": "182fdbdcd274f67d49ae92ebbfaa63145c5aaa7770b805959b8c587016ea024c",
+      "benches/cpp-reference/CMakeLists.txt": "6f34aa0a7f328e3801f31842b5dd6bae3eb0ae2c61417459145f26a93b360249",
+      "benches/cpp-reference/cmake/GdCore.cmake": "61a01e646c87d26c86cb0c2518490c24380546978c4331d5a7de147edf3ae282",
+      "benches/cpp-reference/filter_copy.cpp": "9680e568d12b63148cb3025bfb94dd4944d1cf7aba46025949dafacaf1d7b17d",
+      "benches/filter_copy/compare.py": "28a86997e7f3a0fddaf2c3e4531ede18d0762fbdc95a082770c00f820293b5cd",
+      "benches/filter_copy/driver.rs": "0809b93fb6e42eca22299854dbf135bd48ab74c5948d694aa7a7ac09774ae5e6",
+      "benches/text_workflow/compare.py": "c25dd8b40e3e1425592b8c77763822e9f8d0aae78019f4fea0ae231b129f1bcc",
+      "src/arguments.rs": "d83c0cd10c77efba2fb57d2accfa3653706cc1e6c060ebc9cfd322858f9515e1",
+      "src/binary.rs": "737c4c98690cc0262cd8830a934fb7d302a13222c0ecbc645e87c2c37353c44b",
+      "src/expression.rs": "4258e7e216d24c5d15ae5e0f656dbc7a5ba5656eb75052acb98cd1aaa16a8191",
+      "src/format.rs": "d403c86c308ed1b1d4781b3bc426facc673371dc52dcc391f2ecfa9e46a21840",
+      "src/format_import.rs": "ba1e44e7277ef87cb5787ed90dd0bc82c09fcbea78ef8d75ca72a2f54a269d81",
+      "src/lib.rs": "c5d4ab1538a8a9f2a45433f087db808cd77d7e1f5345106da39e08e821c6b01d",
+      "src/sqlite.rs": "520f4c7b8fbbefd647486c38b980dc7d70e09146adf99f10056af7cb9df3c147",
+      "src/table/append.rs": "81a67d28f495cb7e81cb8beeea57b7286261a9ad33d5ced1ed04d4c869822940",
+      "src/table/compaction.rs": "3ac29b4c7a7734b0392b6b4e493d03765780601c28ab0f1bd6a6287e0a7e4849",
+      "src/table/composite.rs": "93612a42644dd58bda0cfa80cf05d4711cda9ae755932d76a02f9beef671c9e5",
+      "src/table/concurrent.rs": "bd624ffec43e2cd4152f12dcc08252ab0022f7f9325003a32d3fa6dd47416af7",
+      "src/table/debug.rs": "52fe2cbdd2de0b6fbed0cd31b8356a5c26c145b6bf3adda8a77103117f938452",
+      "src/table/fixed_string.rs": "f126a1c22387dd84f5e53caadddd9e0ff4aee91e21b62139bbaaf77098f67bcc",
+      "src/table/index.rs": "eee502f79542ca2cb5a70f45b0c474536ca5eaad37daa2c19de6e10ddef31cd4",
+      "src/table/ordering.rs": "c10bde5b2373d965d1f9122f58d524256152a4fbbdba00cb75c3e01f71877733",
+      "src/table/row_mut.rs": "588ac0dc0ab730eb59e3a513ec3e8ae52a876941f501a3b0e78af0b5d1a908b0",
+      "src/table/schema.rs": "03ea16fd3b38c4c2430f551a6ffe600fbefd2402ad6e92fa9b9bc70aaf538782",
+      "src/table/selection.rs": "eaee85fbbffb1c529e001a5bc33d883f846cdbeda7727aca13a2a2fbe0345188",
+      "src/table/selection_view.rs": "99c93c6b3bb150de6ff9d747ed03e7c4227ee9828bf0a554e39675a6dabd810e",
+      "src/table/storage.rs": "3cfb390b1edcaca451f11209c211adc3b8fdc98b106ec735c4c187a8fbc9064f",
+      "src/table/tombstones.rs": "6cdc70ee80a424fbf59e3c4338a0ee28b51d4e1bfdad355c6bf374348a12e8c1",
+      "src/table/views.rs": "c466afc25c21fb9f58eaa7f2f235e21e3b9169c3706c451426561056be7a993e",
+      "src/table.rs": "70c7742579a8681a3f5041abb5fdb2acf118b7ea39aeb37cf596c2360ab09ae4",
+      "src/text.rs": "dc9a03192a74b73cffb238089c5322d0cedd21c045a26433cf316877e5bcfa30",
+      "src/value/borrowed.rs": "e06f320a30c1f7a5ad759b23845913c9dd098504c2e3f0ec2300e912cdbdd55d",
+      "src/value/data_type.rs": "63f7b1d4f67634eab008387a749bd9e29e158207847393e3dd9562ab8e0a6955",
+      "src/value/owned.rs": "dab6759d95cd60558ae888a3ab4cce79a8839bd3906927b2b3d89b9271d410af",
+      "src/value.rs": "0ec4f96eb64ce0900cc31af119891e9a1581476917462f5ea1da4eca425ac6ff"
+    },
+    "binary_sha256": {
+      "gd": "06f8a58a377d194885f82942cb9c00bb02869031c7e274205d61ac7e6a7486e1",
+      "std": "06f8a58a377d194885f82942cb9c00bb02869031c7e274205d61ac7e6a7486e1",
+      "compact": "1f8eef0f4596febc7835979a8510ecd19ff7ef5626a36debd24c5bffb1cbdec7",
+      "fixed": "1f8eef0f4596febc7835979a8510ecd19ff7ef5626a36debd24c5bffb1cbdec7"
+    },
+    "rounds": 4,
+    "samples": 7,
+    "sample_ms": 50,
+    "rows": 1000000,
+    "contended_diagnostics": true,
+    "measurement_complete": true,
+    "selection": "up to three cases with greatest relative round spread or closest winning times; spread >=20% or winner gap <=10%",
+    "source_and_binaries_unchanged": true
+  },
+  "cases": [
+    {
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "primary_max_round_ratio": 2.45725579271265,
+      "primary_winner_ratio": 1.4903471780169375
+    },
+    {
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "primary_max_round_ratio": 2.0414191641389405,
+      "primary_winner_ratio": 1.6188600588982134
+    },
+    {
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "primary_max_round_ratio": 1.4229547450544864,
+      "primary_winner_ratio": 1.372579417708976
+    }
+  ],
+  "measurements": [
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 1,
+      "samples_ns": [
+        16753062.75,
+        15643575.75,
+        16282391,
+        16493263.75,
+        15731585.25,
+        16973487.25,
+        14706024.25
+      ],
+      "iterations": 4,
+      "build_ns": "713039292",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 112066560,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 1,
+      "samples_ns": [
+        109111004,
+        92561241,
+        98160384,
+        103598278,
+        110533737,
+        97319851,
+        101737675
+      ],
+      "iterations": 1,
+      "build_ns": "719726255",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 277282816,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 1,
+      "build_ns": "532061053",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 4,
+      "samples_ns": [
+        21434788.5,
+        21276613.5,
+        20670245.75,
+        21700764.75,
+        21729451.75,
+        22497151.25,
+        21944241.0
+      ],
+      "peak_rss_bytes": 158334976,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 1,
+      "build_ns": "557793792",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 1,
+      "samples_ns": [
+        37055812.0,
+        42068336.0,
+        34582092.0,
+        17451252.0,
+        16849676.0,
+        16891759.0,
+        15829730.0
+      ],
+      "peak_rss_bytes": 140115968,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 2,
+      "samples_ns": [
+        104311852,
+        98882875,
+        104381143,
+        98761959,
+        94424802,
+        94539801,
+        108748008
+      ],
+      "iterations": 1,
+      "build_ns": "727848284",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 279838720,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 2,
+      "build_ns": "540843367",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 4,
+      "samples_ns": [
+        22241289.5,
+        22424527.0,
+        20811858.5,
+        17949975.75,
+        16450451.750000002,
+        19603852.0,
+        21156104.25
+      ],
+      "peak_rss_bytes": 153550848,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 2,
+      "build_ns": "561553913",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 4,
+      "samples_ns": [
+        42918410.25,
+        35172470.25,
+        28497184.5,
+        38682928.75,
+        24882237.5,
+        24062038.75,
+        38284319.0
+      ],
+      "peak_rss_bytes": 144048128,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 2,
+      "samples_ns": [
+        16341817.5,
+        14670733.25,
+        15140383.75,
+        15389245.5,
+        15135425.5,
+        15172320.75,
+        16044685.75
+      ],
+      "iterations": 4,
+      "build_ns": "709485084",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 111738880,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 3,
+      "build_ns": "545076899",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 4,
+      "samples_ns": [
+        16399462.5,
+        15521358.5,
+        17079184.0,
+        17207911.5,
+        23033228.0,
+        19845193.0,
+        20964679.5
+      ],
+      "peak_rss_bytes": 148766720,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 3,
+      "build_ns": "544715362",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 2,
+      "samples_ns": [
+        43202198.5,
+        29397465.5,
+        38196424.0,
+        40817518.0,
+        18252951.0,
+        38975977.0,
+        17100548.0
+      ],
+      "peak_rss_bytes": 141295616,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 3,
+      "samples_ns": [
+        15588743,
+        14221571.75,
+        15184862.5,
+        15048218.25,
+        14862053.75,
+        14568140.5,
+        14393871.75
+      ],
+      "iterations": 4,
+      "build_ns": "715932800",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 111935488,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 3,
+      "samples_ns": [
+        103430946,
+        98399089,
+        111819971,
+        108470844,
+        104285728,
+        100269816,
+        92261370
+      ],
+      "iterations": 1,
+      "build_ns": "726817296",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 278921216,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 4,
+      "build_ns": "564161216",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 2,
+      "samples_ns": [
+        40599500.0,
+        38668710.0,
+        28743119.0,
+        25324868.0,
+        28820701.5,
+        28887346.5,
+        30256372.0
+      ],
+      "peak_rss_bytes": 139526144,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 4,
+      "samples_ns": [
+        14313664.5,
+        14956636,
+        14777044.25,
+        15292632,
+        15142133.75,
+        15068415.75,
+        14214863.5
+      ],
+      "iterations": 4,
+      "build_ns": "715403556",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 111411200,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 4,
+      "samples_ns": [
+        108034725,
+        103431404,
+        98315298,
+        98390464,
+        98730168,
+        93093402,
+        92625781
+      ],
+      "iterations": 1,
+      "build_ns": "755575457",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "peak_rss_bytes": 278921216,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "round": 4,
+      "build_ns": "537273658",
+      "count": 500000,
+      "digest": "5794127467148760747",
+      "iterations": 4,
+      "samples_ns": [
+        23320735.0,
+        21864169.0,
+        19896567.25,
+        22378590.0,
+        21724191.5,
+        21652536.0,
+        22061739.75
+      ],
+      "peak_rss_bytes": 157483008,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "50",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "samples_ns": [
+        20016118,
+        20780640,
+        19287178.5,
+        18907214.25,
+        19813724.5,
+        18792299,
+        18047682.75
+      ],
+      "iterations": 4,
+      "build_ns": "719118179",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 143130624,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "samples_ns": [
+        143720804,
+        163588903,
+        156099574,
+        143292558,
+        152556699,
+        138756945,
+        148628329
+      ],
+      "iterations": 1,
+      "build_ns": "726416051",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 353894400,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "540266874",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 2,
+      "samples_ns": [
+        33731331.0,
+        32962694.0,
+        34478614.0,
+        32606053.000000004,
+        31457149.500000004,
+        26748143.0,
+        30549243.5
+      ],
+      "peak_rss_bytes": 220004352,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "565560325",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 2,
+      "samples_ns": [
+        26107171.0,
+        39409722.0,
+        47521147.5,
+        27978857.5,
+        28308895.0,
+        44317644.0,
+        46995674.5
+      ],
+      "peak_rss_bytes": 181207040,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "samples_ns": [
+        157013730,
+        146634186,
+        138951568,
+        145861570,
+        149897897,
+        141853034,
+        157088938
+      ],
+      "iterations": 1,
+      "build_ns": "731430492",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 356515840,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "535739177",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 2,
+      "samples_ns": [
+        31522523.500000004,
+        32121433.499999996,
+        27889879.5,
+        28354977.5,
+        31755333.500000004,
+        28753410.5,
+        28949262.5
+      ],
+      "peak_rss_bytes": 218103808,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "560001515",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 1,
+      "samples_ns": [
+        63965328.0,
+        62390472.0,
+        64429864.0,
+        29202489.0,
+        30495640.0,
+        30293768.0,
+        47570439.0
+      ],
+      "peak_rss_bytes": 181272576,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "samples_ns": [
+        20009191,
+        19868244.75,
+        19755589.75,
+        20096617,
+        19096285,
+        17737644.75,
+        18016620.75
+      ],
+      "iterations": 4,
+      "build_ns": "707481400",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 144506880,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "531859723",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 2,
+      "samples_ns": [
+        31338297.0,
+        31360130.0,
+        31537773.499999996,
+        30483224.0,
+        29529901.5,
+        31750750.5,
+        33231545.5
+      ],
+      "peak_rss_bytes": 232456192,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "566347440",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 1,
+      "samples_ns": [
+        62832008.99999999,
+        26608436.0,
+        58798264.0,
+        61521733.0,
+        29816857.0,
+        55468429.0,
+        31005509.0
+      ],
+      "peak_rss_bytes": 179306496,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "samples_ns": [
+        20263958.75,
+        20480081.25,
+        20450113,
+        18005975,
+        19087097.5,
+        20264031.5,
+        19426187.25
+      ],
+      "iterations": 4,
+      "build_ns": "733993920",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 144179200,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "samples_ns": [
+        150667471,
+        138300576,
+        153014319,
+        146751226,
+        160376440,
+        152797697,
+        138103703
+      ],
+      "iterations": 1,
+      "build_ns": "728085365",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 355663872,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "557440504",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 1,
+      "samples_ns": [
+        24884622.0,
+        27615841.0,
+        29115656.0,
+        53126748.0,
+        29608443.0,
+        62426638.0,
+        25897528.0
+      ],
+      "peak_rss_bytes": 178061312,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "samples_ns": [
+        20119002,
+        18408470.25,
+        17887778.5,
+        21037741.25,
+        18753799.5,
+        18073568,
+        18380252
+      ],
+      "iterations": 4,
+      "build_ns": "717799194",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 144637952,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "samples_ns": [
+        140017264,
+        143008895,
+        152410284,
+        155406749,
+        137081632,
+        151206298,
+        139333064
+      ],
+      "iterations": 1,
+      "build_ns": "739250483",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 357105664,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "542000478",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 2,
+      "samples_ns": [
+        27182367.0,
+        20014368.0,
+        30134769.0,
+        32852091.0,
+        31587627.0,
+        27154054.5,
+        33511833.499999996
+      ],
+      "peak_rss_bytes": 231604224,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "samples_ns": [
+        9978418.75,
+        10171827.875,
+        10454668.25,
+        10264795.5,
+        9281161.25,
+        9508804.375,
+        8495639.25
+      ],
+      "iterations": 8,
+      "build_ns": "717636988",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 75497472,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "samples_ns": [
+        36929772.5,
+        35492518.5,
+        40016611,
+        39585595,
+        37722575.5,
+        37415267,
+        36908481
+      ],
+      "iterations": 2,
+      "build_ns": "764426436",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 199229440,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "535263391",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        13320770.0,
+        14181978.5,
+        13257624.75,
+        13751702.5,
+        7501067.5,
+        13285697.5,
+        12465613.5
+      ],
+      "peak_rss_bytes": 85852160,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "563687472",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        20849910.25,
+        14422527.5,
+        22255581.25,
+        23038405.25,
+        16833197.25,
+        19153597.0,
+        19118211.75
+      ],
+      "peak_rss_bytes": 107544576,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "samples_ns": [
+        34284637,
+        37327205,
+        40432189.5,
+        42612497,
+        40733373.5,
+        36961772,
+        37107854
+      ],
+      "iterations": 2,
+      "build_ns": "737166966",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 199229440,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "534953811",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        16900061.0,
+        16639386.999999998,
+        16207288.0,
+        16269630.75,
+        16831520.0,
+        14934105.0,
+        14908032.5
+      ],
+      "peak_rss_bytes": 85458944,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "563908845",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        19743173.25,
+        23217507.25,
+        20474612.5,
+        22349934.0,
+        20363343.0,
+        23559242.75,
+        14676170.5
+      ],
+      "peak_rss_bytes": 109117440,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "samples_ns": [
+        10198697.25,
+        9860513.875,
+        9943346.125,
+        9871706.375,
+        9394800.5,
+        9999746.625,
+        9514200.25
+      ],
+      "iterations": 8,
+      "build_ns": "710663403",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 77594624,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "560693174",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        17209078.0,
+        15313923.5,
+        17438690.0,
+        16671615.75,
+        13405206.5,
+        16566106.5,
+        14438860.75
+      ],
+      "peak_rss_bytes": 87425024,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "558663115",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        17660989.5,
+        19628841.25,
+        17207109.5,
+        14385049.0,
+        13937585.5,
+        16596950.0,
+        23936582.0
+      ],
+      "peak_rss_bytes": 110166016,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "samples_ns": [
+        9561631.875,
+        9717781.125,
+        9627402,
+        9441430.25,
+        10107771.375,
+        9963106.375,
+        9583506.625
+      ],
+      "iterations": 8,
+      "build_ns": "717151910",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 77594624,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "samples_ns": [
+        39050664,
+        35233126,
+        38489337.5,
+        37481911.5,
+        35199147,
+        36012221,
+        36457611.5
+      ],
+      "iterations": 2,
+      "build_ns": "736573557",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 198311936,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "562534568",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        22674128.25,
+        20115793.75,
+        23943509.0,
+        22797856.0,
+        20132710.25,
+        23070633.75,
+        20401040.5
+      ],
+      "peak_rss_bytes": 106168320,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "samples_ns": [
+        9156329.5,
+        8980201.375,
+        9933611.875,
+        8348896.25,
+        8841478.875,
+        9096611.375,
+        8612960.875
+      ],
+      "iterations": 8,
+      "build_ns": "719060430",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 75497472,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "samples_ns": [
+        32715364,
+        32976444,
+        32445575,
+        37871365.5,
+        34821005.5,
+        35530705.5,
+        35883389
+      ],
+      "iterations": 2,
+      "build_ns": "727073293",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 197132288,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "543737124",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 4,
+      "samples_ns": [
+        16454910.0,
+        16875853.0,
+        14581775.75,
+        8892884.5,
+        9620001.0,
+        9835759.0,
+        7702169.5
+      ],
+      "peak_rss_bytes": 86310912,
+      "command": [
+        "/home/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    }
+  ],
+  "load_samples": [
+    {
+      "utc": "2026-10-08T20:48:18.871165+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:26.512953+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:28.579596+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:36.997091+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:39.061880+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:46.958353+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:49.024147+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:56.977325+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:48:59.044373+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:07.734748+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:09.786207+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:18.184897+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:20.251263+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:28.732899+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:30.798016+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:39.117258+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:41.184470+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:48.607702+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:50.680816+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:49:58.257050+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:50:00.323386+00:00",
+      "processes": [
+        {
+          "pid": 811940,
+          "cpu_percent": 48.4,
+          "command": "kworker/0:3-events"
+        }
+      ],
+      "aggregate_cpu_percent": 48.4
+    },
+    {
+      "utc": "2026-10-08T20:50:07.788352+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:50:09.876185+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    },
+    {
+      "utc": "2026-10-08T20:50:17.257888+00:00",
+      "processes": [],
+      "aggregate_cpu_percent": 0
+    }
+  ],
+  "summary": [
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "median_ns": 9749554.1875,
+      "min_round_median_ns": 8980201.375,
+      "max_round_median_ns": 9978418.75,
+      "peak_rss_bytes": 77594624
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "median_ns": 36892408.25,
+      "min_round_median_ns": 34821005.5,
+      "max_round_median_ns": 37415267,
+      "peak_rss_bytes": 199229440
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "compact",
+      "median_ns": 14777664.125,
+      "min_round_median_ns": 9835759.0,
+      "max_round_median_ns": 16566106.5,
+      "peak_rss_bytes": 87425024
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "fixed",
+      "median_ns": 19814104.75,
+      "min_round_median_ns": 17207109.5,
+      "max_round_median_ns": 22674128.25,
+      "peak_rss_bytes": 110166016
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "median_ns": 15064478.375,
+      "min_round_median_ns": 14862053.75,
+      "max_round_median_ns": 16282391,
+      "peak_rss_bytes": 112066560
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "median_ns": 100310275.0,
+      "min_round_median_ns": 98390464,
+      "max_round_median_ns": 103430946,
+      "peak_rss_bytes": 279838720
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "compact",
+      "median_ns": 21256311.625,
+      "min_round_median_ns": 17207911.5,
+      "max_round_median_ns": 21864169.0,
+      "peak_rss_bytes": 158334976
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "fixed",
+      "median_ns": 32029908.375,
+      "min_round_median_ns": 17451252.0,
+      "max_round_median_ns": 38196424.0,
+      "peak_rss_bytes": 144048128
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "median_ns": 19521384.125,
+      "min_round_median_ns": 18408470.25,
+      "max_round_median_ns": 20263958.75,
+      "peak_rss_bytes": 144637952
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "median_ns": 147631257.5,
+      "min_round_median_ns": 143008895,
+      "max_round_median_ns": 150667471,
+      "peak_rss_bytes": 357105664
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "compact",
+      "median_ns": 30747449.5,
+      "min_round_median_ns": 28949262.5,
+      "max_round_median_ns": 32606053.000000004,
+      "peak_rss_bytes": 232456192
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "fixed",
+      "median_ns": 43490080.5,
+      "min_round_median_ns": 29115656.0,
+      "max_round_median_ns": 55468429.0,
+      "peak_rss_bytes": 181272576
+    }
+  ]
+}

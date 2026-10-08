@@ -12,6 +12,7 @@ mod row_mut;
 mod schema;
 mod selection;
 mod selection_view;
+mod shared_record;
 mod storage;
 mod tombstones;
 mod views;
@@ -26,6 +27,7 @@ pub use ordering::{NullOrder, RowOrder, SortDirection};
 pub use row_mut::{RowMut, RowsMut};
 pub use schema::{ColumnConversionError, ColumnConverter, ColumnSpec, Schema, UnknownFields};
 pub use selection_view::{SelectedRow, TableSelection};
+pub use shared_record::SharedRecordTable;
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;

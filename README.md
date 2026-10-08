@@ -24,6 +24,7 @@ The implemented core currently provides:
 - reusable lifetime-bound `ahash` indexes;
 - validated schemas and typed column storage;
 - ordinary UTF-8 strings and fixed-capacity shared column buffers with checked writes;
+- typed `SharedRecordTable<S>` with `Arc<S>` handles and copy-on-write editing;
 - borrowing row and column views;
 - lazily allocated row tombstones with stable positions, live-row views, and
   explicit compaction;
@@ -63,6 +64,7 @@ The implemented core currently provides:
 - [Rust benchmarks and examples in VS Code](docs/high-level/rust-debugging.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
 - [Text filtering and transform comparison](docs/high-level/text-workflow-results.md)
+- [Whole-record filter and copy comparison on three hosts](docs/high-level/filter-copy-results.md)
 - [libc memory-operation scaling](docs/high-level/perf_memory.md)
 
 ### Porting record

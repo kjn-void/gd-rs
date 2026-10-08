@@ -1,0 +1,1687 @@
+{
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "sanitizer": "AddressSanitizer",
+  "options": "detect_leaks=0",
+  "checks": [
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 0,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1,
+      "digest": "11167793142839850298",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 1,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1,
+      "digest": "14696556207591807610",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 3,
+      "digest": "15442786162082088850",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 3,
+      "digest": "15442786162082088850",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 16,
+      "digest": "10489060475459966903",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 16,
+      "digest": "10489060475459966903",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 28,
+      "digest": "15467675118197286769",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 28,
+      "digest": "15467675118197286769",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 31,
+      "digest": "15234228866185123536",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 31,
+      "digest": "15234228866185123536",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 3,
+      "digest": "15442786162082088850",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 3,
+      "digest": "15442786162082088850",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 16,
+      "digest": "10489060475459966903",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 16,
+      "digest": "10489060475459966903",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 28,
+      "digest": "15467675118197286769",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 28,
+      "digest": "15467675118197286769",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 31,
+      "digest": "15234228866185123536",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 31,
+      "digest": "15234228866185123536",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 3,
+      "digest": "4858734182166902098",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 3,
+      "digest": "4858734182166902098",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 16,
+      "digest": "14357087597105907479",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 16,
+      "digest": "14357087597105907479",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 28,
+      "digest": "794426081699098577",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 28,
+      "digest": "794426081699098577",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 31,
+      "digest": "17931012431204037648",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 31,
+      "digest": "17931012431204037648",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 3,
+      "digest": "4858734182166902098",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 3,
+      "digest": "4858734182166902098",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 16,
+      "digest": "14357087597105907479",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 16,
+      "digest": "14357087597105907479",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 28,
+      "digest": "794426081699098577",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 28,
+      "digest": "794426081699098577",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 31,
+      "digest": "17931012431204037648",
+      "independent_target": true
+    },
+    {
+      "rows": 31,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 31,
+      "digest": "17931012431204037648",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 100,
+      "digest": "3529078623193149050",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 100,
+      "digest": "3529078623193149050",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 500,
+      "digest": "8782905284200870534",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 500,
+      "digest": "8782905284200870534",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 901,
+      "digest": "17873416917628873512",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 901,
+      "digest": "17873416917628873512",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1001,
+      "digest": "14872239268064541071",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1001,
+      "digest": "14872239268064541071",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 100,
+      "digest": "3529078623193149050",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 100,
+      "digest": "3529078623193149050",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 500,
+      "digest": "8782905284200870534",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 500,
+      "digest": "8782905284200870534",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 901,
+      "digest": "17873416917628873512",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 901,
+      "digest": "17873416917628873512",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1001,
+      "digest": "14872239268064541071",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1001,
+      "digest": "14872239268064541071",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 100,
+      "digest": "8163660992909063162",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 100,
+      "digest": "8163660992909063162",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 500,
+      "digest": "5299630987522898502",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 500,
+      "digest": "5299630987522898502",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 901,
+      "digest": "13305664488859344904",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 901,
+      "digest": "13305664488859344904",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1001,
+      "digest": "5007873090112547311",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1001,
+      "digest": "5007873090112547311",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "gd",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 0,
+      "implementation": "std",
+      "count": 0,
+      "digest": "14695981039346656037",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "count": 100,
+      "digest": "8163660992909063162",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "count": 100,
+      "digest": "8163660992909063162",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "gd",
+      "count": 500,
+      "digest": "5299630987522898502",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 50,
+      "implementation": "std",
+      "count": 500,
+      "digest": "5299630987522898502",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 901,
+      "digest": "13305664488859344904",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 901,
+      "digest": "13305664488859344904",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "gd",
+      "count": 1001,
+      "digest": "5007873090112547311",
+      "independent_target": true
+    },
+    {
+      "rows": 1001,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 100,
+      "implementation": "std",
+      "count": 1001,
+      "digest": "5007873090112547311",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "independent_target": true
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "independent_target": true
+    }
+  ]
+}

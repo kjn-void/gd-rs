@@ -1,0 +1,4635 @@
+{
+  "metadata": {
+    "utc": "2026-10-08T21:48:05.851402+00:00",
+    "host": "lithium.local",
+    "primary_sha256": "d3a2f68677ab9a9ef973c54b4bc06f46c8cb8aef511b3ed67288847438703915",
+    "source_sha256": {
+      "Cargo.lock": "b9da6e1deb720058fa9f399811aa1c9fb28206c7b2370197b400473b56e7a6fb",
+      "Cargo.toml": "182fdbdcd274f67d49ae92ebbfaa63145c5aaa7770b805959b8c587016ea024c",
+      "benches/cpp-reference/CMakeLists.txt": "6f34aa0a7f328e3801f31842b5dd6bae3eb0ae2c61417459145f26a93b360249",
+      "benches/cpp-reference/cmake/GdCore.cmake": "61a01e646c87d26c86cb0c2518490c24380546978c4331d5a7de147edf3ae282",
+      "benches/cpp-reference/filter_copy.cpp": "9680e568d12b63148cb3025bfb94dd4944d1cf7aba46025949dafacaf1d7b17d",
+      "benches/filter_copy/compare.py": "c474ecf96ea6807624e27e43f796635742a3b4ebb6cf4c3c27de0506157f6e3a",
+      "benches/filter_copy/driver.rs": "423ba33ebe279957ade27605863a8bcacf2e06f896c32302ef4e3873e4003f4a",
+      "benches/text_workflow/compare.py": "c25dd8b40e3e1425592b8c77763822e9f8d0aae78019f4fea0ae231b129f1bcc",
+      "src/arguments.rs": "d83c0cd10c77efba2fb57d2accfa3653706cc1e6c060ebc9cfd322858f9515e1",
+      "src/binary.rs": "737c4c98690cc0262cd8830a934fb7d302a13222c0ecbc645e87c2c37353c44b",
+      "src/expression.rs": "4258e7e216d24c5d15ae5e0f656dbc7a5ba5656eb75052acb98cd1aaa16a8191",
+      "src/format.rs": "d403c86c308ed1b1d4781b3bc426facc673371dc52dcc391f2ecfa9e46a21840",
+      "src/format_import.rs": "ba1e44e7277ef87cb5787ed90dd0bc82c09fcbea78ef8d75ca72a2f54a269d81",
+      "src/lib.rs": "2a5534f61c5e497119963f60a341588a1d8e093b35ca1a56b44fe49757065e7d",
+      "src/sqlite.rs": "520f4c7b8fbbefd647486c38b980dc7d70e09146adf99f10056af7cb9df3c147",
+      "src/table/append.rs": "81a67d28f495cb7e81cb8beeea57b7286261a9ad33d5ced1ed04d4c869822940",
+      "src/table/compaction.rs": "3ac29b4c7a7734b0392b6b4e493d03765780601c28ab0f1bd6a6287e0a7e4849",
+      "src/table/composite.rs": "93612a42644dd58bda0cfa80cf05d4711cda9ae755932d76a02f9beef671c9e5",
+      "src/table/concurrent.rs": "bd624ffec43e2cd4152f12dcc08252ab0022f7f9325003a32d3fa6dd47416af7",
+      "src/table/debug.rs": "52fe2cbdd2de0b6fbed0cd31b8356a5c26c145b6bf3adda8a77103117f938452",
+      "src/table/fixed_string.rs": "f126a1c22387dd84f5e53caadddd9e0ff4aee91e21b62139bbaaf77098f67bcc",
+      "src/table/index.rs": "eee502f79542ca2cb5a70f45b0c474536ca5eaad37daa2c19de6e10ddef31cd4",
+      "src/table/ordering.rs": "c10bde5b2373d965d1f9122f58d524256152a4fbbdba00cb75c3e01f71877733",
+      "src/table/row_mut.rs": "588ac0dc0ab730eb59e3a513ec3e8ae52a876941f501a3b0e78af0b5d1a908b0",
+      "src/table/schema.rs": "03ea16fd3b38c4c2430f551a6ffe600fbefd2402ad6e92fa9b9bc70aaf538782",
+      "src/table/selection.rs": "eaee85fbbffb1c529e001a5bc33d883f846cdbeda7727aca13a2a2fbe0345188",
+      "src/table/selection_view.rs": "99c93c6b3bb150de6ff9d747ed03e7c4227ee9828bf0a554e39675a6dabd810e",
+      "src/table/shared_record.rs": "11c02827935d582ad8c3013107680893314d1f014a8a0a7ecb2be7d753fb3574",
+      "src/table/storage.rs": "3cfb390b1edcaca451f11209c211adc3b8fdc98b106ec735c4c187a8fbc9064f",
+      "src/table/tombstones.rs": "6cdc70ee80a424fbf59e3c4338a0ee28b51d4e1bfdad355c6bf374348a12e8c1",
+      "src/table/views.rs": "c466afc25c21fb9f58eaa7f2f235e21e3b9169c3706c451426561056be7a993e",
+      "src/table.rs": "23969149bc5b67a94198e38307a07fba2574763e0f8eeb06ab9b1c5c3faa760b",
+      "src/text.rs": "dc9a03192a74b73cffb238089c5322d0cedd21c045a26433cf316877e5bcfa30",
+      "src/value/borrowed.rs": "e06f320a30c1f7a5ad759b23845913c9dd098504c2e3f0ec2300e912cdbdd55d",
+      "src/value/data_type.rs": "63f7b1d4f67634eab008387a749bd9e29e158207847393e3dd9562ab8e0a6955",
+      "src/value/owned.rs": "dab6759d95cd60558ae888a3ab4cce79a8839bd3906927b2b3d89b9271d410af",
+      "src/value.rs": "0ec4f96eb64ce0900cc31af119891e9a1581476917462f5ea1da4eca425ac6ff"
+    },
+    "binary_sha256": {
+      "gd": "7cc1700ddff17e634cfe501adb8e4b6db655acb7868b9256e40e7035d20d3643",
+      "std": "7cc1700ddff17e634cfe501adb8e4b6db655acb7868b9256e40e7035d20d3643",
+      "compact": "ee3fa17f1664461927af93a0869377b41392d6c397aee0844a71b61b1984eef1",
+      "fixed": "ee3fa17f1664461927af93a0869377b41392d6c397aee0844a71b61b1984eef1",
+      "arc": "ee3fa17f1664461927af93a0869377b41392d6c397aee0844a71b61b1984eef1"
+    },
+    "rounds": 5,
+    "samples": 7,
+    "sample_ms": 50,
+    "rows": 1000000,
+    "contended_diagnostics": true,
+    "measurement_complete": true,
+    "selection": "greatest relative round spread or closest winning times; spread >=20% or winner gap <=10%; explicit additional surprising cases when requested",
+    "max_auto_cases": 3,
+    "explicit_cases": [
+      [
+        16,
+        8,
+        10
+      ]
+    ],
+    "source_and_binaries_unchanged": true
+  },
+  "cases": [
+    {
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "primary_max_round_ratio": 2.7434320163905466,
+      "primary_winner_ratio": 1.601487606677655
+    },
+    {
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "primary_max_round_ratio": 2.189020123304858,
+      "primary_winner_ratio": 1.027690728301294
+    },
+    {
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "primary_max_round_ratio": 2.1310925371750136,
+      "primary_winner_ratio": 2.989802529724999
+    },
+    {
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "primary_max_round_ratio": 1.052107877883567,
+      "primary_winner_ratio": 1.1529596490916658
+    }
+  ],
+  "measurements": [
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "samples_ns": [
+        1850209.625,
+        1870873.6875,
+        1868778.65625,
+        1840653.65625,
+        1873893.21875,
+        1859865.90625,
+        1857098.96875
+      ],
+      "iterations": 32,
+      "build_ns": "226027708",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 156221440,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "samples_ns": [
+        3786731.75,
+        3784408.875,
+        3868796.875,
+        3855864.5625,
+        3760419.3125,
+        3789171.875,
+        3836320.3125
+      ],
+      "iterations": 16,
+      "build_ns": "203318292",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 150781952,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "221990791",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 16,
+      "samples_ns": [
+        3607093.75,
+        3590893.1875,
+        3539742.1875,
+        3946101.5625,
+        4108338.5625,
+        3874059.875,
+        3475609.375
+      ],
+      "peak_rss_bytes": 165986304,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "233823458",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 8,
+      "samples_ns": [
+        8301380.125000001,
+        8393697.875,
+        8419599.0,
+        8479968.75,
+        8384578.125,
+        8397156.25,
+        8394729.25
+      ],
+      "peak_rss_bytes": 191856640,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "202615584",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 32,
+      "samples_ns": [
+        2968914.0625,
+        2859002.59375,
+        2712768.21875,
+        2921450.5,
+        2877867.1875,
+        2906162.75,
+        2789807.28125
+      ],
+      "peak_rss_bytes": 135168000,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "samples_ns": [
+        3818385.375,
+        3900036.4375,
+        3775320.3125,
+        3727453.125,
+        3809072.875,
+        3834862,
+        3751380.1875
+      ],
+      "iterations": 16,
+      "build_ns": "198146458",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 153403392,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "221129792",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 16,
+      "samples_ns": [
+        3571609.375,
+        3573158.875,
+        3520307.3125,
+        3528648.4375,
+        3595421.875,
+        3527203.125,
+        3507403.625
+      ],
+      "peak_rss_bytes": 164954112,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "238488541",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 8,
+      "samples_ns": [
+        8252947.875,
+        8301651.125,
+        8315380.250000001,
+        8302911.499999999,
+        8308161.374999999,
+        8338072.875,
+        8326291.624999999
+      ],
+      "peak_rss_bytes": 192724992,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "202071750",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 32,
+      "samples_ns": [
+        2996358.0625,
+        2939161.46875,
+        2826837.21875,
+        2846242.1875,
+        2924468.75,
+        2878644.53125,
+        2885511.71875
+      ],
+      "peak_rss_bytes": 134381568,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "samples_ns": [
+        1869298.1875,
+        1876959.625,
+        1879454.40625,
+        1857608.09375,
+        1876276.03125,
+        1858140.625,
+        1845891.9375
+      ],
+      "iterations": 32,
+      "build_ns": "232787792",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 149880832,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "218282208",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 16,
+      "samples_ns": [
+        3607682.25,
+        3519835.9375,
+        3468520.875,
+        3562442.75,
+        3567809.9375,
+        3473710.9375,
+        3575398.4375
+      ],
+      "peak_rss_bytes": 161366016,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "232412250",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 8,
+      "samples_ns": [
+        8247015.625,
+        8261697.875,
+        8436791.625,
+        8513208.25,
+        8351109.375,
+        8511052.0,
+        8222223.875
+      ],
+      "peak_rss_bytes": 196395008,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "199265250",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 32,
+      "samples_ns": [
+        2895365.875,
+        2842697.90625,
+        2958566.40625,
+        2877992.1875,
+        2861514.3125,
+        2864600.25,
+        2932192.71875
+      ],
+      "peak_rss_bytes": 134447104,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "samples_ns": [
+        1851472.65625,
+        1851924.46875,
+        1831701.8125,
+        1854785.15625,
+        1854110.6875,
+        1844516.9375,
+        1876929.6875
+      ],
+      "iterations": 32,
+      "build_ns": "229081750",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 153534464,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "samples_ns": [
+        3869424.4375,
+        3862315.125,
+        3817552.0625,
+        3840885.4375,
+        3780398.4375,
+        3828578.125,
+        3853536.4375
+      ],
+      "iterations": 16,
+      "build_ns": "200680375",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 154386432,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "238634667",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 8,
+      "samples_ns": [
+        8251046.874999999,
+        8236416.625,
+        8238229.125,
+        8256052.125,
+        8181453.125,
+        8259447.874999999,
+        8214150.999999999
+      ],
+      "peak_rss_bytes": 197279744,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "205084542",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 32,
+      "samples_ns": [
+        2963230.46875,
+        2880875.0,
+        2873256.5,
+        2866501.3125,
+        2866005.21875,
+        2787000.0,
+        2962098.96875
+      ],
+      "peak_rss_bytes": 135757824,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "samples_ns": [
+        1906127.59375,
+        1869589.84375,
+        1878533.875,
+        1869197.9375,
+        1863699.21875,
+        1855071.59375,
+        1842891.9375
+      ],
+      "iterations": 32,
+      "build_ns": "227136333",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 153518080,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "samples_ns": [
+        3758338.5625,
+        3748898.4375,
+        3831851.5625,
+        3768432.25,
+        3770914.0625,
+        3801195.3125,
+        3842052.125
+      ],
+      "iterations": 16,
+      "build_ns": "200024417",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 156155904,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "218874750",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 16,
+      "samples_ns": [
+        3503333.3125,
+        3472122.4375,
+        3544703.125,
+        3607921.875,
+        3496273.4375,
+        3455541.6875,
+        3463958.375
+      ],
+      "peak_rss_bytes": 159547392,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "build_ns": "209552708",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 32,
+      "samples_ns": [
+        2850040.375,
+        2936585.9375,
+        2725911.46875,
+        2963713.53125,
+        2957766.90625,
+        2875104.1875,
+        2935140.625
+      ],
+      "peak_rss_bytes": 134627328,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "samples_ns": [
+        1856192.71875,
+        1876040.34375,
+        1874053.375,
+        1846537.78125,
+        1854358.0625,
+        1847865.90625,
+        1874880.21875
+      ],
+      "iterations": 32,
+      "build_ns": "225779208",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 156205056,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "samples_ns": [
+        3785322.9375,
+        3849541.6875,
+        3760302.125,
+        3784679.6875,
+        3746502.625,
+        3738138.0625,
+        3837848.9375
+      ],
+      "iterations": 16,
+      "build_ns": "205184834",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "peak_rss_bytes": 153452544,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "build_ns": "220908791",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 16,
+      "samples_ns": [
+        3459713.5625,
+        3624791.625,
+        3605960.9375,
+        3557520.8125,
+        3546239.625,
+        3477684.9375,
+        3488544.25
+      ],
+      "peak_rss_bytes": 164954112,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "build_ns": "239664916",
+      "count": 900000,
+      "digest": "13181908106193347588",
+      "iterations": 8,
+      "samples_ns": [
+        8487750.0,
+        8317109.374999999,
+        8352890.625,
+        8297734.375000001,
+        8332302.0,
+        8337442.75,
+        8493635.5
+      ],
+      "peak_rss_bytes": 192724992,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "samples_ns": [
+        6676020.875,
+        6678911.375,
+        6655312.5,
+        6706182.25,
+        6744244.75,
+        6730343.75,
+        6668739.625
+      ],
+      "iterations": 8,
+      "build_ns": "294802583",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 575471616,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "samples_ns": [
+        34298292,
+        34488292,
+        37515354.5,
+        34814771,
+        33683917,
+        34128396,
+        37631145.5
+      ],
+      "iterations": 2,
+      "build_ns": "252154292",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 1056178176,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "333300542",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 2,
+      "samples_ns": [
+        34494541.5,
+        34487542.0,
+        34475583.5,
+        34261354.0,
+        34380437.5,
+        34264375.0,
+        34786146.0
+      ],
+      "peak_rss_bytes": 868188160,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "357573750",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        6880489.625,
+        7073229.125,
+        6981291.625,
+        6891963.5,
+        7019828.125,
+        6936911.5,
+        6941281.25
+      ],
+      "peak_rss_bytes": 620167168,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 1,
+      "build_ns": "317230125",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        6009729.125,
+        6129307.25,
+        6507093.75,
+        5898942.75,
+        6157276.125,
+        6499322.875,
+        6309041.625
+      ],
+      "peak_rss_bytes": 389529600,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "samples_ns": [
+        38078395.5,
+        37481812.5,
+        38188979,
+        37746229,
+        37081750,
+        37197791.5,
+        38731604
+      ],
+      "iterations": 2,
+      "build_ns": "252112333",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 1055309824,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "325049125",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 2,
+      "samples_ns": [
+        35688458.5,
+        38130625.0,
+        36508375.0,
+        36782187.5,
+        36549271.0,
+        35972687.5,
+        34381896.0
+      ],
+      "peak_rss_bytes": 946421760,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "359478458",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        7115677.125,
+        6867380.125,
+        6970911.5,
+        6934890.625,
+        6980854.125,
+        6857572.875,
+        6799213.5
+      ],
+      "peak_rss_bytes": 619282432,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "build_ns": "319895250",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 32,
+      "samples_ns": [
+        2965819.0,
+        2915350.25,
+        2937121.09375,
+        2941970.0625,
+        2892102.875,
+        2827682.28125,
+        2869247.40625
+      ],
+      "peak_rss_bytes": 391561216,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 2,
+      "samples_ns": [
+        6686364.625,
+        6660750,
+        6658213.5,
+        6822671.875,
+        6992880.25,
+        6691364.625,
+        6649239.5
+      ],
+      "iterations": 8,
+      "build_ns": "292321375",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 580009984,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "329445125",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 2,
+      "samples_ns": [
+        34130145.5,
+        34223104.0,
+        33981562.5,
+        36907958.0,
+        36076771.0,
+        43602646.0,
+        34558375.0
+      ],
+      "peak_rss_bytes": 975863808,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "357185333",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        6933145.75,
+        6991427.0,
+        6928224.0,
+        6923750.0,
+        7011505.25,
+        6961968.75,
+        6928255.25
+      ],
+      "peak_rss_bytes": 620150784,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "build_ns": "311038209",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 16,
+      "samples_ns": [
+        5319132.8125,
+        6273234.375,
+        5766911.4375,
+        6382348.9375,
+        5473317.6875,
+        6501367.1875,
+        6277296.875
+      ],
+      "peak_rss_bytes": 391266304,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "samples_ns": [
+        8766703.125,
+        10262057.25,
+        10271671.875,
+        10665948,
+        10695406.25,
+        10561078.125,
+        10347359.375
+      ],
+      "iterations": 8,
+      "build_ns": "296682416",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 579108864,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 3,
+      "samples_ns": [
+        39357583.5,
+        38520417,
+        39366417,
+        36883125,
+        37957770.5,
+        40153062.5,
+        38102125
+      ],
+      "iterations": 2,
+      "build_ns": "253003292",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 1051705344,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "355303084",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        6910354.125,
+        6945437.5,
+        7057432.25,
+        7054057.25,
+        6944869.875,
+        6959677.125,
+        6942619.75
+      ],
+      "peak_rss_bytes": 616611840,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "323625833",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        6676520.75,
+        6737640.625,
+        6355348.875,
+        6259880.25,
+        6377203.125,
+        6520046.875,
+        6072671.875
+      ],
+      "peak_rss_bytes": 390152192,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "samples_ns": [
+        6783531.25,
+        6773645.875,
+        6769958.375,
+        6830906.25,
+        6777015.625,
+        6752713.5,
+        6777640.625
+      ],
+      "iterations": 8,
+      "build_ns": "297329833",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 575504384,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "samples_ns": [
+        35427145.5,
+        37399042,
+        35835833.5,
+        33469000,
+        34465333.5,
+        34005604,
+        33913791.5
+      ],
+      "iterations": 2,
+      "build_ns": "254377541",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 1058865152,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 4,
+      "build_ns": "330874334",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 2,
+      "samples_ns": [
+        36917083.0,
+        34889187.5,
+        34493791.5,
+        34291229.0,
+        36537541.5,
+        34410000.0,
+        36904937.5
+      ],
+      "peak_rss_bytes": 842285056,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "build_ns": "320201417",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 16,
+      "samples_ns": [
+        5891828.125,
+        5710942.75,
+        6478750.0,
+        6210921.875,
+        6232307.3125,
+        6295848.9375,
+        6333572.9375
+      ],
+      "peak_rss_bytes": 391479296,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "samples_ns": [
+        6663682.25,
+        6674270.875,
+        6682052.125,
+        6670484.375,
+        6664255.25,
+        6666448,
+        6652729.125
+      ],
+      "iterations": 8,
+      "build_ns": "301362917",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 572784640,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "samples_ns": [
+        38172562.5,
+        38747729.5,
+        37983458.5,
+        38541208,
+        39086958,
+        38111229.5,
+        41122729
+      ],
+      "iterations": 2,
+      "build_ns": "262840500",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "peak_rss_bytes": 1053474816,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "build_ns": "326054750",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 2,
+      "samples_ns": [
+        34374666.5,
+        34402187.5,
+        34853770.5,
+        34537458.5,
+        35286583.0,
+        34526271.0,
+        35005958.0
+      ],
+      "peak_rss_bytes": 783204352,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "round": 5,
+      "build_ns": "360006458",
+      "count": 900000,
+      "digest": "1843031294465757380",
+      "iterations": 8,
+      "samples_ns": [
+        6849213.5,
+        7093802.0,
+        6862052.125,
+        6966296.875,
+        7098406.25,
+        6863192.75,
+        7047276.125
+      ],
+      "peak_rss_bytes": 614776832,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "8",
+        "90",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 1,
+      "samples_ns": [
+        12890479.25,
+        12940770.75,
+        12933885.25,
+        12906573,
+        12915906.25,
+        12938073,
+        12921979.25
+      ],
+      "iterations": 4,
+      "build_ns": "296685042",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 328335360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 1,
+      "samples_ns": [
+        12638583.5,
+        12653010.5,
+        12680625,
+        12968677,
+        12906260.5,
+        12745010.5,
+        12839177
+      ],
+      "iterations": 4,
+      "build_ns": "252562459",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 436633600,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "317683458",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        10610083.25,
+        10574791.625,
+        10653604.125,
+        10936020.875,
+        12850932.25,
+        11396526.125,
+        10825218.75
+      ],
+      "peak_rss_bytes": 367689728,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "356531542",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        7410067.625,
+        7409859.375,
+        7679989.625,
+        7389859.375,
+        7517823.0,
+        7434609.375,
+        7446802.125
+      ],
+      "peak_rss_bytes": 357138432,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "306023750",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 32,
+      "samples_ns": [
+        2481402.34375,
+        2826643.21875,
+        2579339.84375,
+        2497893.21875,
+        2486867.1875,
+        2464440.09375,
+        2464389.34375
+      ],
+      "peak_rss_bytes": 364920832,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 2,
+      "samples_ns": [
+        13057916.75,
+        13174552,
+        12844771,
+        12914437.5,
+        12933197.75,
+        12885812.5,
+        12834843.75
+      ],
+      "iterations": 4,
+      "build_ns": "247802500",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 436633600,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "326276083",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        10765156.25,
+        10740156.25,
+        10821098.875,
+        10732197.875,
+        10827005.25,
+        10594932.375,
+        10831010.5
+      ],
+      "peak_rss_bytes": 365248512,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "348718708",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        7438057.25,
+        7606557.25,
+        7253250.0,
+        7382567.625,
+        7398171.875,
+        7483609.375,
+        7459557.375
+      ],
+      "peak_rss_bytes": 349061120,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "311930291",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 32,
+      "samples_ns": [
+        2485759.09375,
+        2479355.46875,
+        2474516.9375,
+        2471442.71875,
+        2467946.59375,
+        2459058.59375,
+        2467705.71875
+      ],
+      "peak_rss_bytes": 364920832,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 2,
+      "samples_ns": [
+        12989854,
+        12993437.5,
+        13060864.75,
+        13015218.75,
+        12968937.5,
+        12922093.75,
+        12904114.5
+      ],
+      "iterations": 4,
+      "build_ns": "291048791",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 328335360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "324483167",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        10748619.875,
+        10748244.875,
+        10537713.625,
+        10539437.5,
+        10678557.25,
+        10635666.625,
+        10838927.125
+      ],
+      "peak_rss_bytes": 365264896,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "361511167",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        7427078.125,
+        7325260.5,
+        7316244.875,
+        7385218.75,
+        7440302.125,
+        7408828.125,
+        7370645.75
+      ],
+      "peak_rss_bytes": 349061120,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "308343708",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 64,
+      "samples_ns": [
+        1274606.765625,
+        1207070.3125,
+        1191456.375,
+        1203625.0,
+        1185031.25,
+        1185291.015625,
+        1185822.90625
+      ],
+      "peak_rss_bytes": 364904448,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 3,
+      "samples_ns": [
+        13017218.75,
+        12939854,
+        12922406.25,
+        12952229.25,
+        12892302,
+        12925021,
+        12901291.75
+      ],
+      "iterations": 4,
+      "build_ns": "290952417",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 328335360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 3,
+      "samples_ns": [
+        12777968.75,
+        12775927.25,
+        12886781.25,
+        12885229.25,
+        12753750,
+        12869041.75,
+        12821573
+      ],
+      "iterations": 4,
+      "build_ns": "256885958",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 436617216,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "346877750",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        7457500.0,
+        7358573.0,
+        7414406.25,
+        7511625.0,
+        7441859.375,
+        7396958.25,
+        7452427.125
+      ],
+      "peak_rss_bytes": 349061120,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "307506666",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 64,
+      "samples_ns": [
+        1188271.484375,
+        1183043.609375,
+        1189341.140625,
+        1185479.171875,
+        1182837.890625,
+        1189194.671875,
+        1183951.828125
+      ],
+      "peak_rss_bytes": 364920832,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 4,
+      "samples_ns": [
+        13270604.25,
+        13177041.75,
+        13056645.75,
+        13022468.75,
+        13010739.75,
+        12942812.5,
+        12987541.75
+      ],
+      "iterations": 4,
+      "build_ns": "289586750",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 328335360,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 4,
+      "samples_ns": [
+        12682093.75,
+        12878822.75,
+        12733020.75,
+        12676770.75,
+        12752239.75,
+        12761656.25,
+        12824750
+      ],
+      "iterations": 4,
+      "build_ns": "249841500",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 436666368,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "333145167",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        10690442.75,
+        11140630.25,
+        10766203.125,
+        10722015.625,
+        10673489.625,
+        10623812.5,
+        10798062.5
+      ],
+      "peak_rss_bytes": 365264896,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 5,
+      "build_ns": "311704041",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 64,
+      "samples_ns": [
+        1189493.5,
+        1183618.484375,
+        1180369.78125,
+        1180869.796875,
+        1178581.390625,
+        1183038.40625,
+        1183516.28125
+      ],
+      "peak_rss_bytes": 364904448,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 5,
+      "samples_ns": [
+        13055948,
+        13017020.75,
+        12976323,
+        12893041.75,
+        12893052,
+        12922073,
+        12890250
+      ],
+      "iterations": 4,
+      "build_ns": "298629292",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 328351744,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 5,
+      "samples_ns": [
+        12894770.75,
+        12846500,
+        12809677,
+        12837822.75,
+        12994072.75,
+        13305260.5,
+        12895364.5
+      ],
+      "iterations": 4,
+      "build_ns": "245892334",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "peak_rss_bytes": 436617216,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 5,
+      "build_ns": "335972458",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        10629734.375,
+        10646375.0,
+        11654187.5,
+        10942750.0,
+        10562166.625,
+        10503885.375,
+        10544885.375
+      ],
+      "peak_rss_bytes": 365264896,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "round": 5,
+      "build_ns": "353759875",
+      "count": 100000,
+      "digest": "14007504520249309575",
+      "iterations": 8,
+      "samples_ns": [
+        7592437.5,
+        7411234.375,
+        7412343.75,
+        7285505.125,
+        7264171.875,
+        7457083.375,
+        7473192.625
+      ],
+      "peak_rss_bytes": 357122048,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "128",
+        "1",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "samples_ns": [
+        1237252.59375,
+        1204868.48438,
+        1282905.59375,
+        1315648.4375,
+        1274744.14062,
+        1299791.67188,
+        1302194.65625
+      ],
+      "iterations": 64,
+      "build_ns": "226727875",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 83656704,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "samples_ns": [
+        1327459.625,
+        1283903,
+        1287901.70312,
+        1278121.09375,
+        1282160.8125,
+        1282412.10938,
+        1282465.48438
+      ],
+      "iterations": 64,
+      "build_ns": "197350500",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 83525632,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "218124334",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1107036.453125,
+        1130448.5625,
+        1104180.328125,
+        1103522.140625,
+        1088838.53125,
+        1106271.484375,
+        1144435.546875
+      ],
+      "peak_rss_bytes": 99893248,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "235605250",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1404774.09375,
+        1409216.15625,
+        1423685.546875,
+        1397536.453125,
+        1401717.453125,
+        1406020.1875,
+        1427197.921875
+      ],
+      "peak_rss_bytes": 117456896,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 1,
+      "build_ns": "201652000",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 32,
+      "samples_ns": [
+        1840147.15625,
+        1850131.53125,
+        1982660.1562500002,
+        1977934.9062500002,
+        1959046.8749999998,
+        1939248.6875,
+        2012067.7187499998
+      ],
+      "peak_rss_bytes": 112427008,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "samples_ns": [
+        1278794.92188,
+        1279328.125,
+        1282447.90625,
+        1291026.70312,
+        1291919.26562,
+        1293459.64062,
+        1308193.35938
+      ],
+      "iterations": 64,
+      "build_ns": "205639542",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 83755008,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "220125583",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1110695.96875,
+        1099399.75,
+        1125155.609375,
+        1132764.328125,
+        1111569.671875,
+        1119682.296875,
+        1134557.28125
+      ],
+      "peak_rss_bytes": 98844672,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "234104208",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1401574.875,
+        1397366.53125,
+        1406556.640625,
+        1398531.90625,
+        1417547.53125,
+        1371736.328125,
+        1407158.203125
+      ],
+      "peak_rss_bytes": 119013376,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "build_ns": "206797375",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 32,
+      "samples_ns": [
+        1942231.78125,
+        1965049.4687500002,
+        1956212.21875,
+        1921834.625,
+        1976464.8437499998,
+        1962737.0,
+        1953554.6875000002
+      ],
+      "peak_rss_bytes": 112181248,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 2,
+      "samples_ns": [
+        949431.640625,
+        942412.109375,
+        960343.09375,
+        966677.078125,
+        972404.9375,
+        957848.953125,
+        961458.984375
+      ],
+      "iterations": 64,
+      "build_ns": "236315417",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 83296256,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "218976959",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1108220.703125,
+        1104388.015625,
+        1116147.796875,
+        1100610.03125,
+        1102291.671875,
+        1109094.40625,
+        1114028.65625
+      ],
+      "peak_rss_bytes": 94683136,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "231920750",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1384483.734375,
+        1373697.265625,
+        1399125.65625,
+        1424140.625,
+        1406067.0625,
+        1410585.28125,
+        1404240.875
+      ],
+      "peak_rss_bytes": 115195904,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "build_ns": "202453000",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 32,
+      "samples_ns": [
+        1983852.875,
+        1972468.7499999998,
+        1903960.9375,
+        2016503.9062500002,
+        1965578.1249999998,
+        1986973.9687499998,
+        1946654.9375
+      ],
+      "peak_rss_bytes": 112459776,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "samples_ns": [
+        962966.140625,
+        952766.9375,
+        961282.5625,
+        955567.0625,
+        958845.046875,
+        959268.234375,
+        955513.015625
+      ],
+      "iterations": 64,
+      "build_ns": "261557417",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 83329024,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 3,
+      "samples_ns": [
+        1290630.21875,
+        1291234.375,
+        1285719.40625,
+        1292411.45312,
+        1284847,
+        1291014.32812,
+        1284793.60938
+      ],
+      "iterations": 64,
+      "build_ns": "201308625",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 82788352,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "232201667",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1426001.296875,
+        1402261.0625,
+        1414054.6875,
+        1390882.15625,
+        1394389.3125,
+        1389985.671875,
+        1402764.328125
+      ],
+      "peak_rss_bytes": 114180096,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "200852041",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 32,
+      "samples_ns": [
+        1918467.46875,
+        1928440.09375,
+        1948432.3125,
+        1862553.40625,
+        1828117.1875,
+        2004747.40625,
+        1984950.5312499998
+      ],
+      "peak_rss_bytes": 112263168,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "samples_ns": [
+        1336197.26562,
+        1355655.59375,
+        1339674.48438,
+        1332707.67188,
+        1355227.21875,
+        1335905.59375,
+        1307807.9375
+      ],
+      "iterations": 64,
+      "build_ns": "229941041",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 82968576,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "samples_ns": [
+        1309488.28125,
+        1310337.89062,
+        1311716.14062,
+        1311113.92188,
+        1306175.78125,
+        1307220.70312,
+        1296687.5
+      ],
+      "iterations": 64,
+      "build_ns": "194244917",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 82903040,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 4,
+      "build_ns": "213127458",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1125370.4375,
+        1146235.671875,
+        1115555.328125,
+        1106056.640625,
+        1132166.015625,
+        1146025.390625,
+        1110522.140625
+      ],
+      "peak_rss_bytes": 105119744,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "arc",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 5,
+      "build_ns": "197122208",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 32,
+      "samples_ns": [
+        2030822.9062499998,
+        2018201.8124999998,
+        2027641.9375,
+        2016643.2187500002,
+        2053225.28125,
+        2088992.1875,
+        2075955.71875
+      ],
+      "peak_rss_bytes": 113115136,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "arc",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "gd",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 5,
+      "samples_ns": [
+        984009.109375,
+        994421.875,
+        974354.828125,
+        987617.1875,
+        989249.34375,
+        997764.328125,
+        981426.4375
+      ],
+      "iterations": 64,
+      "build_ns": "225315333",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 83509248,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "gd",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "std",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 5,
+      "samples_ns": [
+        1305159.51562,
+        1297271.48438,
+        1301134.10938,
+        1302548.1875,
+        1294981.10938,
+        1296480.46875,
+        1296792.96875
+      ],
+      "iterations": 64,
+      "build_ns": "198445875",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "peak_rss_bytes": 82935808,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/filter-copy/cpp/gd_filter_copy",
+        "std",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "compact",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 5,
+      "build_ns": "216521166",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1093536.46875,
+        1124116.546875,
+        1128150.390625,
+        1128199.875,
+        1127305.984375,
+        1121671.875,
+        1115757.8125
+      ],
+      "peak_rss_bytes": 95404032,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "compact",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    },
+    {
+      "implementation": "fixed",
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "round": 5,
+      "build_ns": "227534209",
+      "count": 100000,
+      "digest": "6894908592834259175",
+      "iterations": 64,
+      "samples_ns": [
+        1465813.15625,
+        1460841.796875,
+        1458903.0,
+        1461041.015625,
+        1471860.03125,
+        1471772.78125,
+        1448391.265625
+      ],
+      "peak_rss_bytes": 118489088,
+      "command": [
+        "/Users/kjn/repos/gd-rs/target/release/examples/filter_copy",
+        "fixed",
+        "1000000",
+        "16",
+        "8",
+        "10",
+        "7",
+        "50",
+        "time"
+      ]
+    }
+  ],
+  "load_samples": [
+    {
+      "utc": "2026-10-08T21:48:07.968791+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 7.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 127.6
+    },
+    {
+      "utc": "2026-10-08T21:48:14.628394+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.6,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 793,
+          "cpu_percent": 29.9,
+          "command": "/usr/libexec/sysmond"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 14.2,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 156.4
+    },
+    {
+      "utc": "2026-10-08T21:48:16.741938+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.0,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 121.2
+    },
+    {
+      "utc": "2026-10-08T21:48:23.389920+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 128.6
+    },
+    {
+      "utc": "2026-10-08T21:48:25.507484+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.3,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 121.5
+    },
+    {
+      "utc": "2026-10-08T21:48:32.146378+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 7.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 127.1
+    },
+    {
+      "utc": "2026-10-08T21:48:34.260088+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.0,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 15.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 12.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 130.6
+    },
+    {
+      "utc": "2026-10-08T21:48:40.903257+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.7,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 121.3
+    },
+    {
+      "utc": "2026-10-08T21:48:43.008646+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 9.5,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 140.2
+    },
+    {
+      "utc": "2026-10-08T21:48:49.673227+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1050,
+          "cpu_percent": 87.1,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 1689,
+          "cpu_percent": 44.5,
+          "command": "/System/Cryptexes/App/usr/libexec/com.apple.Safari.History"
+        },
+        {
+          "pid": 1485,
+          "cpu_percent": 19.4,
+          "command": "/System/Library/PrivateFrameworks/SafariSafeBrowsing.framework/com.apple.Safari.SafeBrowsing.Service"
+        },
+        {
+          "pid": 1014,
+          "cpu_percent": 18.9,
+          "command": "/System/Library/PrivateFrameworks/CoreSuggestions.framework/Versions/A/Support/suggestd"
+        },
+        {
+          "pid": 1651,
+          "cpu_percent": 13.2,
+          "command": "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/MacOS/Safari"
+        },
+        {
+          "pid": 997,
+          "cpu_percent": 11.8,
+          "command": "/System/Library/PrivateFrameworks/ScreenTimeCore.framework/Versions/A/ScreenTimeAgent"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 11.4,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1001,
+          "cpu_percent": 7.1,
+          "command": "/usr/libexec/networkserviceproxy"
+        },
+        {
+          "pid": 986,
+          "cpu_percent": 6.6,
+          "command": "/System/Library/PrivateFrameworks/CloudKitDaemon.framework/Support/cloudd"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 323.6
+    },
+    {
+      "utc": "2026-10-08T21:48:51.789394+00:00",
+      "processes": [
+        {
+          "pid": 1050,
+          "cpu_percent": 167.8,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 53.9,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 10.4,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1651,
+          "cpu_percent": 7.1,
+          "command": "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/MacOS/Safari"
+        }
+      ],
+      "aggregate_cpu_percent": 337.1
+    },
+    {
+      "utc": "2026-10-08T21:48:59.814793+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.5,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 15.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1651,
+          "cpu_percent": 10.9,
+          "command": "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app/Contents/MacOS/Safari"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 135.4
+    },
+    {
+      "utc": "2026-10-08T21:49:01.913728+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.2,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 18.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 624,
+          "cpu_percent": 11.0,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 620,
+          "cpu_percent": 6.7,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 149.3
+    },
+    {
+      "utc": "2026-10-08T21:49:10.409889+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.7,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 44727,
+          "cpu_percent": 9.9,
+          "command": "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Renderer).app/Contents/MacOS/Code Helper (Renderer)"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 8.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 136.8
+    },
+    {
+      "utc": "2026-10-08T21:49:12.530471+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.1,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 11.8,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 132.5
+    },
+    {
+      "utc": "2026-10-08T21:49:21.226663+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.7,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1110,
+          "cpu_percent": 10.4,
+          "command": "/usr/libexec/spotlightknowledged.updater"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 136.4
+    },
+    {
+      "utc": "2026-10-08T21:49:23.343162+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.3,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 130.4
+    },
+    {
+      "utc": "2026-10-08T21:49:31.427742+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.1,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 129.4
+    },
+    {
+      "utc": "2026-10-08T21:49:33.541452+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.0,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 126.8
+    },
+    {
+      "utc": "2026-10-08T21:49:42.059191+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 9.5,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 140.5
+    },
+    {
+      "utc": "2026-10-08T21:49:44.172896+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.0,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 125.9
+    },
+    {
+      "utc": "2026-10-08T21:49:51.119552+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 684,
+          "cpu_percent": 6.1,
+          "command": "/usr/libexec/airportd"
+        }
+      ],
+      "aggregate_cpu_percent": 135.7
+    },
+    {
+      "utc": "2026-10-08T21:49:53.237344+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 121.4
+    },
+    {
+      "utc": "2026-10-08T21:50:00.154984+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23387,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 129.6
+    },
+    {
+      "utc": "2026-10-08T21:50:02.272372+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 18.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 624,
+          "cpu_percent": 11.3,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 620,
+          "cpu_percent": 6.6,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 149.2
+    },
+    {
+      "utc": "2026-10-08T21:50:09.157417+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.1,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 119.4
+    },
+    {
+      "utc": "2026-10-08T21:50:11.274486+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 134.2
+    },
+    {
+      "utc": "2026-10-08T21:50:18.152437+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 129.2
+    },
+    {
+      "utc": "2026-10-08T21:50:20.273316+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 98.1,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 8.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 127.8
+    },
+    {
+      "utc": "2026-10-08T21:50:27.166955+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.9,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.1,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 129.6
+    },
+    {
+      "utc": "2026-10-08T21:50:29.285211+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 126.2
+    },
+    {
+      "utc": "2026-10-08T21:50:36.058381+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 126.2
+    },
+    {
+      "utc": "2026-10-08T21:50:38.177683+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.7,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 5.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 128.4
+    },
+    {
+      "utc": "2026-10-08T21:50:44.811667+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.7,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 16.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 5.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 119.4
+    },
+    {
+      "utc": "2026-10-08T21:50:46.928408+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 15.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 129.0
+    },
+    {
+      "utc": "2026-10-08T21:50:53.562170+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.6,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 17.5,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.7,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 126.9
+    },
+    {
+      "utc": "2026-10-08T21:50:55.679187+00:00",
+      "processes": [
+        {
+          "pid": 7402,
+          "cpu_percent": 97.8,
+          "command": "/Users/kjn/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+        },
+        {
+          "pid": 1660,
+          "cpu_percent": 15.6,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 7.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 129.0
+    },
+    {
+      "utc": "2026-10-08T21:51:02.513127+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 16.8,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 9.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 624,
+          "cpu_percent": 8.4,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 620,
+          "cpu_percent": 5.6,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 1658,
+          "cpu_percent": 5.1,
+          "command": "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"
+        }
+      ],
+      "aggregate_cpu_percent": 51.4
+    },
+    {
+      "utc": "2026-10-08T21:51:04.653538+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 16.8,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 6.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 558,
+          "cpu_percent": 5.1,
+          "command": "/usr/sbin/systemstats"
+        }
+      ],
+      "aggregate_cpu_percent": 28.0
+    },
+    {
+      "utc": "2026-10-08T21:51:11.342115+00:00",
+      "processes": [
+        {
+          "pid": 1660,
+          "cpu_percent": 15.0,
+          "command": "/Applications/Unity Hub.app/Contents/MacOS/Unity Hub"
+        },
+        {
+          "pid": 23245,
+          "cpu_percent": 11.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 23195,
+          "cpu_percent": 8.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.27/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 34.6
+    }
+  ],
+  "summary": [
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "gd",
+      "median_ns": 987617.1875,
+      "min_round_median_ns": 958845.046875,
+      "max_round_median_ns": 1336197.26562,
+      "peak_rss_bytes": 83656704
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "std",
+      "median_ns": 1291026.70312,
+      "min_round_median_ns": 1282465.48438,
+      "max_round_median_ns": 1309488.28125,
+      "peak_rss_bytes": 83755008
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "compact",
+      "median_ns": 1119682.296875,
+      "min_round_median_ns": 1106271.484375,
+      "max_round_median_ns": 1125370.4375,
+      "peak_rss_bytes": 105119744
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "fixed",
+      "median_ns": 1404240.875,
+      "min_round_median_ns": 1401574.875,
+      "max_round_median_ns": 1461041.015625,
+      "peak_rss_bytes": 119013376
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 10,
+      "implementation": "arc",
+      "median_ns": 1959046.8749999998,
+      "min_round_median_ns": 1928440.09375,
+      "max_round_median_ns": 2030822.9062499998,
+      "peak_rss_bytes": 113115136
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "median_ns": 1859865.90625,
+      "min_round_median_ns": 1851924.46875,
+      "max_round_median_ns": 1869298.1875,
+      "peak_rss_bytes": 156221440
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "median_ns": 3789171.875,
+      "min_round_median_ns": 3770914.0625,
+      "max_round_median_ns": 3840885.4375,
+      "peak_rss_bytes": 156155904
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "compact",
+      "median_ns": 3546239.625,
+      "min_round_median_ns": 3496273.4375,
+      "max_round_median_ns": 3607093.75,
+      "peak_rss_bytes": 165986304
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "fixed",
+      "median_ns": 8337442.75,
+      "min_round_median_ns": 8238229.125,
+      "max_round_median_ns": 8394729.25,
+      "peak_rss_bytes": 197279744
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 16,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "arc",
+      "median_ns": 2877992.1875,
+      "min_round_median_ns": 2873256.5,
+      "max_round_median_ns": 2935140.625,
+      "peak_rss_bytes": 135757824
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "gd",
+      "median_ns": 12925021,
+      "min_round_median_ns": 12921979.25,
+      "max_round_median_ns": 13022468.75,
+      "peak_rss_bytes": 328351744
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "std",
+      "median_ns": 12821573,
+      "min_round_median_ns": 12745010.5,
+      "max_round_median_ns": 12914437.5,
+      "peak_rss_bytes": 436666368
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "compact",
+      "median_ns": 10722015.625,
+      "min_round_median_ns": 10629734.375,
+      "max_round_median_ns": 10825218.75,
+      "peak_rss_bytes": 367689728
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "fixed",
+      "median_ns": 7434609.375,
+      "min_round_median_ns": 7385218.75,
+      "max_round_median_ns": 7441859.375,
+      "peak_rss_bytes": 357138432
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 1,
+      "selectivity": 10,
+      "implementation": "arc",
+      "median_ns": 1191456.375,
+      "min_round_median_ns": 1183038.40625,
+      "max_round_median_ns": 2486867.1875,
+      "peak_rss_bytes": 364920832
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "gd",
+      "median_ns": 6686364.625,
+      "min_round_median_ns": 6666448,
+      "max_round_median_ns": 10347359.375,
+      "peak_rss_bytes": 580009984
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "std",
+      "median_ns": 37746229,
+      "min_round_median_ns": 34465333.5,
+      "max_round_median_ns": 38541208,
+      "peak_rss_bytes": 1058865152
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "compact",
+      "median_ns": 34558375.0,
+      "min_round_median_ns": 34475583.5,
+      "max_round_median_ns": 36508375.0,
+      "peak_rss_bytes": 975863808
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "fixed",
+      "median_ns": 6941281.25,
+      "min_round_median_ns": 6933145.75,
+      "max_round_median_ns": 6966296.875,
+      "peak_rss_bytes": 620167168
+    },
+    {
+      "rows": 1000000,
+      "text_bytes": 128,
+      "workers": 8,
+      "selectivity": 90,
+      "implementation": "arc",
+      "median_ns": 6232307.3125,
+      "min_round_median_ns": 2915350.25,
+      "max_round_median_ns": 6377203.125,
+      "peak_rss_bytes": 391561216
+    }
+  ]
+}

@@ -40,7 +40,7 @@ pub use table::{
     ColumnMut, ColumnSelectionError, ColumnSliceError, ColumnSpec, CompositeIndex,
     ConcurrentTableBuilder, FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut,
     IndexKeyRef, NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut, Schema, SelectedRow,
-    SortDirection, Table, TableError, TableSelection, UnknownFields,
+    SharedRecordTable, SortDirection, Table, TableError, TableSelection, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

@@ -12,6 +12,54 @@ argument sidecars. `gd-rs` consolidates the fixed-schema behavior into one `Tabl
 There is no distinction between a temporary DTO table and a long-lived member table.
 Choose ownership and placement through ordinary Rust structs and function signatures.
 
+## Typed shared records
+
+`SharedRecordTable<S>` is a separate typed table with one column of `Arc<S>`
+handles. It accepts arbitrary Rust structs without extending the closed dynamic
+`Value` types. Fields inside `S` are accessed through Rust, rather than named schema
+columns. It has no dynamic table formatting, SQL, nullability or index adapters.
+
+```rust
+use gd::SharedRecordTable;
+use std::sync::Arc;
+
+#[derive(Clone)]
+struct Record { id: u64, name: String }
+
+let mut source = SharedRecordTable::new();
+source.push(Record { id: 1, name: "Anna".into() });
+let mut target = source.filter(|record| record.id == 1);
+assert!(Arc::ptr_eq(&source.as_slice()[0], &target.as_slice()[0]));
+target.get_mut(0).unwrap().name.push_str(" edited"); // Arc::make_mut clones this record.
+assert_eq!(source.get(0).unwrap().name, "Anna");
+drop(source);
+assert_eq!(target.get(0).unwrap().name, "Anna edited");
+```
+
+`push` allocates one `Arc`; `push_shared` takes an existing handle. `as_slice`
+borrows the contiguous handle column and `get` borrows a record. `clone`,
+`copy_rows`, and `filter` clone handles only. `copy_rows` preserves order and
+duplicate positions, and rejects the first out-of-range position before copying.
+The target remains valid after the source is dropped, but it initially shares all
+record payloads. `get_mut` requires `S: Clone` and uses copy-on-write; its clone
+depth follows the record's `Clone` implementation. Interior mutability inside `S`
+continues to share whatever `S` itself shares.
+
+With `rayon`, `par_copy_rows` and `par_filter` require `S: Send + Sync`, use the
+current Rayon pool, and preserve output order. Parallel filtering fuses predicate
+evaluation and Arc cloning into local buffers, then concatenates the buffers into
+one destination handle vector. Serial filtering reserves the source row count as an upper bound and
+copies matched handles directly. No record strings are copied during either path.
+
+Arc also permits handles and tables to cross threads when `S: Send + Sync`.
+Replacing Arc with Rc would prevent directly sharing the handle column with Rayon
+or returning worker-local handle buffers. An Rc design can instead lend `&S`
+payload references to workers, collect row positions, and clone its handles only
+on the caller; that is a different pipeline with serial target construction.
+
+See the [whole-record benchmark](../high-level/filter-copy-results.md) for the
+cost difference between independently copied values and shared record handles.
+
 ## Defining a schema
 
 ```rust

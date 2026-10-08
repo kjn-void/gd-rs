@@ -130,3 +130,8 @@ required-features = ["sqlite", "rayon"]
 name = "text_workflow"
 path = "benches/text_workflow/driver.rs"
 required-features = ["rayon"]
+
+[[example]]
+name = "filter_copy"
+path = "benches/filter_copy/driver.rs"
+required-features = ["rayon"]

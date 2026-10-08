@@ -1,0 +1,3 @@
+libc++ 220106
+length=16 sizeof_string=24 capacity=22 payload_inside_object=1
+length=128 sizeof_string=24 capacity=135 payload_inside_object=0
