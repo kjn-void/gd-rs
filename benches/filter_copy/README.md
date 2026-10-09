@@ -3,10 +3,16 @@
 Sources: [Rust driver](driver.rs), [C++ driver](../cpp-reference/filter_copy.cpp),
 [runner and independent oracle](compare.py).
 
-The [M6 comparison](../../docs/high-level/filter-copy-results.md) uses
+The [M6 comparison](../../docs/high-level/examples/filter-copy-results.md) uses
 GD memcpy = 1× in its graphs. See
 [Arc scaling and parallel cleanup](#arc-core-scaling-and-parallel-cleanup-on-m6)
 for measurement and report-generation commands.
+
+The reports are collected in [high-level/examples](../../docs/high-level/examples/README.md).
+The [five-representation illustration](../../docs/high-level/examples/images/m6-comparison-memory-layout.png)
+shows AoS row copies, SoA column gathering, fixed text buffers, Arc sharing and
+small-string optimization. Regenerate its PNG and editable SVG with
+`python3 benches/filter_copy/comparison_layout.py` (Matplotlib required).
 
 ## Whole-record protocol
 
@@ -170,12 +176,12 @@ capacity and alignment; its existing per-cell word stores the valid length.
 The paired runner uses four alternating-order process rounds and seven calibrated
 50-ms batches per process. Each case is weighted equally. Both variants are
 measured together, separately from the Arc comparison.
-The [M6 paired report](../../docs/high-level/filter-copy-arrays-m6-results.md)
+The [M6 paired report](../../docs/high-level/examples/filter-copy-arrays-m6-results.md)
 contains all 12 absolute timings, four group speed ratios, raw data and variability.
 The [earlier metadata-free cohort and its matching sources](../../docs/high-level/measurements/archive/filter-copy-arrays-without-metadata/README.md)
 are preserved separately and excluded from the current means.
 
-The [memory-layout illustration](../../docs/high-level/measurements/gd-rust-memory-layout.png)
+The [memory-layout illustration](../../docs/high-level/examples/images/gd-rust-memory-layout.png)
 shows source, filter, copy and destination for GD and gd-rs with constant size fields,
 including the text metadata. Its editable SVG is beside the PNG; regenerate both with
 `python3 benches/filter_copy/memory_layout.py` (Matplotlib required).
@@ -202,7 +208,7 @@ Sources: [scaling harness](arc_scaling.rs), [scaling runner](arc_scaling.py),
 [Rust comparison driver](driver.rs), [C++ comparison driver](../cpp-reference/filter_copy.cpp).
 The C++ driver has no shared-pointer counterpart.
 
-The [M6 report](../../docs/high-level/arc-scaling-m6-results.md) measures
+The [M6 report](../../docs/high-level/examples/arc-scaling-m6-results.md) measures
 1, 2, 4, 6, 8 and 12 Rayon workers with the same million-row fixture.
 `par_filter_chunked` filters and clones handles into reserved local vectors with
 one source chunk per worker, then concatenates those buffers into one ordered table

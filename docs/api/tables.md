@@ -86,7 +86,7 @@ or returning worker-local handle buffers. An Rc design can instead lend `&S`
 payload references to workers, collect row positions, and clone its handles only
 on the caller; that is a different pipeline with serial target construction.
 
-See the [whole-record benchmark](../high-level/filter-copy-results.md) for the
+See the [whole-record benchmark](../high-level/examples/filter-copy-results.md) for the
 cost difference between independently copied values and shared record handles.
 
 ## Defining a schema

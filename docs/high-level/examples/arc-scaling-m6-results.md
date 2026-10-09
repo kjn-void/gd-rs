@@ -1,6 +1,6 @@
 # Arc scaling and GD comparison on Apple M6
 
-Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
+Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
 
 gd-rs Arc is **1.377× faster with eight workers than with one** in the core sweep. In the comparison with GD, its geometric-mean speed is **1.676× GD memcpy** across all 12 cases. Each string size, selection rate and worker count receives equal weight within its comparison. Arc shares records; GD and the other three representations deep-copy their payloads.
 
@@ -10,7 +10,7 @@ Measured from 2026-10-09T10:20:04.026054+00:00 (UTC).
 
 ## Current implementation
 
-Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
+Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
 
 `SharedRecordTable<Record>` stores one contiguous `Vec<Arc<Record>>`. Each record contains three `u64` fields and two `CompactString` fields. Rayon processes source chunks in parallel, evaluating the numeric predicate and cloning each matched Arc handle into a worker-local vector. The local vectors are concatenated in source order into one destination table. The implementation uses two safe public APIs:
 
@@ -25,7 +25,7 @@ The destination remains readable after source destruction and preserves input or
 
 ## Scaling across cores
 
-Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
+Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
 
 | Workers | gd-rs Arc speed vs 1 worker | gd-rs Arc active CPU cores |
 |---:|---:|---:|
@@ -36,7 +36,7 @@ Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scali
 | 8 | 1.377× | 7.19 |
 | 12 | 1.209× | 10.01 |
 
-![gd-rs Arc performance relative to GD memcpy](measurements/arc-scaling-m6.png)
+![gd-rs Arc performance relative to GD memcpy](images/arc-scaling-m6.png)
 
 The graph uses the comparison at one and eight workers, where GD was also measured. Higher is faster, with GD memcpy at 1×. The table above shows the separate Arc-only sweep at all six worker counts.
 
@@ -55,9 +55,11 @@ Stage timings come from seven separately instrumented operations after the prima
 
 ## Comparison with GD and standard C++ containers
 
-Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
+Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
 
 The tables and graphs show GD row memcpy, standard C++ `std::vector`/`std::string`, gd-rs CompactString, gd-rs fixed buffers, and gd-rs Arc. These representations were measured together. One million source rows contain three numbers and two 16- or 128-byte strings; 10%, 50% or 90% of rows are selected into one ordered target. The first four variants deep-copy values. gd-rs Arc shares records and times handle release while the source remains alive. C++ and the other Rust variants use caller-thread cleanup.
+
+The [M6 memory-layout illustration](filter-copy-results.md) shows the five representations, inline versus heap strings, and copied versus shared payloads.
 
 **Speed relative to GD** (`GD time / variant time`; higher is faster). Geometric means weight each case equally.
 
@@ -69,7 +71,7 @@ The tables and graphs show GD row memcpy, standard C++ `std::vector`/`std::strin
 | 8 workers, 16 B | 1.000× | 0.588× | 0.860× | 0.497× | 0.830× |
 | 8 workers, 128 B | 1.000× | 0.408× | 0.377× | 1.060× | 2.504× |
 
-![M6 performance relative to GD memcpy](measurements/filter-copy-arc-m6.png)
+![M6 performance relative to GD memcpy](images/filter-copy-arc-m6.png)
 
 | Text bytes | Workers | Selected | GD memcpy ms | C++ STL std::string ms | gd-rs CompactString ms | gd-rs fixed buffer ms | gd-rs Arc ms |
 |---:|---:|---:|---:|---:|---:|---:|---:|
@@ -88,7 +90,7 @@ The tables and graphs show GD row memcpy, standard C++ `std::vector`/`std::strin
 
 ## Confirmation measurements
 
-Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
+Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
 
 The case with the largest relative round-median range in each text-size/worker group was repeated. The 128-byte, eight-worker, 90%-selection case was also repeated to check timing variability. Primary and repeat results are reported separately.
 
@@ -104,7 +106,7 @@ At 128 bytes, eight workers and 90% selection, gd-rs Arc takes **3.232 ms** in t
 
 ## Reproduction and validation
 
-Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
+Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.
 
 - Host `M6.local`; `Apple M6`; 32 GiB; 128-byte cache lines; niceness zero; no affinity.
 - Compiler: `rustc 1.99.0 (b940084d7 2026-09-28)`; comparison C++: `Apple clang version 21.0.0 (clang-2100.3.34.2)`.
@@ -115,7 +117,7 @@ Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scali
 - Separate AddressSanitizer tests passed for Arc filtering, cleanup and process-clock FFI; no sanitizer timings enter these results. Leak detection was disabled because Apple ASan does not support it.
 - Library tests cover ordering, duplicate handles, copy-on-write, final-owner destruction, empty input and predicate panics. Full repository CI and Rust 1.86 checks passed.
 
-[Core raw data](measurements/arc-scaling-m6.json), [GD comparison](measurements/filter-copy-arc-m6.json), [confirmations](measurements/filter-copy-arc-m6-confirmations.json), [additional 90%-selection repeat](measurements/filter-copy-arc-m6-regression.json).
+[Core raw data](../measurements/arc-scaling-m6.json), [GD comparison](../measurements/filter-copy-arc-m6.json), [confirmations](../measurements/filter-copy-arc-m6-confirmations.json), [additional 90%-selection repeat](../measurements/filter-copy-arc-m6-regression.json).
 
 ```sh
 python3 benches/filter_copy/arc_scaling.py --strategies chunks-par-drop \

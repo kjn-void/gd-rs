@@ -10,4 +10,4 @@ complete samples. The owned-copy paths are described by the current
 [Rust driver](../../../../../benches/filter_copy/driver.rs) and
 [C++ driver](../../../../../benches/cpp-reference/filter_copy.cpp), but the Rust
 driver subsequently gained the Arc case; the historical fingerprints therefore
-differ. The [current M6 report](../../../filter-copy-results.md) shows the latest Arc implementation alongside the independent-copy variants.
+differ. The [current M6 report](../../../examples/filter-copy-results.md) shows the latest Arc implementation alongside the independent-copy variants.

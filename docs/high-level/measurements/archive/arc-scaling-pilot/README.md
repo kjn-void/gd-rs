@@ -17,5 +17,5 @@ This experimental harness used local vector implementations to test alternatives
 before adding `par_filter_chunked` and `par_drop` to gd-rs. Its source fingerprints
 match every file under `source/`. It is preserved as screening evidence; none of
 these samples enters the final plots or geometric means. The
-[final investigation](../../../arc-scaling-m6-results.md) measures the actual
+[final investigation](../../../examples/arc-scaling-m6-results.md) measures the actual
 public APIs with a wider core sweep and a fresh comparison against GD and STL.

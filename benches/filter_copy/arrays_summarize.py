@@ -15,9 +15,9 @@ spec = importlib.util.spec_from_file_location('arrays', ROOT / 'benches/filter_c
 runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 KEYS = ('text_bytes', 'workers', 'selectivity', 'implementation')
-SOURCES = ('Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), '
-           '[unchanged GD memcpy driver](../../benches/cpp-reference/filter_copy.cpp), '
-           '[paired runner and oracle](../../benches/filter_copy/arrays.py).')
+SOURCES = ('Sources: [Rust fixed-array SoA](../../../benches/filter_copy/fixed_arrays.rs), '
+           '[unchanged GD memcpy driver](../../../benches/cpp-reference/filter_copy.cpp), '
+           '[paired runner and oracle](../../../benches/filter_copy/arrays.py).')
 
 
 def key(row):
@@ -83,8 +83,8 @@ def main():
     parser.add_argument('--input', type=Path, required=True)
     parser.add_argument('--confirmations', type=Path)
     parser.add_argument('--layout-probe', type=Path)
-    parser.add_argument('--report', type=Path, default=ROOT / 'docs/high-level/filter-copy-arrays-m6-results.md')
-    parser.add_argument('--figure', type=Path, default=ROOT / 'docs/high-level/measurements/filter-copy-arrays-m6.png')
+    parser.add_argument('--report', type=Path, default=ROOT / 'docs/high-level/examples/filter-copy-arrays-m6-results.md')
+    parser.add_argument('--figure', type=Path, default=ROOT / 'docs/high-level/examples/images/filter-copy-arrays-m6.png')
     args = parser.parse_args()
     data, index = validate(args.input, primary=True)
     confirmations, confirmed = validate(args.confirmations) if args.confirmations else (None, {})
@@ -104,8 +104,8 @@ def main():
     overall = geomean(ratio(index, length, workers, p) for length, workers in groups for p in [10, 50, 90])
     lines = ['# GD row memcpy versus fixed-array SoA with text metadata on the M6', '', SOURCES, '',
              'This paired experiment compares independent deep copies in AoS and SoA layouts. The [Arc comparison](filter-copy-results.md) is measured separately.', '',
-             '![GD row layout and gd-rs with constant size fields: source, filter, copy and destination](measurements/gd-rust-memory-layout.png)', '',
-             '[Full-size PNG](measurements/gd-rust-memory-layout.png) · [Editable SVG](measurements/gd-rust-memory-layout.svg) · [Illustration source](../../benches/filter_copy/memory_layout.py)', '',
+             '![GD row layout and gd-rs with constant size fields: source, filter, copy and destination](images/gd-rust-memory-layout.png)', '',
+             '[Full-size PNG](images/gd-rust-memory-layout.png) · [Editable SVG](images/gd-rust-memory-layout.svg) · [Illustration source](../../../benches/filter_copy/memory_layout.py)', '',
              f'One million source rows contain three `u64` columns and two text columns, each exactly 16 or 128 ASCII bytes. '
              'Filtering `selector < percentage` selects 10%, 50%, or 90% of the rows. Every match deep-copies all five '
              'fields into one independently owned, ordered destination with the same schema.', '',
@@ -132,10 +132,10 @@ def main():
              'occupy 20/132 bytes including the 4-byte metadata, giving 64/288 bytes across all five columns per row. '
              'GD additionally stores terminators, spare capacity and alignment: its row stride remains 72/296 bytes. '
              'Both therefore copy eight bytes of text metadata per row; their remaining storage costs differ.' +
-             (' The [untimed M6 layout probe](measurements/filter-copy-arrays-m6-inline-layout.json) '
+             (' The [untimed M6 layout probe](../measurements/filter-copy-arrays-m6-inline-layout.json) '
               'records the exact source snippet, compiler command and row strides.' if args.layout_probe else ''), '',
              'The [earlier metadata-free cohort and matching source snapshots]'
-             '(measurements/archive/filter-copy-arrays-without-metadata/README.md) are preserved separately. '
+             '(../measurements/archive/filter-copy-arrays-without-metadata/README.md) are preserved separately. '
              'Its timings are excluded from the current means; both GD and Rust were rerun for this comparison.', '',
              '## Fresh paired results', '', SOURCES, '',
              '**Contended diagnostics:** these runs use the authorized current background load, without CPU affinity. '
@@ -155,7 +155,7 @@ def main():
             gd = index[length, workers, percent, 'gd']['median_ns'] / 1e6
             rust = index[length, workers, percent, 'arrays']['median_ns'] / 1e6
             lines.append(f'| {length} | {workers} | {percent}% | {gd:.3f} | {rust:.3f} | {gd / rust:.3f}× |')
-    lines += ['', '![Performance relative to GD memcpy](measurements/filter-copy-arrays-m6.png)', '',
+    lines += ['', '![Performance relative to GD memcpy](images/filter-copy-arrays-m6.png)', '',
               'These are complete filter-and-copy timings, so they include the SoA advantage of scanning a contiguous '
               'numeric selector column. They do not isolate copy-only throughput or establish that either layout '
               'wins for every operation. The experiment also compares runtime-sized GD memcpy with Rust copies '
@@ -196,8 +196,8 @@ def main():
               '- Source construction, worker startup and verification are excluded. Target allocation, filtering, '
               'temporary indices, synchronization, copying and target destruction are included.',
               '- Separate Rust AddressSanitizer tests and the Rust 1.86 example check passed; timed binaries use no instrumentation.', '',
-              '[Primary raw data](measurements/filter-copy-arrays-m6.json)' +
-              (', [confirmation raw data](measurements/filter-copy-arrays-m6-confirmations.json).' if confirmations else '.'), '',
+              '[Primary raw data](../measurements/filter-copy-arrays-m6.json)' +
+              (', [confirmation raw data](../measurements/filter-copy-arrays-m6-confirmations.json).' if confirmations else '.'), '',
               '```sh',
               'PYTHONDONTWRITEBYTECODE=1 python3 benches/filter_copy/arrays.py --prepare-oracle',
               'PYTHONDONTWRITEBYTECODE=1 python3 benches/filter_copy/arrays.py --allow-contended', '',

@@ -5,7 +5,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, FancyBboxPatch, FancyArrowPatch
 
-OUT = Path(__file__).resolve().parents[2] / 'docs/high-level/measurements'
+OUT = Path(__file__).resolve().parents[2] / 'docs/high-level/examples/images'
 plt.rcParams.update({'font.family': 'DejaVu Sans', 'svg.fonttype': 'none'})
 fig, ax = plt.subplots(figsize=(20, 14))
 fig.subplots_adjust(left=0, right=1, top=1, bottom=0)

@@ -1,12 +1,12 @@
 # GD row memcpy versus fixed-array SoA with text metadata on the M6
 
-Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../benches/filter_copy/arrays.py).
+Sources: [Rust fixed-array SoA](../../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../../benches/filter_copy/arrays.py).
 
 This paired experiment compares independent deep copies in AoS and SoA layouts. The [Arc comparison](filter-copy-results.md) is measured separately.
 
-![GD row layout and gd-rs with constant size fields: source, filter, copy and destination](measurements/gd-rust-memory-layout.png)
+![GD row layout and gd-rs with constant size fields: source, filter, copy and destination](images/gd-rust-memory-layout.png)
 
-[Full-size PNG](measurements/gd-rust-memory-layout.png) · [Editable SVG](measurements/gd-rust-memory-layout.svg) · [Illustration source](../../benches/filter_copy/memory_layout.py)
+[Full-size PNG](images/gd-rust-memory-layout.png) · [Editable SVG](images/gd-rust-memory-layout.svg) · [Illustration source](../../../benches/filter_copy/memory_layout.py)
 
 One million source rows contain three `u64` columns and two text columns, each exactly 16 or 128 ASCII bytes. Filtering `selector < percentage` selects 10%, 50%, or 90% of the rows. Every match deep-copies all five fields into one independently owned, ordered destination with the same schema.
 
@@ -16,13 +16,13 @@ Lengths are validated once when constructing a cell. The timed copy loop copies 
 
 Both implementations filter static source row ranges first, retain matched indices, compute destination ranges, allocate one target, then deep-copy disjoint row ranges. Rust uses an exact eight-thread Rayon pool; GD retains its persistent C++ worker pool. One worker executes on the caller. All workers join before the target is returned. No worker output tables or extra concatenation of payloads are used.
 
-Rust writes values into `Vec::spare_capacity_mut()` using safely split slices, then sets column lengths after every slot has been initialized. This avoids a zero-fill pass absent from GD. Rust text cells occupy 20/132 bytes including the 4-byte metadata, giving 64/288 bytes across all five columns per row. GD additionally stores terminators, spare capacity and alignment: its row stride remains 72/296 bytes. Both therefore copy eight bytes of text metadata per row; their remaining storage costs differ. The [untimed M6 layout probe](measurements/filter-copy-arrays-m6-inline-layout.json) records the exact source snippet, compiler command and row strides.
+Rust writes values into `Vec::spare_capacity_mut()` using safely split slices, then sets column lengths after every slot has been initialized. This avoids a zero-fill pass absent from GD. Rust text cells occupy 20/132 bytes including the 4-byte metadata, giving 64/288 bytes across all five columns per row. GD additionally stores terminators, spare capacity and alignment: its row stride remains 72/296 bytes. Both therefore copy eight bytes of text metadata per row; their remaining storage costs differ. The [untimed M6 layout probe](../measurements/filter-copy-arrays-m6-inline-layout.json) records the exact source snippet, compiler command and row strides.
 
-The [earlier metadata-free cohort and matching source snapshots](measurements/archive/filter-copy-arrays-without-metadata/README.md) are preserved separately. Its timings are excluded from the current means; both GD and Rust were rerun for this comparison.
+The [earlier metadata-free cohort and matching source snapshots](../measurements/archive/filter-copy-arrays-without-metadata/README.md) are preserved separately. Its timings are excluded from the current means; both GD and Rust were rerun for this comparison.
 
 ## Fresh paired results
 
-Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../benches/filter_copy/arrays.py).
+Sources: [Rust fixed-array SoA](../../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../../benches/filter_copy/arrays.py).
 
 **Contended diagnostics:** these runs use the authorized current background load, without CPU affinity. The geometric mean weights all 12 cases equally. Ratios are GD time divided by Rust time: above 1 means Rust is faster.
 
@@ -50,13 +50,13 @@ Overall Rust/GD speed ratio: **1.585×**. Rust is faster in **12 of 12 primary c
 | 128 | 8 | 50% | 6.879 | 5.622 | 1.224× |
 | 128 | 8 | 90% | 9.750 | 7.069 | 1.379× |
 
-![Performance relative to GD memcpy](measurements/filter-copy-arrays-m6.png)
+![Performance relative to GD memcpy](images/filter-copy-arrays-m6.png)
 
 These are complete filter-and-copy timings, so they include the SoA advantage of scanning a contiguous numeric selector column. They do not isolate copy-only throughput or establish that either layout wins for every operation. The experiment also compares runtime-sized GD memcpy with Rust copies whose array sizes are known at compile time; those are material implementation differences.
 
 ## Repeats and variability
 
-Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../benches/filter_copy/arrays.py).
+Sources: [Rust fixed-array SoA](../../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../../benches/filter_copy/arrays.py).
 
 Selected cases were repeated separately under the same settings. The primary numbers above remain intact.
 
@@ -76,7 +76,7 @@ The figure shows GD time divided by Rust time, using the primary medians: GD mem
 
 ## Measurement and reproduction
 
-Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../benches/filter_copy/arrays.py).
+Sources: [Rust fixed-array SoA](../../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../../benches/filter_copy/arrays.py).
 
 - Host: `M6.local`, `Apple M6`; `macOS-27.0.1-arm64-arm-64bit`.
 - CPU topology: hw.physicalcpu: 12; hw.logicalcpu: 12; hw.nperflevels: 3; hw.perflevel0.name: Super; hw.perflevel0.physicalcpu: 2; hw.perflevel1.name: Performance; hw.perflevel1.physicalcpu: 4; hw.perflevel2.name: Efficiency; hw.perflevel2.physicalcpu: 6.
@@ -91,7 +91,7 @@ Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), [unc
 - Source construction, worker startup and verification are excluded. Target allocation, filtering, temporary indices, synchronization, copying and target destruction are included.
 - Separate Rust AddressSanitizer tests and the Rust 1.86 example check passed; timed binaries use no instrumentation.
 
-[Primary raw data](measurements/filter-copy-arrays-m6.json), [confirmation raw data](measurements/filter-copy-arrays-m6-confirmations.json).
+[Primary raw data](../measurements/filter-copy-arrays-m6.json), [confirmation raw data](../measurements/filter-copy-arrays-m6-confirmations.json).
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 benches/filter_copy/arrays.py --prepare-oracle

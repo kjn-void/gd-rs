@@ -12,7 +12,7 @@ NAMES={'gd':'GD memcpy','std':'C++ STL std::string','compact':'gd-rs CompactStri
 OVERVIEW_START='<!-- arc-scaling-m6:start -->'
 OVERVIEW_END='<!-- arc-scaling-m6:end -->'
 STRATEGIES=['current','fused-par-drop','chunks-par-drop','chunks4-par-drop']
-LINKS='Sources: [Arc scaling harness](../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../src/table/shared_record.rs), [Rust comparison driver](../../benches/filter_copy/driver.rs), [C++ comparison driver](../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.'
+LINKS='Sources: [Arc scaling harness](../../../benches/filter_copy/arc_scaling.rs), [scaling runner](../../../benches/filter_copy/arc_scaling.py), [gd-rs shared-record API](../../../src/table/shared_record.rs), [Rust comparison driver](../../../benches/filter_copy/driver.rs), [C++ comparison driver](../../../benches/cpp-reference/filter_copy.cpp), [comparison runner](../../../benches/filter_copy/compare.py). The C++ driver has no shared-pointer counterpart. gd-rs Arc shares payloads while the other four variants copy them.'
 
 
 def gm(values):return math.exp(statistics.mean(math.log(v) for v in values))
@@ -45,11 +45,13 @@ def comparison_overview(data, ix):
   'gd-rs Arc uses chunked filtering, preallocated worker-local handle buffers, ordered concatenation and joined parallel cleanup. '
   'At one worker it uses serial filtering and cleanup. '
   'These are diagnostics under the host’s current background load; source allocation is excluded and completed target cleanup is included.','',
+  '![Five M6 representations: row and column layouts, text ownership, copying and Arc sharing](images/m6-comparison-memory-layout.png)','',
+  '[Full-size PNG](images/m6-comparison-memory-layout.png) · [Editable SVG](images/m6-comparison-memory-layout.svg) · [Illustration source](../../../benches/filter_copy/comparison_layout.py)','',
   '**Speed relative to GD** (higher is faster; equal weight per case). The first four variants deep-copy payloads; gd-rs Arc shares them.','',
   '| Group | '+' | '.join(NAMES[i] for i in impls)+' |','|---|'+'---:|'*len(impls)]
  for label,w,n in [('All 12 cases',None,None),('1 worker, 16 B',1,16),('1 worker, 128 B',1,128),('8 workers, 16 B',8,16),('8 workers, 128 B',8,128)]:
   lines.append('| '+label+' | '+' | '.join(f'{gm(ix[t,c,p,"gd"]["median_ns"]/ix[t,c,p,i]["median_ns"] for t in [16,128] for c in [1,8] for p in [10,50,90] if (w is None or w==c) and (n is None or n==t)):.3f}×' for i in impls)+' |')
- lines+=['','![M6 performance relative to GD memcpy](measurements/filter-copy-arc-m6.png)','',
+ lines+=['','![M6 performance relative to GD memcpy](images/filter-copy-arc-m6.png)','',
   'See [Arc scaling on M6](arc-scaling-m6-results.md) for absolute timings, 1/2/4/6/8/12-worker results, phase measurements, confirmation runs and implementation details. '
   'The [fixed-array SoA experiment](filter-copy-arrays-m6-results.md) separately compares GD row memcpy with deep copies of five columns containing constant size text fields and metadata.','',OVERVIEW_END,'']
  return lines
@@ -63,9 +65,9 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  p.add_argument('--cores',type=Path,required=True);p.add_argument('--comparison',type=Path,required=True)
  p.add_argument('--confirmations',type=Path,required=True);p.add_argument('--regression',type=Path,required=True);p.add_argument('--selection',type=Path,required=True)
- p.add_argument('--report',type=Path,default=ROOT/'docs/high-level/arc-scaling-m6-results.md')
- p.add_argument('--overview',type=Path,default=ROOT/'docs/high-level/filter-copy-results.md')
- p.add_argument('--output-dir',type=Path,default=ROOT/'docs/high-level/measurements')
+ p.add_argument('--report',type=Path,default=ROOT/'docs/high-level/examples/arc-scaling-m6-results.md')
+ p.add_argument('--overview',type=Path,default=ROOT/'docs/high-level/examples/filter-copy-results.md')
+ p.add_argument('--output-dir',type=Path,default=ROOT/'docs/high-level/examples/images')
  a=p.parse_args();cores=json.loads(a.cores.read_text());cm=cores['metadata']
  assert all(cm[k] for k in ['measurement_complete','source_unchanged','binary_unchanged'])
  assert cm['process_niceness']==0 and cm['contended_diagnostics'] and len(cores['cases'])==36
@@ -132,7 +134,7 @@ def main():
   '|---:|---:|---:|']
  for w in workers:
   lines.append(f'| {w} | {scale(strategy,w):.3f}× | {statistics.mean(cr(n,w,p,strategy,"cpu_cores") for n in ns for p in ps):.2f} |')
- lines+=['','![gd-rs Arc performance relative to GD memcpy](measurements/arc-scaling-m6.png)', '',
+ lines+=['','![gd-rs Arc performance relative to GD memcpy](images/arc-scaling-m6.png)', '',
   'The graph uses the comparison at one and eight workers, where GD was also measured. Higher is faster, with GD memcpy at 1×. The table above shows the separate Arc-only sweep at all six worker counts.','',
   'CPU-core equivalents are process CPU seconds divided by wall seconds inside each primary batch, excluding source construction and verification. '
   'The process clock sums work across threads; it does not identify particular physical cores or core types. The M6 has two Super, four Performance and six Efficiency cores. '
@@ -148,11 +150,12 @@ def main():
   'The tables and graphs show GD row memcpy, standard C++ `std::vector`/`std::string`, gd-rs CompactString, gd-rs fixed buffers, and gd-rs Arc. These representations were measured together. '
   'One million source rows contain three numbers and two 16- or 128-byte strings; 10%, 50% or 90% of rows are selected into one ordered target. '
   'The first four variants deep-copy values. gd-rs Arc shares records and times handle release while the source remains alive. C++ and the other Rust variants use caller-thread cleanup.','',
+  'The [M6 memory-layout illustration](filter-copy-results.md) shows the five representations, inline versus heap strings, and copied versus shared payloads.','',
   '**Speed relative to GD** (`GD time / variant time`; higher is faster). Geometric means weight each case equally.','',
   '| Group | '+' | '.join(NAMES[i] for i in impls)+' |', '|---|'+'---:|'*len(impls)]
  for label,w,n in [('All 12 cases',None,None),('1 worker, 16 B',1,16),('1 worker, 128 B',1,128),('8 workers, 16 B',8,16),('8 workers, 128 B',8,128)]:
   lines.append('| '+label+' | '+' | '.join(f'{rel(i,w,n):.3f}×' for i in impls)+' |')
- lines+=['','![M6 performance relative to GD memcpy](measurements/filter-copy-arc-m6.png)','',
+ lines+=['','![M6 performance relative to GD memcpy](images/filter-copy-arc-m6.png)','',
   '| Text bytes | Workers | Selected | '+' | '.join(NAMES[i]+' ms' for i in impls)+' |',
   '|---:|---:|---:|'+'---:|'*len(impls)]
  for n in ns:
@@ -180,8 +183,8 @@ def main():
   '- Every timed process verifies the complete ordered result outside its timing. Reference counts return to one after Arc target cleanup. Source and executable fingerprints are retained and remained unchanged.',
   '- Separate AddressSanitizer tests passed for Arc filtering, cleanup and process-clock FFI; no sanitizer timings enter these results. Leak detection was disabled because Apple ASan does not support it.',
   '- Library tests cover ordering, duplicate handles, copy-on-write, final-owner destruction, empty input and predicate panics. Full repository CI and Rust 1.86 checks passed.', '',
-  '[Core raw data](measurements/arc-scaling-m6.json), [GD comparison](measurements/filter-copy-arc-m6.json), '
-  '[confirmations](measurements/filter-copy-arc-m6-confirmations.json), [additional 90%-selection repeat](measurements/filter-copy-arc-m6-regression.json).','',
+  '[Core raw data](../measurements/arc-scaling-m6.json), [GD comparison](../measurements/filter-copy-arc-m6.json), '
+  '[confirmations](../measurements/filter-copy-arc-m6-confirmations.json), [additional 90%-selection repeat](../measurements/filter-copy-arc-m6-regression.json).','',
   '```sh',
   'python3 benches/filter_copy/arc_scaling.py --strategies chunks-par-drop \\',
   '  --workers 1 2 4 6 8 12 --rounds 4 --samples 7 --sample-ms 50 --verify-full --allow-contended',
