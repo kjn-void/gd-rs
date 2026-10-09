@@ -2,7 +2,7 @@
 
 Sources: [Rust fixed-array SoA](source/benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](source/benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](source/benches/filter_copy/arrays.py).
 
-This is a separate, freshly paired experiment. The existing five-variant, three-host results are unchanged.
+This is a paired experiment.
 
 One million source rows contain three `u64` columns and two text columns, each exactly 16 or 128 ASCII bytes. Filtering `selector < percentage` selects 10%, 50%, or 90% of the rows. Every match deep-copies all five fields into one independently owned, ordered destination with the same schema.
 

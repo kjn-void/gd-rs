@@ -2,8 +2,8 @@
 
 These raw primary and confirmation measurements predate SharedRecordTable and
 contain only GD memcpy, C++ STL strings, gd-rs CompactString and gd-rs fixed buffers.
-They are retained for provenance, and are excluded from every current graph,
-table and geometric mean in [the historical five-variant report](../../../filter-copy-three-host-results.md).
+They are retained for provenance and are excluded from the current graphs,
+tables and geometric means.
 
 Each JSON records its source fingerprints, host, toolchain, timing contract and
 complete samples. The owned-copy paths are described by the current

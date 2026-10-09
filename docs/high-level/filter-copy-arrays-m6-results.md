@@ -2,7 +2,11 @@
 
 Sources: [Rust fixed-array SoA](../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../benches/filter_copy/arrays.py).
 
-This paired experiment compares independent deep copies in AoS and SoA layouts. The [current Arc comparison](filter-copy-results.md) and [earlier three-host measurements](filter-copy-three-host-results.md) are separate cohorts.
+This paired experiment compares independent deep copies in AoS and SoA layouts. The [Arc comparison](filter-copy-results.md) is measured separately.
+
+![GD row layout and gd-rs with constant size fields: source, filter, copy and destination](measurements/gd-rust-memory-layout.png)
+
+[Full-size PNG](measurements/gd-rust-memory-layout.png) · [Editable SVG](measurements/gd-rust-memory-layout.svg) · [Illustration source](../../benches/filter_copy/memory_layout.py)
 
 One million source rows contain three `u64` columns and two text columns, each exactly 16 or 128 ASCII bytes. Filtering `selector < percentage` selects 10%, 50%, or 90% of the rows. Every match deep-copies all five fields into one independently owned, ordered destination with the same schema.
 

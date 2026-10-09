@@ -1,3 +1,0 @@
-libstdc++ 20260321
-length=16 sizeof_string=32 capacity=16 payload_inside_object=0
-length=128 sizeof_string=32 capacity=128 payload_inside_object=0

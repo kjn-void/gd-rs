@@ -103,7 +103,9 @@ def main():
     groups = [(length, workers) for workers in [1, 8] for length in [16, 128]]
     overall = geomean(ratio(index, length, workers, p) for length, workers in groups for p in [10, 50, 90])
     lines = ['# GD row memcpy versus fixed-array SoA with text metadata on the M6', '', SOURCES, '',
-             'This paired experiment compares independent deep copies in AoS and SoA layouts. The [current Arc comparison](filter-copy-results.md) and [earlier three-host measurements](filter-copy-three-host-results.md) are separate cohorts.', '',
+             'This paired experiment compares independent deep copies in AoS and SoA layouts. The [Arc comparison](filter-copy-results.md) is measured separately.', '',
+             '![GD row layout and gd-rs with constant size fields: source, filter, copy and destination](measurements/gd-rust-memory-layout.png)', '',
+             '[Full-size PNG](measurements/gd-rust-memory-layout.png) · [Editable SVG](measurements/gd-rust-memory-layout.svg) · [Illustration source](../../benches/filter_copy/memory_layout.py)', '',
              f'One million source rows contain three `u64` columns and two text columns, each exactly 16 or 128 ASCII bytes. '
              'Filtering `selector < percentage` selects 10%, 50%, or 90% of the rows. Every match deep-copies all five '
              'fields into one independently owned, ordered destination with the same schema.', '',

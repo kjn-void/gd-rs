@@ -89,7 +89,7 @@ def main():
     groups = [(length, workers) for workers in [1, 8] for length in [16, 128]]
     overall = geomean(ratio(index, length, workers, p) for length, workers in groups for p in [10, 50, 90])
     lines = ['# GD row memcpy versus fixed-array SoA on the M6', '', SOURCES, '',
-             'This is a separate, freshly paired experiment. The existing five-variant, three-host results are unchanged.', '',
+             'This is a paired experiment.', '',
              f'One million source rows contain three `u64` columns and two text columns, each exactly 16 or 128 ASCII bytes. '
              'Filtering `selector < percentage` selects 10%, 50%, or 90% of the rows. Every match deep-copies all five '
              'fields into one independently owned, ordered destination with the same schema.', '',
