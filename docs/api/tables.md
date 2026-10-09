@@ -51,6 +51,35 @@ evaluation and Arc cloning into local buffers, then concatenates the buffers int
 one destination handle vector. Serial filtering reserves the source row count as an upper bound and
 copies matched handles directly. No record strings are copied during either path.
 
+`par_filter_chunked(chunk_rows, predicate)` offers an explicit grain size. Each
+chunk reserves enough local handle slots for its source rows, then all matched
+handles are concatenated in source order into one target. This can reduce local
+buffer growth for cheap predicates. Smaller chunks allow more work stealing;
+larger chunks use fewer temporary allocations. A zero chunk size panics.
+
+`par_drop()` consumes a table and releases its handles in parallel, joining all
+work before returning. It also destroys payloads when those handles are the final
+owners. Ordinary `drop` remains sequential. Tables below 4,096 rows use the caller
+to avoid parallel dispatch overhead. Both methods use the current Rayon pool:
+
+```rust
+# #[cfg(feature = "rayon")] {
+use gd::SharedRecordTable;
+let source = SharedRecordTable::from(
+    (0..10_000).map(std::sync::Arc::new).collect::<Vec<_>>()
+);
+let pool = rayon::ThreadPoolBuilder::new().num_threads(8).build().unwrap();
+let target = pool.install(|| source.par_filter_chunked(1_024, |row| row % 2 == 0));
+assert_eq!(target.row_count(), 5_000);
+pool.install(|| target.par_drop());
+assert_eq!(source.row_count(), 10_000);
+# }
+```
+
+Choose the pool and grain for the workload. Parallel cleanup is especially useful
+when target destruction would otherwise serialize many atomic decrements; it is
+not automatically beneficial for small targets or heavily contended shared handles.
+
 Arc also permits handles and tables to cross threads when `S: Send + Sync`.
 Replacing Arc with Rc would prevent directly sharing the handle column with Rayon
 or returning worker-local handle buffers. An Rc design can instead lend `&S`

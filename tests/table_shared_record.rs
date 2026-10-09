@@ -109,3 +109,67 @@ fn parallel_filter_and_gather_preserve_order_and_shared_ownership() {
         0
     );
 }
+
+#[cfg(feature = "rayon")]
+#[test]
+fn chunked_filter_and_parallel_drop_preserve_lifetimes() {
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(8)
+        .build()
+        .unwrap();
+    for chunk in [1, 7, 4096, 20_000] {
+        let mut source = SharedRecordTable::new();
+        for id in 0..10_001 {
+            source.push(Record {
+                id,
+                text: format!("row {id}"),
+            });
+        }
+        let target = pool.install(|| source.par_filter_chunked(chunk, |r| r.id % 3 == 0));
+        assert_eq!(
+            target.as_slice().iter().map(|r| r.id).collect::<Vec<_>>(),
+            (0..10_001).step_by(3).collect::<Vec<_>>()
+        );
+        for record in target.as_slice() {
+            assert!(Arc::ptr_eq(record, &source.as_slice()[record.id]));
+            assert_eq!(Arc::strong_count(record), 2);
+        }
+        pool.install(|| target.par_drop());
+        assert!(source.as_slice().iter().all(|r| Arc::strong_count(r) == 1));
+        let target = pool.install(|| source.par_filter_chunked(chunk, |_| true));
+        let weak: Vec<_> = source.as_slice().iter().map(Arc::downgrade).collect();
+        drop(source);
+        assert_eq!(target.get(10_000).unwrap().text, "row 10000");
+        pool.install(|| target.par_drop());
+        assert!(weak.iter().all(|r| r.upgrade().is_none()));
+    }
+    pool.install(|| SharedRecordTable::<Record>::new().par_drop());
+    let record = Arc::new(Record {
+        id: 7,
+        text: "shared".into(),
+    });
+    let table = SharedRecordTable::from(vec![Arc::clone(&record); 10_001]);
+    pool.install(|| table.par_drop());
+    assert_eq!(Arc::strong_count(&record), 1);
+}
+
+#[cfg(feature = "rayon")]
+#[test]
+fn chunked_predicate_panic_releases_partial_results() {
+    let source = fixture();
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        source.par_filter_chunked(2, |r| {
+            assert_ne!(r.id, 5);
+            true
+        })
+    }));
+    assert!(result.is_err());
+    assert!(source.as_slice().iter().all(|r| Arc::strong_count(r) == 1));
+}
+
+#[cfg(feature = "rayon")]
+#[test]
+#[should_panic(expected = "parallel filter chunk size must be non-zero")]
+fn chunked_filter_rejects_zero_grain() {
+    let _ = fixture().par_filter_chunked(0, |_| true);
+}

@@ -154,6 +154,8 @@ def main():
     parser.add_argument('--confirmations', type=Path, nargs=3)
     parser.add_argument('--string-layout', type=Path, nargs=3)
     parser.add_argument('--sharing-strategies', type=Path)
+    parser.add_argument('--arc-comparison', type=Path, default=ROOT / 'docs/high-level/measurements/filter-copy-arc-m6.json',
+                        help='publish the latest M6 comparison and retain older results in a separate historical report')
     parser.add_argument('--source-snapshot', help='full Git commit containing the measured sources')
     parser.add_argument('--output', type=Path, default=ROOT / 'docs/high-level/filter-copy-results.md')
     args = parser.parse_args()
@@ -325,7 +327,24 @@ def main():
               'These measurements establish behavior for this schema, predicate, ownership requirement and scheduling. They do not establish that AoS or SoA is universally faster. High round-to-round variation should be interpreted with the retained samples and confirmation measurements.', '']
     if args.string_layout:
         lines += ['Untimed probe output: ' + ', '.join(f'[{label}](measurements/filter-copy-{slug}-string-layout.txt)' for slug, label, _, _ in hosts) + '.', '']
-    args.output.write_text('\n'.join(lines))
+    lines += ['', 'The separate [M6 fixed-array SoA experiment](filter-copy-arrays-m6-results.md)',
+              'compares the unchanged [GD memcpy path](../../benches/cpp-reference/filter_copy.cpp)',
+              'with a [typed Rust five-column table](../../benches/filter_copy/fixed_arrays.rs),',
+              'deep-copying two fixed-array text columns (each cell includes a 32-bit tag/valid-length',
+              'word) and three numeric columns. It measures both',
+              'variants afresh with the same two-phase row-range scheduling. That prototype is',
+              'not the existing dynamic gd-rs Table, and its paired cohort is excluded from all',
+              'five-variant figures and geometric means above.', '']
+    if args.arc_comparison.exists():
+        from arc_scaling_summarize import check_common, update_overview
+        arc_data, arc_lookup = check_common(args.arc_comparison)
+        historical = args.output.with_name('filter-copy-three-host-results.md')
+        historical.write_text('# Earlier whole-record comparison on three hosts\n\n'
+                              'Historical measurements from 2026-10-08. See the [current comparison](filter-copy-results.md) '
+                              'for the latest M6 Arc implementation.\n\n' + '\n'.join(lines[2:]))
+        update_overview(args.output, arc_data, arc_lookup)
+    else:
+        args.output.write_text('\n'.join(lines))
     print(f'Wrote {args.output}')
 
 

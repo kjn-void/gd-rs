@@ -1,0 +1,26 @@
+{
+  "host": "M6.local",
+  "gd_revision": "cb11cff90d05260a88d59a30c9da421cd4e19c34",
+  "cpp_source_sha256": "9680e568d12b63148cb3025bfb94dd4944d1cf7aba46025949dafacaf1d7b17d",
+  "gd_source_sha256": "0ce4319005907c5142010c9c38dc0b0a4af6a24acaa0ce23641cf0574473db45",
+  "source": "#define main filter_copy_cli_main\n#include \"../../benches/cpp-reference/filter_copy.cpp\"\n#undef main\nint main() { for (unsigned n : {16U, 128U}) { const auto t = Fixture(1,n); std::cout << n << \" bytes per string: GD row \" << t.size_row() << \" bytes\\n\"; } }\n",
+  "compile_command": [
+    "c++",
+    "-O3",
+    "-DNDEBUG",
+    "-march=native",
+    "-std=c++20",
+    "-flto=thin",
+    "-DGD_DATABASE_SQLITE_USE",
+    "-Iexternal/gd/source",
+    "-Itarget/filter-copy-arrays/cpp/gd-compat-include",
+    "-Itarget/filter-copy-arrays/cpp/_deps/sqlite_amalgamation-src",
+    "target/filter-copy-arrays-meta/inline-layout.cpp",
+    "target/filter-copy-arrays/cpp/libgd_core.a",
+    "target/filter-copy-arrays/cpp/libgd_sqlite3.a",
+    "-o",
+    "target/filter-copy-arrays-meta/inline-layout"
+  ],
+  "output": "16 bytes per string: GD row 72 bytes\n128 bytes per string: GD row 296 bytes\n",
+  "scope": "Untimed layout probe on the M6 after all timed runs; reuses the exact GD Fixture function."
+}

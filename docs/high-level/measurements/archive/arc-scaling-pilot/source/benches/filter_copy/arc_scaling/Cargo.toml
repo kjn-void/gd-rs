@@ -1,0 +1,21 @@
+[package]
+name = "gd-arc-scaling"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.86"
+publish = false
+
+[[bin]]
+name = "arc-scaling"
+path = "../arc_scaling.rs"
+
+[dependencies]
+gd = { package = "gd-rs", path = "../../..", default-features = false, features = ["rayon"] }
+compact_str = "0.9.1"
+rayon = "1.12.0"
+serde_json = "1.0.150"
+libc = "0.2.186"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"

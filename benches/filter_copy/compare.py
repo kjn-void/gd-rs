@@ -20,7 +20,7 @@ IMPLEMENTATIONS = ['gd', 'std', 'compact', 'fixed', 'arc']
 
 
 def ownership_passes(result, implementation):
-    if implementation == 'arc':
+    if implementation.startswith('arc'):
         return not result['independent_target'] and result.get('shared_records') and result.get('source_drop_checked')
     return result['independent_target']
 
@@ -62,7 +62,7 @@ def oracle(rows, length, percentages):
 def summaries(report):
     output = []
     for key in sorted({(r['text_bytes'], r['workers'], r['selectivity']) for r in report['measurements']}):
-        for implementation in IMPLEMENTATIONS:
+        for implementation in report['metadata'].get('implementations', IMPLEMENTATIONS):
             records = [r for r in report['measurements'] if
                        (r['text_bytes'], r['workers'], r['selectivity'], r['implementation']) == (*key, implementation)]
             medians = [statistics.median(r['samples_ns']) for r in records]
@@ -81,7 +81,9 @@ def main():
     parser.add_argument('--workers', type=int, nargs='+', default=[1, 8])
     parser.add_argument('--selectivity', type=int, nargs='+', default=[10, 50, 90])
     parser.add_argument('--samples', type=int, default=7)
-    parser.add_argument('--rounds', type=int, default=5)
+    parser.add_argument('--rounds', type=int)
+    parser.add_argument('--arc-parallel', choices=['arc_chunks', 'arc_chunks4'])
+    parser.add_argument('--case', type=int, nargs=3, action='append', metavar=('BYTES', 'WORKERS', 'PERCENT'))
     parser.add_argument('--sample-ms', type=int, default=50)
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--build-only', action='store_true')
@@ -90,11 +92,14 @@ def main():
     parser.add_argument('--oracle', type=Path, default=OUTPUT / 'oracle.json')
     parser.add_argument('--output', type=Path, default=OUTPUT / 'results.json')
     args = parser.parse_args()
+    implementations = [*IMPLEMENTATIONS] + ([args.arc_parallel] if args.arc_parallel else [])
+    if args.rounds is None:
+        args.rounds = len(implementations)
     if not 0 <= args.rows <= 100_000_000 or min(args.text_bytes) < 16 or max(args.text_bytes) > 4096 \
             or min(args.workers) < 1 or max(args.workers) > (os.cpu_count() or 1) \
             or min(args.selectivity) < 0 or max(args.selectivity) > 100 \
-            or args.rounds < 5 or args.rounds % 5 or args.samples < 1 or args.sample_ms < 1:
-        parser.error('invalid configuration; rounds must be a positive multiple of five')
+            or args.rounds < len(implementations) or args.rounds % len(implementations) or args.samples < 1 or args.sample_ms < 1:
+        parser.error('invalid configuration; rounds must be a positive multiple of the number of implementations')
     if args.prepare_oracle:
         expected = {'rows': args.rows, 'lengths': {str(n): oracle(args.rows, n, args.selectivity) for n in args.text_bytes}}
         args.oracle.parent.mkdir(parents=True, exist_ok=True)
@@ -113,6 +118,8 @@ def main():
                 'compact': ROOT / 'target/release/examples/filter_copy',
                 'fixed': ROOT / 'target/release/examples/filter_copy',
                 'arc': ROOT / 'target/release/examples/filter_copy'}
+    if args.arc_parallel:
+        binaries[args.arc_parallel] = ROOT / 'target/release/examples/filter_copy'
     source_paths = sorted([*ROOT.glob('src/**/*.rs'), ROOT / 'benches/filter_copy/driver.rs',
                            ROOT / 'benches/filter_copy/compare.py', ROOT / 'benches/text_workflow/compare.py',
                            ROOT / 'benches/cpp-reference/filter_copy.cpp', ROOT / 'Cargo.toml', ROOT / 'Cargo.lock',
@@ -131,10 +138,11 @@ def main():
         'oracle_sha256': hashlib.sha256(args.oracle.read_bytes()).hexdigest(),
         'rows': args.rows, 'text_bytes': args.text_bytes, 'workers': args.workers, 'selectivity': args.selectivity,
         'samples': args.samples, 'rounds': args.rounds, 'sample_ms': args.sample_ms,
+        'implementations': implementations, 'arc_parallel': args.arc_parallel, 'selected_cases': args.case,
         'rust_flags': 'release -O3; codegen-units=1; lto=thin; target-cpu=native; no-default-features; rayon; locked',
         'cpp_flags': 'Release -O3 -DNDEBUG -march=native; IPO ON; sanitizers OFF',
         'affinity': 'OS scheduling, no affinity; persistent exact-size pools; one benchmark process at a time',
-        'parallel_strategy': 'C++: two joined dispatches, filter static row ranges then copy disjoint destination ranges; Rust native: filter ranges then column-parallel gather over five columns; Arc: SharedRecordTable::par_filter fuses row filtering and Arc cloning in Rayon local buffers and concatenates them in source order into one destination vector',
+        'parallel_strategy': 'C++: two joined dispatches, filter static row ranges then copy disjoint destination ranges; Rust native: filter ranges then column-parallel gather over five columns; Arc: SharedRecordTable::par_filter fuses row filtering and Arc cloning in Rayon local buffers and concatenates them in source order into one destination vector; optional arc_chunks/arc_chunks4 use par_filter_chunked with one/four chunks per worker and joined par_drop cleanup',
         'schema': 'five fields: id u64, selector u64, amount u64, name string, message string; both strings exactly text_bytes ASCII bytes; Arc stores the fields in Record structs in one Arc<Record> column',
         'ownership': {'gd': 'independent values', 'std': 'independent values', 'compact': 'independent values',
                       'fixed': 'independent values', 'arc': 'shared immutable Record payloads; target owns Arc handles; edits use copy-on-write'},
@@ -142,6 +150,8 @@ def main():
         'timing_contract': 'source construction, pool startup, oracle, full digest outside samples; fresh target allocation, filtering, temporary indices where used, prefix/gather, synchronization, copying and destruction inside; one ordered target; no worker output tables; Arc shares records and times reference increments/decrements without copying string payloads or freeing records because source remains alive',
         'contended_diagnostics': args.allow_contended, 'invocation': sys.argv, 'measurement_complete': False,
     }, 'load_samples': [], 'verification': [], 'edge_verification': [], 'measurements': []}
+    if args.arc_parallel:
+        report['metadata']['ownership'][args.arc_parallel] = 'shared immutable records; same Arc ownership as arc; chunked filtering and joined parallel handle release'
     if sys.platform == 'darwin':
         levels = int(helper.text(['sysctl', '-n', 'hw.nperflevels']))
         keys = ['hw.physicalcpu', 'hw.logicalcpu', 'hw.nperflevels']
@@ -162,7 +172,7 @@ def main():
                 edge = oracle(rows, length, [0, 10, 50, 90, 100])
                 for workers in args.workers:
                     for percent in [0, 10, 50, 90, 100]:
-                        for implementation in IMPLEMENTATIONS:
+                        for implementation in implementations:
                             result = helper.invoke(binaries[implementation], implementation, rows, length, workers, percent, 1, 1, True)
                             if any(result[k] != v for k, v in edge[str(percent)].items()) or not ownership_passes(result, implementation):
                                 raise RuntimeError('edge/ownership verification failed')
@@ -172,8 +182,10 @@ def main():
             print(f'Checking {args.rows:,} records; two {length}-byte strings', flush=True)
             for workers in args.workers:
                 for percent in args.selectivity:
+                    if args.case and [length, workers, percent] not in args.case:
+                        continue
                     oracle_result = expected['lengths'][str(length)][str(percent)]
-                    for implementation in IMPLEMENTATIONS:
+                    for implementation in implementations:
                         result = helper.invoke(binaries[implementation], implementation, args.rows, length, workers, percent, 1, 1, True)
                         if any(result[k] != v for k, v in oracle_result.items()) or not ownership_passes(result, implementation):
                             raise RuntimeError('full/ownership verification failed')
@@ -181,9 +193,11 @@ def main():
                             'text_bytes': length, 'workers': workers, 'selectivity': percent, **result})
             for round_index in range(args.rounds):
                 helper.load_guard(report, args.allow_contended)
-                order = IMPLEMENTATIONS[round_index % 5:] + IMPLEMENTATIONS[:round_index % 5]
+                order = implementations[round_index % len(implementations):] + implementations[:round_index % len(implementations)]
                 for workers in args.workers:
                     for percent in args.selectivity:
+                        if args.case and [length, workers, percent] not in args.case:
+                            continue
                         for implementation in order:
                             result = helper.invoke(binaries[implementation], implementation, args.rows, length, workers, percent, args.samples, args.sample_ms, False)
                             if any(result[k] != v for k, v in expected['lengths'][str(length)][str(percent)].items()):

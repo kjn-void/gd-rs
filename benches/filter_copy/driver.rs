@@ -173,6 +173,12 @@ fn run_shared(args: &[String]) {
     let percent: u64 = args[5].parse().unwrap();
     let samples: usize = args[6].parse().unwrap();
     let sample_ms: u64 = args[7].parse().unwrap();
+    let chunks_per_worker = match args[1].as_str() {
+        "arc" => 0,
+        "arc_chunks" => 1,
+        "arc_chunks4" => 4,
+        _ => panic!("invalid shared strategy"),
+    };
     assert!(
         rows <= 100_000_000
             && (16..=4096).contains(&length)
@@ -188,7 +194,15 @@ fn run_shared(args: &[String]) {
     let start = Instant::now();
     let source = shared_fixture(rows, length);
     let build_ns = start.elapsed().as_nanos();
-    let target = shared_filter(&source, percent, workers, &pool);
+    let filter = || {
+        if chunks_per_worker == 0 || workers == 1 {
+            shared_filter(black_box(&source), percent, workers, &pool)
+        } else {
+            let grain = rows.div_ceil(workers * chunks_per_worker).max(1);
+            pool.install(|| source.par_filter_chunked(grain, |r| r.selector < percent))
+        }
+    };
+    let target = filter();
     let verification = shared_digest(&target);
     if args[8] == "verify" {
         for (result, original) in target.as_slice().iter().zip(
@@ -211,7 +225,12 @@ fn run_shared(args: &[String]) {
     assert_eq!(args[8], "time");
     drop(target);
     let operation = || {
-        black_box(shared_filter(black_box(&source), percent, workers, &pool));
+        let target = black_box(filter());
+        if chunks_per_worker > 0 && workers > 1 {
+            pool.install(|| target.par_drop());
+        } else {
+            drop(target);
+        }
     };
     let mut iterations = 1u32;
     loop {
@@ -244,9 +263,9 @@ fn main() {
     assert_eq!(
         args.len(),
         9,
-        "compact|fixed|arc rows length workers percent samples sample_ms verify|time"
+        "compact|fixed|arc|arc_chunks|arc_chunks4 rows length workers percent samples sample_ms verify|time"
     );
-    if args[1] == "arc" {
+    if matches!(args[1].as_str(), "arc" | "arc_chunks" | "arc_chunks4") {
         run_shared(&args);
         return;
     }

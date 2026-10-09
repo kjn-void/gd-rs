@@ -165,4 +165,63 @@ impl<S: Send + Sync> SharedRecordTable<S> {
                 .collect::<Vec<_>>(),
         )
     }
+
+    /// Filters contiguous chunks into one table, preserving source order.
+    ///
+    /// Each chunk reserves its source length for matched handles, avoiding local
+    /// vector growth. The caller then concatenates the buffers without cloning
+    /// handles again. A smaller `chunk_rows` permits more work stealing; a larger
+    /// value reduces the number of temporary allocations. Measure the appropriate
+    /// grain for the predicate and pool. Pool control remains with the caller.
+    ///
+    /// # Panics
+    /// Panics if `chunk_rows` is zero.
+    #[must_use]
+    pub fn par_filter_chunked(
+        &self,
+        chunk_rows: usize,
+        predicate: impl Fn(&S) -> bool + Send + Sync,
+    ) -> Self {
+        use rayon::prelude::*;
+        assert!(
+            chunk_rows > 0,
+            "parallel filter chunk size must be non-zero"
+        );
+        let parts: Vec<Vec<_>> = self
+            .records
+            .par_chunks(chunk_rows)
+            .map(|part| {
+                let mut records = Vec::with_capacity(part.len());
+                for record in part {
+                    if predicate(record) {
+                        records.push(Arc::clone(record));
+                    }
+                }
+                records
+            })
+            .collect();
+        let mut records = Vec::with_capacity(parts.iter().map(Vec::len).sum());
+        for mut part in parts {
+            records.append(&mut part);
+        }
+        Self::from(records)
+    }
+
+    /// Consumes the table and releases its handles using the current Rayon pool.
+    ///
+    /// This includes record destruction when the table owns the final handles.
+    /// The call joins all work before returning. Ordinary `drop` remains
+    /// sequential; choose this explicitly when parallel cleanup is worthwhile.
+    /// Pools belong to the caller. Small tables are released on the caller.
+    pub fn par_drop(self) {
+        use rayon::prelude::*;
+        if self.records.len() < 4096 {
+            drop(self);
+        } else {
+            self.records
+                .into_par_iter()
+                .with_min_len(4096)
+                .for_each(drop);
+        }
+    }
 }

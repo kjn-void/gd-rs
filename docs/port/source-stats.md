@@ -17,17 +17,18 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 29 | 8,012 | 286 | 750 | 2.62 |
-| Rust product + tests (`src`, `tests`) | 43 | 12,063 | 441 | 1,043 | 2.37 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 64 | 16,067 | 592 | 1,539 | 2.60 |
+| Rust product (`src`) | 29 | 8,053 | 288 | 756 | 2.62 |
+| Rust product + tests (`src`, `tests`) | 43 | 12,165 | 446 | 1,062 | 2.38 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 66 | 16,881 | 624 | 1,654 | 2.65 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests + maintained benchmarks | 164 | 68,185 | 8,861 | 20,726 | 2.34 |
 
-The Rust totals are **8,012 SLOC in `src`** and **16,067 SLOC including `tests`
-and `benches`**. The separate test tree adds 4,051 SLOC and benchmarks add 4,004
+The Rust totals are **8,053 SLOC in `src`** and **16,881 SLOC including `tests`
+and `benches`**. The separate test tree adds 4,112 SLOC and benchmarks add 4,716
 SLOC, including the shared-record API, ownership tests, whole-record workflow and
-sharing strategy experiment.
+sharing strategy experiment, the typed fixed-array SoA experiment with per-cell tag/length metadata, and the
+Arc core-scaling harness and parallel-cleanup API.
 Inline unit tests inside `src` are included in every Rust scope. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark references add 3,598 SLOC, including the GD SIMD order-workflow adapter
 and the GD/std::string text-workflow cases and whole-record filter-copy benchmark and string layout probe in this worktree.

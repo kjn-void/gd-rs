@@ -1,0 +1,1517 @@
+//! Schema-driven typed column storage.
+
+mod append;
+mod compaction;
+mod composite;
+mod concurrent;
+pub mod debug;
+mod fixed_string;
+mod index;
+mod ordering;
+mod row_mut;
+mod schema;
+mod selection;
+mod selection_view;
+mod shared_record;
+mod storage;
+mod tombstones;
+mod views;
+
+pub use append::ColumnMapping;
+pub use compaction::RowCompaction;
+pub use composite::CompositeIndex;
+pub use concurrent::ConcurrentTableBuilder;
+pub use fixed_string::{FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut};
+pub use index::{ColumnIndex, IndexKeyRef};
+pub use ordering::{NullOrder, RowOrder, SortDirection};
+pub use row_mut::{RowMut, RowsMut};
+pub use schema::{ColumnConversionError, ColumnConverter, ColumnSpec, Schema, UnknownFields};
+pub use selection_view::{SelectedRow, TableSelection};
+pub use shared_record::SharedRecordTable;
+pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
+
+use compact_str::CompactString;
+use std::cmp::Ordering;
+use std::ops::Range;
+use std::sync::Arc;
+#[cfg(test)]
+use storage::ColumnData;
+use storage::{ColumnStorage, ExtrasStorage, RowExtras};
+use thiserror::Error;
+use tombstones::Tombstones;
+
+use crate::{Arguments, DataType, Value, ValueRef};
+
+/// A table schema, storage, or access error.
+#[derive(Clone, Debug, Error, PartialEq)]
+pub enum TableError {
+    /// Two columns claim the same name or alias.
+    #[error("duplicate column name or alias: {0}")]
+    DuplicateColumnName(CompactString),
+    /// A row contains a different number of values than the schema.
+    #[error("expected {expected} row values, found {actual}")]
+    RowWidth {
+        /// Required value count.
+        expected: usize,
+        /// Supplied value count.
+        actual: usize,
+    },
+    /// A cell value does not match its column type.
+    #[error("column {column} expects {expected}, found {actual}")]
+    TypeMismatch {
+        /// Positional column index.
+        column: usize,
+        /// Schema type.
+        expected: DataType,
+        /// Supplied type.
+        actual: DataType,
+    },
+    /// A schema column's explicit input converter rejected a value.
+    #[error("column {column} converter {converter} failed: {source}")]
+    ConversionFailed {
+        /// Positional column index.
+        column: usize,
+        /// Stable converter name from the schema.
+        converter: CompactString,
+        /// Converter-provided failure information.
+        source: ColumnConversionError,
+    },
+    /// A null value was supplied to a non-nullable column.
+    #[error("column {column} is not nullable")]
+    NullNotAllowed {
+        /// Positional column index.
+        column: usize,
+    },
+    /// A UTF-8 value exceeds a fixed-capacity string column.
+    #[error("column {column} string uses {actual} bytes, exceeding its {capacity}-byte slot")]
+    StringTooLong {
+        /// Positional column index.
+        column: usize,
+        /// Maximum UTF-8 byte length.
+        capacity: usize,
+        /// Supplied UTF-8 byte length.
+        actual: usize,
+    },
+    /// A row position is outside the table.
+    #[error("row {row} is out of bounds for {row_count} rows")]
+    RowOutOfBounds {
+        /// Requested row.
+        row: usize,
+        /// Current row count.
+        row_count: usize,
+    },
+    /// A requested row range is reversed or extends past the table.
+    #[error("row range {start}..{end} is out of bounds for {row_count} rows")]
+    RowRangeOutOfBounds {
+        /// Inclusive start position.
+        start: usize,
+        /// Exclusive end position.
+        end: usize,
+        /// Number of rows currently stored.
+        row_count: usize,
+    },
+    /// A column position is outside the schema.
+    #[error("column {column} is out of bounds for {column_count} columns")]
+    ColumnOutOfBounds {
+        /// Requested column.
+        column: usize,
+        /// Current column count.
+        column_count: usize,
+    },
+    /// No primary name or alias matches the query.
+    #[error("column not found: {0}")]
+    ColumnNotFound(CompactString),
+    /// A value supplied as an extra uses a declared column name or alias.
+    #[error("extra field conflicts with schema column or alias: {0}")]
+    ExtraFieldConflictsWithColumn(CompactString),
+    /// Hash indexes do not support this logical type.
+    #[error("columns of type {0} cannot be indexed")]
+    UnsupportedIndexType(DataType),
+    /// A composite index has no key columns.
+    #[error("a composite index must have at least one key column")]
+    EmptyIndexKey,
+    /// A destination column was mapped more than once.
+    #[error("destination column {column} was mapped more than once")]
+    DuplicateColumnMapping {
+        /// Repeated destination column position.
+        column: usize,
+    },
+    /// A destination's primary name and alias match different source columns.
+    #[error("destination column {column} has ambiguous source names")]
+    AmbiguousColumnMapping {
+        /// Destination column position.
+        column: usize,
+    },
+    /// Appending would overflow the physical row count.
+    #[error("appended row count exceeds usize::MAX")]
+    RowCountOverflow,
+    /// A concurrent builder and its destination table use different schemas.
+    #[error("concurrent builder schema does not match destination table schema")]
+    SchemaMismatch,
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    ///
+    /// The operation is rejected instead of panicking so callers can report or
+    /// recover from the failure.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
+    },
+}
+
+/// Error returned when selecting typed input and output columns together.
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+pub enum ColumnSelectionError {
+    /// A selected column position is outside the schema.
+    #[error("column {column} is out of bounds for {column_count} columns")]
+    ColumnOutOfBounds {
+        /// Requested column position.
+        column: usize,
+        /// Current schema width.
+        column_count: usize,
+    },
+    /// One column was selected as both an immutable input and mutable output.
+    #[error("column {column} cannot be both an input and an output")]
+    InputOutputOverlap {
+        /// Conflicting column position.
+        column: usize,
+    },
+    /// One mutable output was selected more than once.
+    #[error("output column {column} was selected more than once")]
+    DuplicateOutput {
+        /// Repeated output column position.
+        column: usize,
+    },
+    /// An internal consistency check failed, indicating a bug in `gd-rs`.
+    #[error("internal invariant violated: {detail}")]
+    InternalInvariant {
+        /// Short description of the invariant that failed.
+        detail: &'static str,
+    },
+}
+
+/// A schema-driven table whose fixed columns store their primitive types
+/// directly and whose optional unknown fields are owned by individual rows.
+///
+/// Required columns store contiguous `T` values directly. Nullable columns use
+/// `Option<T>` to represent null cells. Schemas that reject unknown fields do not
+/// allocate per-row extras storage. The immutable schema is shared through
+/// [`Arc`], so tables with the same layout do not duplicate schema metadata.
+///
+/// A row can additionally be *tombstoned*: logically deleted while its payload
+/// and physical position are retained. Tombstone metadata is allocated lazily on
+/// the first deletion and released when no tombstoned row remains. Use
+/// [`Table::live_rows`], [`Table::live_row_count`], and the index and formatting
+/// APIs to work with the live view, or the physical row APIs to inspect retained
+/// data. [`Table::compact`] physically removes tombstoned rows.
+#[derive(Clone, Debug)]
+pub struct Table {
+    schema: Arc<Schema>,
+    columns: Vec<ColumnStorage>,
+    extras: ExtrasStorage,
+    tombstones: Tombstones,
+    properties: Arguments,
+    row_count: usize,
+}
+
+impl Table {
+    /// Creates an empty table from an owned or shared schema.
+    #[must_use]
+    pub fn new(schema: impl Into<Arc<Schema>>) -> Self {
+        Self::with_capacity(schema, 0)
+    }
+
+    /// Creates an empty table with per-column capacity for `capacity` rows from
+    /// an owned or shared schema.
+    #[must_use]
+    pub fn with_capacity(schema: impl Into<Arc<Schema>>, capacity: usize) -> Self {
+        let schema = schema.into();
+        let columns = schema
+            .iter()
+            .map(|column| match column.fixed_string_capacity() {
+                Some(bytes) => ColumnStorage::FixedString(fixed_string::FixedStringData::new(
+                    bytes,
+                    column.is_nullable(),
+                    capacity,
+                )),
+                None => ColumnStorage::new(column.data_type(), column.is_nullable(), capacity),
+            })
+            .collect();
+        let extras = ExtrasStorage::with_capacity(schema.unknown_fields(), capacity);
+        Self {
+            schema,
+            columns,
+            extras,
+            tombstones: Tombstones::default(),
+            properties: Arguments::new(),
+            row_count: 0,
+        }
+    }
+
+    /// Returns the immutable schema.
+    #[must_use]
+    pub fn schema(&self) -> &Schema {
+        self.schema.as_ref()
+    }
+
+    /// Clones the shared schema handle.
+    ///
+    /// The schema metadata is not copied.
+    #[must_use]
+    pub fn schema_arc(&self) -> Arc<Schema> {
+        Arc::clone(&self.schema)
+    }
+
+    /// Returns the insertion-ordered table property collection.
+    ///
+    /// Properties describe the table as a whole and are independent of its row
+    /// and column storage. Property names are unique when modified through the
+    /// table API.
+    #[must_use]
+    pub const fn properties(&self) -> &Arguments {
+        &self.properties
+    }
+
+    /// Returns one table property by name.
+    #[must_use]
+    pub fn property(&self, name: &str) -> Option<ValueRef<'_>> {
+        self.properties
+            .get_named(name)
+            .map(|entry| entry.value_ref())
+    }
+
+    /// Returns whether the table has a property with this name.
+    #[must_use]
+    pub fn contains_property(&self, name: &str) -> bool {
+        self.properties.contains_name(name)
+    }
+
+    /// Inserts or replaces one table property.
+    ///
+    /// Returns the replaced value when the name already existed.
+    pub fn set_property(
+        &mut self,
+        name: impl Into<CompactString>,
+        value: impl Into<Value>,
+    ) -> Option<Value> {
+        let name = name.into();
+        let value = value.into();
+        let position = {
+            let mut properties = self.properties.iter();
+            properties.position(|entry| entry.name() == Some(name.as_str()))
+        };
+        if let Some(position) = position {
+            return self
+                .properties
+                .get_mut(position)
+                .map(|entry| std::mem::replace(entry.value_mut(), value));
+        }
+        self.properties.push_named(name, value);
+        None
+    }
+
+    /// Removes and returns one table property.
+    pub fn remove_property(&mut self, name: &str) -> Option<Value> {
+        self.properties
+            .remove_named(name)
+            .map(|entry| entry.into_parts().1)
+    }
+
+    /// Removes every table property while retaining allocated capacity.
+    pub fn clear_properties(&mut self) {
+        self.properties.clear();
+    }
+
+    /// Returns the number of rows.
+    #[must_use]
+    pub const fn row_count(&self) -> usize {
+        self.row_count
+    }
+
+    /// Returns the number of columns.
+    #[must_use]
+    pub fn column_count(&self) -> usize {
+        self.schema.len()
+    }
+
+    /// Returns whether the table has no physical rows.
+    ///
+    /// Tombstoned rows are retained physical rows, so a table whose rows are all
+    /// tombstoned is not empty. Use [`Table::live_row_count`] for the live count.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.row_count == 0
+    }
+
+    /// Marks one physical row as tombstoned without removing its data.
+    ///
+    /// A tombstoned row keeps its payload and physical position, and ordinary
+    /// cell access still works. It is excluded from [`Table::live_rows`],
+    /// [`ColumnIndex`] keys and null rows, [`RowOrder::live_rows`], and JSON/CSV
+    /// output. The flag vector is allocated on the first tombstone and dropped once
+    /// no tombstoned row remains; the first deletion after that initializes one
+    /// flag per physical row, and later flag changes are O(1).
+    ///
+    /// Returns `true` when the row changed from live to tombstoned and `false`
+    /// when it was already tombstoned.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for a row outside the table.
+    pub fn tombstone_row(&mut self, row: usize) -> Result<bool, TableError> {
+        self.validate_row_position(row)?;
+        Ok(self.tombstones.set(row, true, self.row_count))
+    }
+
+    /// Restores one tombstoned row to the live set without moving it.
+    ///
+    /// Returns `true` when the row changed from tombstoned to live and `false`
+    /// when it was already live.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for a row outside the table.
+    pub fn restore_row(&mut self, row: usize) -> Result<bool, TableError> {
+        self.validate_row_position(row)?;
+        Ok(self.tombstones.set(row, false, self.row_count))
+    }
+
+    /// Restores every tombstoned row and returns how many rows were restored.
+    pub fn restore_all_rows(&mut self) -> usize {
+        self.tombstones.clear()
+    }
+
+    /// Returns whether one physical row is tombstoned.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for a row outside the table.
+    pub fn is_tombstoned(&self, row: usize) -> Result<bool, TableError> {
+        self.validate_row_position(row)?;
+        Ok(self.row_is_tombstoned(row))
+    }
+
+    /// Returns the number of tombstoned rows.
+    #[must_use]
+    pub const fn tombstone_count(&self) -> usize {
+        self.tombstones.count()
+    }
+
+    /// Returns the number of rows that are not tombstoned.
+    #[must_use]
+    pub const fn live_row_count(&self) -> usize {
+        self.row_count - self.tombstones.count()
+    }
+
+    /// Iterates over live rows in physical order.
+    ///
+    /// Tombstoned rows are skipped without moving or copying any payload.
+    pub fn live_rows(&self) -> impl Iterator<Item = Row<'_>> + '_ {
+        (0..self.row_count)
+            .filter(|&row| !self.row_is_tombstoned(row))
+            .map(|row| Row { table: self, row })
+    }
+
+    /// Iterates over tombstoned physical row positions in ascending order.
+    pub fn tombstoned_rows(&self) -> impl Iterator<Item = usize> + '_ {
+        self.tombstones.iter_tombstoned()
+    }
+
+    /// Physically removes every tombstoned row and returns the position mapping.
+    ///
+    /// Surviving rows keep their relative order and shift down to close the gaps,
+    /// so later positions change; use [`RowCompaction::new_position`] to translate
+    /// positions recorded before compaction. Removed rows cannot be restored
+    /// afterwards. Column capacity is retained, and table properties are
+    /// unchanged. Indexes and row orders built earlier cannot exist across this
+    /// call because they borrow the table; rebuild them afterwards.
+    ///
+    /// Without tombstones this returns an empty mapping without touching column
+    /// storage. Otherwise it is O(rows × columns) and moves each surviving value
+    /// at most once.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
+    ///
+    /// let schema = Schema::new([ColumnSpec::new("id", DataType::U64)]).unwrap();
+    /// let mut table = Table::new(schema);
+    /// for id in 0_u64..5 {
+    ///     table.push_row([Value::U64(id)]).unwrap();
+    /// }
+    /// table.tombstone_row(1).unwrap();
+    /// table.tombstone_row(3).unwrap();
+    ///
+    /// let compaction = table.compact();
+    /// assert_eq!(compaction.removed_rows(), &[1, 3]);
+    /// assert_eq!(compaction.new_position(1), None);
+    /// assert_eq!(compaction.new_position(4), Some(2));
+    /// assert_eq!(table.row_count(), 3);
+    /// assert_eq!(table.cell(2, 0), Ok(ValueRef::U64(4)));
+    /// ```
+    pub fn compact(&mut self) -> RowCompaction {
+        let previous_row_count = self.row_count;
+        let removed = std::mem::take(&mut self.tombstones);
+        let Some(flags) = removed.flags() else {
+            return RowCompaction::new(Vec::new(), previous_row_count);
+        };
+        let removed_count = removed.count();
+        for column in &mut self.columns {
+            column.retain_live(flags, removed_count);
+        }
+        self.extras.retain_live(flags);
+        self.row_count -= removed_count;
+        debug_assert!(
+            self.columns
+                .iter()
+                .all(|column| column.len() == self.row_count)
+        );
+        debug_assert!(self.extras.len_matches(self.row_count));
+        RowCompaction::new(removed.iter_tombstoned().collect(), previous_row_count)
+    }
+
+    pub(crate) fn row_is_tombstoned(&self, row: usize) -> bool {
+        self.tombstones.is_tombstoned(row)
+    }
+
+    /// Copies one contiguous range into a new table with the same shared schema.
+    ///
+    /// Each column copies one contiguous storage slice. Required fixed-width
+    /// columns therefore use one bulk allocation and copy per column rather than
+    /// materializing dynamic row values. Tombstone flags travel with the copied
+    /// rows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowRangeOutOfBounds`] when the range is reversed or
+    /// its end is greater than [`Table::row_count`].
+    pub fn copy_range(&self, rows: Range<usize>) -> Result<Self, TableError> {
+        if rows.start > rows.end || rows.end > self.row_count {
+            return Err(TableError::RowRangeOutOfBounds {
+                start: rows.start,
+                end: rows.end,
+                row_count: self.row_count,
+            });
+        }
+        let row_count = rows.len();
+        Ok(self.copy_with(
+            row_count,
+            self.tombstones.copy_range(rows.clone()),
+            |column| column.copy_range(rows.clone()),
+            |extras| extras.copy_range(rows.clone()),
+        ))
+    }
+
+    /// Copies selected source rows into consecutive rows of a new table.
+    ///
+    /// Selection order and duplicates are preserved. Storage is gathered one
+    /// column at a time, and the immutable schema is shared with the source.
+    /// Tombstone flags travel with the selected rows in selection order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for the first invalid source row.
+    pub fn copy_rows(&self, rows: &[usize]) -> Result<Self, TableError> {
+        if let Some(&row) = rows.iter().find(|&&row| row >= self.row_count) {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            });
+        }
+        Ok(self.copy_with(
+            rows.len(),
+            self.tombstones.copy_rows(rows),
+            |column| column.copy_rows(rows),
+            |extras| extras.copy_rows(rows),
+        ))
+    }
+
+    /// Copies one contiguous range in parallel into a new table.
+    ///
+    /// Each column is submitted as an independent Rayon task. The current Rayon
+    /// pool determines how many tasks can execute concurrently. The immutable
+    /// schema is shared with the source. Row-local extras, when enabled by the
+    /// schema, are copied after the fixed columns.
+    ///
+    /// For small tables or narrow schemas, [`Table::copy_range`] can be faster
+    /// because it avoids parallel scheduling overhead.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowRangeOutOfBounds`] when the range is reversed or
+    /// its end is greater than [`Table::row_count`].
+    #[cfg(feature = "rayon")]
+    pub fn par_copy_range(&self, rows: Range<usize>) -> Result<Self, TableError> {
+        use rayon::prelude::*;
+
+        if rows.start > rows.end || rows.end > self.row_count {
+            return Err(TableError::RowRangeOutOfBounds {
+                start: rows.start,
+                end: rows.end,
+                row_count: self.row_count,
+            });
+        }
+        Ok(Self {
+            schema: Arc::clone(&self.schema),
+            columns: self
+                .columns
+                .par_iter()
+                .map(|column| column.copy_range(rows.clone()))
+                .collect(),
+            extras: self.extras.copy_range(rows.clone()),
+            tombstones: self.tombstones.copy_range(rows.clone()),
+            properties: self.properties.clone(),
+            row_count: rows.len(),
+        })
+    }
+
+    /// Copies selected source rows in parallel into consecutive destination rows.
+    ///
+    /// Each column is submitted as an independent Rayon task. The current Rayon
+    /// pool determines how many tasks can execute concurrently. Selection order
+    /// and duplicates are preserved, and the immutable schema is shared with the
+    /// source. Row-local extras, when enabled by the schema, are copied after the
+    /// fixed columns.
+    ///
+    /// For small tables or narrow schemas, [`Table::copy_rows`] can be faster
+    /// because it avoids parallel scheduling overhead.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowOutOfBounds`] for the first invalid source row.
+    #[cfg(feature = "rayon")]
+    pub fn par_copy_rows(&self, rows: &[usize]) -> Result<Self, TableError> {
+        use rayon::prelude::*;
+
+        if let Some(&row) = rows.iter().find(|&&row| row >= self.row_count) {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            });
+        }
+        Ok(Self {
+            schema: Arc::clone(&self.schema),
+            columns: self
+                .columns
+                .par_iter()
+                .map(|column| column.copy_rows(rows))
+                .collect(),
+            extras: self.extras.copy_rows(rows),
+            tombstones: self.tombstones.copy_rows(rows),
+            properties: self.properties.clone(),
+            row_count: rows.len(),
+        })
+    }
+
+    fn copy_with(
+        &self,
+        row_count: usize,
+        tombstones: Tombstones,
+        mut copy_column: impl FnMut(&ColumnStorage) -> ColumnStorage,
+        copy_extras: impl FnOnce(&ExtrasStorage) -> ExtrasStorage,
+    ) -> Self {
+        Self {
+            schema: Arc::clone(&self.schema),
+            columns: self.columns.iter().map(&mut copy_column).collect(),
+            extras: copy_extras(&self.extras),
+            tombstones,
+            properties: self.properties.clone(),
+            row_count,
+        }
+    }
+
+    /// Appends one complete row after converting and validating every value.
+    ///
+    /// The operation is atomic with respect to conversion and validation: no
+    /// column changes if any supplied value is invalid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowWidth`], [`TableError::ConversionFailed`],
+    /// [`TableError::TypeMismatch`], or [`TableError::NullNotAllowed`] when the
+    /// row does not match the schema.
+    pub fn push_row<const N: usize>(
+        &mut self,
+        mut values: [Value; N],
+    ) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
+        self.push_validated_row(values)
+    }
+
+    /// Appends one complete fixed row together with row-local extra fields.
+    ///
+    /// Extra names must not match a declared column or alias. Repeated extra
+    /// names replace the earlier value, matching [`Table::set_named`]. The
+    /// complete operation is validated before the table changes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the ordinary row-validation errors, [`TableError::ColumnNotFound`]
+    /// when the schema rejects unknown fields, or
+    /// [`TableError::ExtraFieldConflictsWithColumn`] for a declared name.
+    pub fn push_row_with_extras<const N: usize, I, K, V>(
+        &mut self,
+        mut values: [Value; N],
+        extras: I,
+    ) -> Result<usize, TableError>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<CompactString>,
+        V: Into<Value>,
+    {
+        prepare_row(self.schema(), &mut values)?;
+        let extras = collect_extras(self.schema(), extras)?;
+        let row = self.push_validated_row(values)?;
+        if !extras.is_empty() {
+            self.extras.set(row, extras)?;
+        }
+        Ok(row)
+    }
+
+    /// Appends one runtime-width owned row after validating every value.
+    ///
+    /// Use [`Table::push_row`] when the row width is known at the call site.
+    /// This method consumes an existing vector and does not allocate a second
+    /// staging buffer.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
+    /// [`TableError::NullNotAllowed`] when the row does not match the schema.
+    pub fn push_row_vec(&mut self, mut values: Vec<Value>) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
+        self.push_validated_row(values)
+    }
+
+    /// Appends one runtime-width row with owned row-local extras.
+    ///
+    /// Validation matches [`Table::push_row_with_extras`]; no column changes when
+    /// any value or extra is rejected.
+    pub(crate) fn push_row_vec_with_extras(
+        &mut self,
+        mut values: Vec<Value>,
+        extras: Vec<(CompactString, Value)>,
+    ) -> Result<usize, TableError> {
+        prepare_row(self.schema(), &mut values)?;
+        if extras.is_empty() {
+            return self.push_validated_row(values);
+        }
+        let extras = collect_extras(self.schema(), extras)?;
+        let row = self.push_validated_row(values)?;
+        self.extras.set(row, extras)?;
+        Ok(row)
+    }
+
+    // SQLite keeps one staging allocation for the entire query. Validate the
+    // complete row before draining it, preserving the ordinary append contract.
+    #[cfg(feature = "sqlite")]
+    pub(crate) fn push_row_buffer(&mut self, values: &mut Vec<Value>) -> Result<usize, TableError> {
+        prepare_row(self.schema(), values)?;
+        self.push_validated_row(values.drain(..))
+    }
+
+    fn push_validated_row(
+        &mut self,
+        values: impl IntoIterator<Item = Value>,
+    ) -> Result<usize, TableError> {
+        let row = self.row_count;
+        let mut values = values.into_iter();
+        let mut pushed = 0;
+        for storage in &mut self.columns {
+            let Some(value) = values.next() else {
+                for column in &mut self.columns[..pushed] {
+                    column.pop();
+                }
+                return Err(TableError::RowWidth {
+                    expected: self.columns.len(),
+                    actual: pushed,
+                });
+            };
+            if let Err(error) = storage.push_validated(value) {
+                for column in &mut self.columns[..pushed] {
+                    column.pop();
+                }
+                return Err(error);
+            }
+            pushed += 1;
+        }
+        let extra = values.count();
+        if extra > 0 {
+            for column in &mut self.columns[..pushed] {
+                column.pop();
+            }
+            return Err(TableError::RowWidth {
+                expected: self.columns.len(),
+                actual: pushed + extra,
+            });
+        }
+        self.extras.push_empty();
+        self.tombstones.push_live();
+        self.row_count += 1;
+        debug_assert!(
+            self.columns
+                .iter()
+                .all(|column| column.len() == self.row_count)
+        );
+        debug_assert!(self.extras.len_matches(self.row_count));
+        Ok(row)
+    }
+
+    /// Removes and discards the last physical row, returning whether a row existed.
+    ///
+    /// The last row is removed whether or not it is tombstoned.
+    pub fn pop_row(&mut self) -> bool {
+        if self.row_count == 0 {
+            return false;
+        }
+        for column in &mut self.columns {
+            column.pop();
+        }
+        self.extras.pop();
+        self.tombstones.pop();
+        self.row_count -= 1;
+        true
+    }
+
+    /// Reads a cell by row and column position.
+    ///
+    /// # Errors
+    ///
+    /// Returns an out-of-bounds error for an invalid row or column.
+    pub fn cell(&self, row: usize, column: usize) -> Result<ValueRef<'_>, TableError> {
+        self.validate_position(row, column)?;
+        self.columns
+            .get(column)
+            .and_then(|storage| storage.get(row))
+            .ok_or(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            })
+    }
+
+    /// Reads a cell by primary column name, alias, or stored row-local name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::ColumnNotFound`] when neither the fixed schema nor
+    /// the selected row contains the name, or an out-of-bounds row error.
+    pub fn cell_named(&self, row: usize, name_or_alias: &str) -> Result<ValueRef<'_>, TableError> {
+        if let Some(column) = self.schema.column_index(name_or_alias) {
+            return self.cell(row, column);
+        }
+        if self.schema.unknown_fields() == UnknownFields::Reject {
+            return Err(TableError::ColumnNotFound(name_or_alias.into()));
+        }
+        self.validate_row_position(row)?;
+        self.extras
+            .get(row)
+            .and_then(|extras| extras.get(name_or_alias))
+            .map(Value::as_ref)
+            .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))
+    }
+
+    /// Replaces one cell after schema-directed conversion and validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns a position, type, or nullability error without changing the cell.
+    pub fn set_cell(
+        &mut self,
+        row: usize,
+        column: usize,
+        mut value: Value,
+    ) -> Result<(), TableError> {
+        self.validate_position(row, column)?;
+        let spec = self
+            .schema
+            .column(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            })?;
+        prepare_cell(spec, &mut value, column)?;
+        let Some(storage) = self.columns.get_mut(column) else {
+            return Err(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            });
+        };
+        storage.set_validated(row, value)
+    }
+
+    /// Replaces a fixed cell or stores an unknown name as a row-local value.
+    ///
+    /// Declared names and aliases retain schema conversion and validation.
+    /// Unknown names are accepted only when the schema uses
+    /// [`UnknownFields::Store`]. Setting an existing extra replaces its value.
+    ///
+    /// # Errors
+    ///
+    /// Returns a row, type, or nullability error for fixed cells, or
+    /// [`TableError::ColumnNotFound`] when an unknown name is rejected.
+    pub fn set_named(
+        &mut self,
+        row: usize,
+        name_or_alias: &str,
+        value: impl Into<Value>,
+    ) -> Result<(), TableError> {
+        let value = value.into();
+        if let Some(column) = self.schema.column_index(name_or_alias) {
+            return self.set_cell(row, column, value);
+        }
+        if self.schema.unknown_fields() == UnknownFields::Reject {
+            return Err(TableError::ColumnNotFound(name_or_alias.into()));
+        }
+        self.validate_row_position(row)?;
+        self.extras
+            .get_or_insert(row)?
+            .set(name_or_alias.into(), value);
+        Ok(())
+    }
+
+    /// Returns a borrowing column view by position.
+    #[must_use]
+    pub fn column(&self, position: usize) -> Option<Column<'_>> {
+        Some(Column {
+            spec: self.schema.column(position)?,
+            storage: self.columns.get(position)?,
+        })
+    }
+
+    /// Returns a borrowing column view by primary name or alias.
+    #[must_use]
+    pub fn column_named(&self, name_or_alias: &str) -> Option<Column<'_>> {
+        self.column(self.schema.column_index(name_or_alias)?)
+    }
+
+    /// Borrows any number of immutable input columns and mutable output columns.
+    ///
+    /// Input positions may repeat because shared borrows can alias. Output
+    /// positions must be unique and cannot also occur in `inputs`. The returned
+    /// views preserve the order of both position arrays and can each perform one
+    /// runtime type and nullability check before entering a bulk loop.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSelectionError::ColumnOutOfBounds`] for an invalid
+    /// position, [`ColumnSelectionError::InputOutputOverlap`] when an output is
+    /// also an input, or [`ColumnSelectionError::DuplicateOutput`] when an
+    /// output position occurs more than once.
+    pub fn columns_io<const I: usize, const O: usize>(
+        &mut self,
+        inputs: [usize; I],
+        outputs: [usize; O],
+    ) -> Result<([Column<'_>; I], [ColumnMut<'_>; O]), ColumnSelectionError> {
+        select_column_views(self.schema.as_ref(), &mut self.columns, inputs, outputs)
+    }
+
+    /// Borrows one column immutably and a distinct column mutably.
+    ///
+    /// This is the safe bulk-transform counterpart to [`Table::column`]. It is
+    /// useful when values from one column are mapped directly into another
+    /// column, including with parallel slice iterators. The returned views can
+    /// each perform their normal runtime type and nullability check once. This
+    /// specialized one-input, one-output path does not allocate.
+    ///
+    /// Returns `None` when either position is out of bounds or both positions
+    /// identify the same column.
+    #[must_use]
+    pub fn column_pair_mut(
+        &mut self,
+        source: usize,
+        target: usize,
+    ) -> Option<(Column<'_>, ColumnMut<'_>)> {
+        if source == target {
+            return None;
+        }
+        let source_spec = self.schema.column(source)?;
+        let target_spec = self.schema.column(target)?;
+        let (source_storage, target_storage) = if source < target {
+            let (before_target, target_and_after) = self.columns.split_at_mut(target);
+            (before_target.get(source)?, target_and_after.first_mut()?)
+        } else {
+            let (before_source, source_and_after) = self.columns.split_at_mut(source);
+            (source_and_after.first()?, before_source.get_mut(target)?)
+        };
+        Some((
+            Column {
+                spec: source_spec,
+                storage: source_storage,
+            },
+            ColumnMut {
+                spec: target_spec,
+                storage: target_storage,
+            },
+        ))
+    }
+
+    /// Returns one borrowing row view.
+    #[must_use]
+    pub fn row(&self, row: usize) -> Option<Row<'_>> {
+        (row < self.row_count).then_some(Row { table: self, row })
+    }
+
+    /// Iterates over borrowing row views.
+    #[must_use = "iterators are lazy and must be consumed"]
+    pub fn rows(&self) -> impl ExactSizeIterator<Item = Row<'_>> + DoubleEndedIterator {
+        (0..self.row_count).map(|row| Row { table: self, row })
+    }
+
+    /// Builds an `ahash` index for one supported column.
+    ///
+    /// # Errors
+    ///
+    /// Returns a column bounds error or [`TableError::UnsupportedIndexType`].
+    pub fn index(&self, column: usize) -> Result<ColumnIndex<'_>, TableError> {
+        ColumnIndex::new(self, column)
+    }
+
+    /// Builds a stable row permutation ordered by one column.
+    ///
+    /// The table is not mutated or copied. Equal keys retain insertion order,
+    /// null placement is independent of direction, and floating-point columns
+    /// use [`f32::total_cmp`] or [`f64::total_cmp`]. The operation takes
+    /// **O(r log r)** time and **O(r)** space for `r` rows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::ColumnOutOfBounds`] for an invalid column.
+    pub fn row_order(
+        &self,
+        column: usize,
+        direction: SortDirection,
+        null_order: NullOrder,
+    ) -> Result<RowOrder<'_>, TableError> {
+        let storage = self
+            .columns
+            .get(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            })?;
+        let mut positions: Vec<_> = (0..self.row_count).collect();
+        let mut failure: Option<TableError> = None;
+        positions.sort_by(|left, right| {
+            match storage.compare_rows(*left, *right, direction, null_order) {
+                Ok(ordering) => ordering,
+                Err(error) => {
+                    if failure.is_none() {
+                        failure = Some(error);
+                    }
+                    Ordering::Equal
+                }
+            }
+        });
+        if let Some(error) = failure {
+            return Err(error);
+        }
+        Ok(RowOrder {
+            table: self,
+            positions,
+        })
+    }
+
+    /// Builds a stable row permutation ordered by a column name or alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TableError::ColumnNotFound`] when the name is unknown.
+    pub fn row_order_named(
+        &self,
+        name_or_alias: &str,
+        direction: SortDirection,
+        null_order: NullOrder,
+    ) -> Result<RowOrder<'_>, TableError> {
+        let column = self
+            .schema
+            .column_index(name_or_alias)
+            .ok_or_else(|| TableError::ColumnNotFound(name_or_alias.into()))?;
+        self.row_order(column, direction, null_order)
+    }
+
+    fn validate_position(&self, row: usize, column: usize) -> Result<(), TableError> {
+        self.validate_row_position(row)?;
+        if column >= self.column_count() {
+            return Err(TableError::ColumnOutOfBounds {
+                column,
+                column_count: self.column_count(),
+            });
+        }
+        Ok(())
+    }
+
+    fn validate_row_position(&self, row: usize) -> Result<(), TableError> {
+        if row >= self.row_count {
+            return Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.row_count,
+            });
+        }
+        Ok(())
+    }
+}
+
+fn select_column_views<'a, const I: usize, const O: usize>(
+    schema: &'a Schema,
+    columns: &'a mut [ColumnStorage],
+    inputs: [usize; I],
+    outputs: [usize; O],
+) -> Result<([Column<'a>; I], [ColumnMut<'a>; O]), ColumnSelectionError> {
+    let (input_storage, output_storage) = select_column_storage(columns, inputs, outputs)?;
+    let mut input_storage = input_storage.into_iter();
+    let mut input_views = Vec::with_capacity(I);
+    for &position in &inputs {
+        let spec = schema
+            .column(position)
+            .ok_or(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count: schema.len(),
+            })?;
+        let storage = input_storage
+            .next()
+            .ok_or(ColumnSelectionError::InternalInvariant {
+                detail: "input storage count did not match the const-generic input count",
+            })?;
+        input_views.push(Column { spec, storage });
+    }
+    let input_views: [Column<'a>; I] =
+        input_views
+            .try_into()
+            .map_err(|_| ColumnSelectionError::InternalInvariant {
+                detail: "input view count did not match the const-generic input count",
+            })?;
+
+    let mut output_storage = output_storage.into_iter();
+    let mut output_views = Vec::with_capacity(O);
+    for &position in &outputs {
+        let spec = schema
+            .column(position)
+            .ok_or(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count: schema.len(),
+            })?;
+        let storage = output_storage
+            .next()
+            .ok_or(ColumnSelectionError::InternalInvariant {
+                detail: "output storage count did not match the const-generic output count",
+            })?;
+        output_views.push(ColumnMut { spec, storage });
+    }
+    let output_views: [ColumnMut<'a>; O] =
+        output_views
+            .try_into()
+            .map_err(|_| ColumnSelectionError::InternalInvariant {
+                detail: "output view count did not match the const-generic output count",
+            })?;
+
+    Ok((input_views, output_views))
+}
+
+fn select_column_storage<const I: usize, const O: usize>(
+    columns: &mut [ColumnStorage],
+    inputs: [usize; I],
+    outputs: [usize; O],
+) -> Result<([&ColumnStorage; I], [&mut ColumnStorage; O]), ColumnSelectionError> {
+    #[derive(Clone, Copy)]
+    enum Access {
+        Input(usize),
+        Output(usize),
+    }
+
+    #[derive(Clone, Copy)]
+    struct Request {
+        position: usize,
+        access: Access,
+    }
+
+    let column_count = columns.len();
+    let mut requests = Vec::<Request>::with_capacity(I + O);
+    for (ordinal, position) in inputs.into_iter().enumerate() {
+        if position >= column_count {
+            return Err(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count,
+            });
+        }
+        requests.push(Request {
+            position,
+            access: Access::Input(ordinal),
+        });
+    }
+    for (ordinal, position) in outputs.into_iter().enumerate() {
+        if position >= column_count {
+            return Err(ColumnSelectionError::ColumnOutOfBounds {
+                column: position,
+                column_count,
+            });
+        }
+        if let Some(request) = requests.iter().find(|request| request.position == position) {
+            return Err(match request.access {
+                Access::Input(_) => ColumnSelectionError::InputOutputOverlap { column: position },
+                Access::Output(_) => ColumnSelectionError::DuplicateOutput { column: position },
+            });
+        }
+        requests.push(Request {
+            position,
+            access: Access::Output(ordinal),
+        });
+    }
+    requests.sort_unstable_by_key(|request| request.position);
+
+    let mut input_storage = [None; I];
+    let mut output_storage: [Option<&mut ColumnStorage>; O] = std::array::from_fn(|_| None);
+    let mut remaining = columns;
+    let mut remaining_start = 0;
+    let mut request_index = 0;
+    while let Some(request) = requests.get(request_index).copied() {
+        let Some(relative_position) = request.position.checked_sub(remaining_start) else {
+            return Err(ColumnSelectionError::InternalInvariant {
+                detail: "validated column positions were not monotonic",
+            });
+        };
+        let Some(selected_and_after) = remaining.get_mut(relative_position..) else {
+            return Err(ColumnSelectionError::InternalInvariant {
+                detail: "validated column position was missing from the remaining slice",
+            });
+        };
+        let Some((selected, after)) = selected_and_after.split_first_mut() else {
+            return Err(ColumnSelectionError::InternalInvariant {
+                detail: "validated column position was missing from the remaining slice",
+            });
+        };
+        remaining = after;
+        remaining_start = request.position + 1;
+
+        match request.access {
+            Access::Input(_) => {
+                let selected: &ColumnStorage = selected;
+                while let Some(Request {
+                    position,
+                    access: Access::Input(ordinal),
+                }) = requests.get(request_index).copied()
+                {
+                    if position != request.position {
+                        break;
+                    }
+                    input_storage[ordinal] = Some(selected);
+                    request_index += 1;
+                }
+            }
+            Access::Output(ordinal) => {
+                output_storage[ordinal] = Some(selected);
+                request_index += 1;
+            }
+        }
+    }
+
+    Ok((
+        into_storage_array(
+            input_storage,
+            "every validated input position must receive one storage borrow",
+        )?,
+        into_storage_array(
+            output_storage,
+            "every validated output position must receive one storage borrow",
+        )?,
+    ))
+}
+
+fn into_storage_array<T, const N: usize>(
+    storage: [Option<T>; N],
+    detail: &'static str,
+) -> Result<[T; N], ColumnSelectionError> {
+    let mut views = Vec::with_capacity(N);
+    for item in storage {
+        views.push(item.ok_or(ColumnSelectionError::InternalInvariant { detail })?);
+    }
+    views
+        .try_into()
+        .map_err(|_| ColumnSelectionError::InternalInvariant { detail })
+}
+
+fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), TableError> {
+    let actual = value.data_type();
+    if actual == DataType::Null {
+        if spec.is_nullable() {
+            return Ok(());
+        }
+        return Err(TableError::NullNotAllowed { column });
+    }
+    if actual != spec.data_type() {
+        return Err(TableError::TypeMismatch {
+            column,
+            expected: spec.data_type(),
+            actual,
+        });
+    }
+    if let (Some(capacity), Value::String(text)) = (spec.fixed_string_capacity(), value) {
+        if text.len() > capacity {
+            return Err(TableError::StringTooLong {
+                column,
+                capacity,
+                actual: text.len(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn prepare_cell(spec: &ColumnSpec, value: &mut Value, column: usize) -> Result<(), TableError> {
+    let actual = value.data_type();
+    if actual == DataType::Null || actual == spec.data_type() {
+        return validate_cell(spec, value, column);
+    }
+    let Some(converter) = spec.converter() else {
+        return validate_cell(spec, value, column);
+    };
+    let output =
+        converter
+            .convert(value.as_ref())
+            .map_err(|source| TableError::ConversionFailed {
+                column,
+                converter: converter.name().into(),
+                source,
+            })?;
+    validate_cell(spec, &output, column)?;
+    *value = output;
+    Ok(())
+}
+
+fn prepare_row(schema: &Schema, values: &mut [Value]) -> Result<(), TableError> {
+    if values.len() != schema.len() {
+        return Err(TableError::RowWidth {
+            expected: schema.len(),
+            actual: values.len(),
+        });
+    }
+    for (column, (spec, value)) in schema.iter().zip(values.iter_mut()).enumerate() {
+        prepare_cell(spec, value, column)?;
+    }
+    Ok(())
+}
+
+fn collect_extras<I, K, V>(schema: &Schema, extras: I) -> Result<RowExtras, TableError>
+where
+    I: IntoIterator<Item = (K, V)>,
+    K: Into<CompactString>,
+    V: Into<Value>,
+{
+    let extras = extras.into_iter();
+    let mut collected = RowExtras::with_capacity(extras.size_hint().0);
+    for (name, value) in extras {
+        let name = name.into();
+        if schema.column_index(&name).is_some() {
+            return Err(TableError::ExtraFieldConflictsWithColumn(name));
+        }
+        if schema.unknown_fields() == UnknownFields::Reject {
+            return Err(TableError::ColumnNotFound(name));
+        }
+        collected.set(name, value.into());
+    }
+    Ok(collected)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::{
+        ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table, TableError,
+        UnknownFields, Value, ValueRef,
+    };
+
+    #[test]
+    #[cfg(feature = "sqlite")]
+    fn reused_row_buffer_retains_capacity_and_rejects_complete_invalid_rows() {
+        let schema = Schema::new([
+            ColumnSpec::new("id", DataType::I64),
+            ColumnSpec::new("score", DataType::I64).nullable(true),
+        ])
+        .unwrap();
+        let mut table = Table::new(schema);
+        let mut values = Vec::with_capacity(2);
+        let capacity = values.capacity();
+        for (position, id) in (0..3).enumerate() {
+            values.extend([Value::I64(id), Value::Null]);
+            assert_eq!(table.push_row_buffer(&mut values), Ok(position));
+            assert_eq!(values, []);
+            assert_eq!(values.capacity(), capacity);
+        }
+        values.extend([Value::I64(3), Value::from("invalid")]);
+        assert!(matches!(
+            table.push_row_buffer(&mut values),
+            Err(TableError::TypeMismatch { column: 1, .. }),
+        ));
+        assert_eq!(table.row_count(), 3);
+        assert_eq!(table.column(0).unwrap().len(), 3);
+        assert_eq!(table.column(1).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn column_storage_follows_schema_nullability() {
+        assert!(matches!(
+            ColumnStorage::new(DataType::I64, false, 8),
+            ColumnStorage::I64(ColumnData::Required(values)) if values.capacity() >= 8
+        ));
+        assert!(matches!(
+            ColumnStorage::new(DataType::I64, true, 8),
+            ColumnStorage::I64(ColumnData::Nullable(values)) if values.capacity() >= 8
+        ));
+        assert!(matches!(
+            ColumnStorage::new(DataType::String, false, 8),
+            ColumnStorage::String(ColumnData::Required(values)) if values.capacity() >= 8
+        ));
+        assert!(matches!(
+            ColumnStorage::new(DataType::String, true, 8),
+            ColumnStorage::String(ColumnData::Nullable(values)) if values.capacity() >= 8
+        ));
+    }
+
+    #[test]
+    fn extras_storage_follows_schema_policy() {
+        let strict_schema = Schema::new([ColumnSpec::new("id", DataType::U64)]).unwrap();
+        let mut strict = Table::with_capacity(strict_schema, 8);
+        assert!(matches!(&strict.extras, ExtrasStorage::Disabled));
+        strict.push_row([Value::U64(1)]).unwrap();
+        assert!(matches!(&strict.extras, ExtrasStorage::Disabled));
+        assert!(strict.pop_row());
+
+        let open_schema = Schema::new([ColumnSpec::new("id", DataType::U64)])
+            .unwrap()
+            .with_unknown_fields(UnknownFields::Store);
+        let mut open = Table::with_capacity(open_schema, 8);
+        assert!(matches!(
+            &open.extras,
+            ExtrasStorage::Enabled(rows) if rows.is_empty() && rows.capacity() >= 8
+        ));
+        let row = open.push_row([Value::U64(1)]).unwrap();
+        assert!(matches!(
+            &open.extras,
+            ExtrasStorage::Enabled(rows) if rows.len() == 1 && rows[0].is_none()
+        ));
+        open.set_named(row, "dynamic", "value").unwrap();
+        assert!(matches!(
+            &open.extras,
+            ExtrasStorage::Enabled(rows) if rows[0].is_some()
+        ));
+    }
+
+    #[test]
+    fn tables_share_arc_schema_ownership() {
+        let schema = Arc::new(
+            Schema::new([
+                ColumnSpec::new("id", DataType::U64),
+                ColumnSpec::new("enabled", DataType::Bool),
+            ])
+            .unwrap(),
+        );
+
+        let first = Table::new(Arc::clone(&schema));
+        let second = Table::with_capacity(Arc::clone(&schema), 8);
+        let from_table = first.schema_arc();
+
+        assert!(std::ptr::eq(first.schema(), schema.as_ref()));
+        assert!(std::ptr::eq(second.schema(), schema.as_ref()));
+        assert!(Arc::ptr_eq(&schema, &from_table));
+        assert_eq!(Arc::strong_count(&schema), 4);
+    }
+
+    fn copy_source() -> Table {
+        let schema = Schema::new([
+            ColumnSpec::new("id", DataType::U64),
+            ColumnSpec::new("score", DataType::I32).nullable(true),
+            ColumnSpec::new("name", DataType::String),
+        ])
+        .unwrap()
+        .with_unknown_fields(UnknownFields::Store);
+        let mut table = Table::new(schema);
+        for row in 0..5_u64 {
+            let position = table
+                .push_row([
+                    Value::U64(row),
+                    if row == 2 {
+                        Value::Null
+                    } else {
+                        Value::I32(i32::try_from(row * 10).unwrap())
+                    },
+                    Value::from(format!("row-{row}")),
+                ])
+                .unwrap();
+            table
+                .set_named(position, "source_position", Value::U64(row))
+                .unwrap();
+        }
+        table
+    }
+
+    #[test]
+    fn copy_range_shares_schema_and_copies_columns_and_extras() {
+        let source = copy_source();
+        let copied = source.copy_range(1..4).unwrap();
+
+        assert!(Arc::ptr_eq(&source.schema_arc(), &copied.schema_arc()));
+        assert_eq!(copied.row_count(), 3);
+        assert_eq!(copied.cell(0, 0), Ok(ValueRef::U64(1)));
+        assert_eq!(copied.cell(1, 1), Ok(ValueRef::Null));
+        assert_eq!(copied.cell(2, 2), Ok(ValueRef::String("row-3")));
+        assert_eq!(
+            copied.cell_named(1, "source_position"),
+            Ok(ValueRef::U64(2))
+        );
+    }
+
+    #[test]
+    fn copy_rows_preserves_selection_order_and_duplicates() {
+        let source = copy_source();
+        let copied = source.copy_rows(&[4, 1, 4]).unwrap();
+
+        assert_eq!(copied.row_count(), 3);
+        assert_eq!(copied.cell(0, 0), Ok(ValueRef::U64(4)));
+        assert_eq!(copied.cell(1, 0), Ok(ValueRef::U64(1)));
+        assert_eq!(copied.cell(2, 2), Ok(ValueRef::String("row-4")));
+        assert_eq!(
+            copied.cell_named(2, "source_position"),
+            Ok(ValueRef::U64(4))
+        );
+    }
+
+    #[cfg(feature = "rayon")]
+    #[test]
+    fn parallel_copy_operations_match_sequential_copies() {
+        let source = copy_source();
+        let range = source.par_copy_range(1..4).unwrap();
+        let selected = source.par_copy_rows(&[4, 1, 4]).unwrap();
+
+        assert_eq!(range.row_count(), 3);
+        assert_eq!(range.cell(1, 1), Ok(ValueRef::Null));
+        assert_eq!(range.cell_named(1, "source_position"), Ok(ValueRef::U64(2)));
+        assert_eq!(selected.row_count(), 3);
+        assert_eq!(selected.cell(0, 0), Ok(ValueRef::U64(4)));
+        assert_eq!(selected.cell(1, 0), Ok(ValueRef::U64(1)));
+        assert_eq!(
+            selected.cell_named(2, "source_position"),
+            Ok(ValueRef::U64(4))
+        );
+    }
+
+    #[test]
+    fn copy_operations_reject_invalid_rows() {
+        let source = copy_source();
+        assert_eq!(
+            source.copy_range(3..6).unwrap_err(),
+            TableError::RowRangeOutOfBounds {
+                start: 3,
+                end: 6,
+                row_count: 5,
+            }
+        );
+        assert_eq!(
+            source.copy_rows(&[0, 5]).unwrap_err(),
+            TableError::RowOutOfBounds {
+                row: 5,
+                row_count: 5,
+            }
+        );
+    }
+}

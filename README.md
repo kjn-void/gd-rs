@@ -64,7 +64,10 @@ The implemented core currently provides:
 - [Rust benchmarks and examples in VS Code](docs/high-level/rust-debugging.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
 - [Text filtering and transform comparison](docs/high-level/text-workflow-results.md)
-- [Whole-record filter and copy comparison on three hosts](docs/high-level/filter-copy-results.md)
+- [Text filtering and transform comparison on Apple M6](docs/high-level/text-workflow-m6-results.md)
+- [Whole-record filter and copy comparison (latest M6 results)](docs/high-level/filter-copy-results.md)
+- [Arc multicore scaling and refreshed M6 comparison](docs/high-level/arc-scaling-m6-results.md)
+- [GD memcpy versus typed fixed-array SoA with text metadata on the M6](docs/high-level/filter-copy-arrays-m6-results.md)
 - [libc memory-operation scaling](docs/high-level/perf_memory.md)
 
 ### Porting record

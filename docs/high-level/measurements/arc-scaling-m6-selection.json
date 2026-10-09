@@ -1,0 +1,9 @@
+{
+  "policy": "lowest geometric mean time over all six eight-worker cases",
+  "strategy": "chunks-par-drop",
+  "implementation": "arc_chunks",
+  "geomean_ns": {
+    "chunks-par-drop": 1589600.4969037718,
+    "chunks4-par-drop": 1596213.3952476734
+  }
+}

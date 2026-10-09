@@ -1,0 +1,15 @@
+{
+  "requested_host": "192.168.0.172",
+  "hostname": "M6.local",
+  "checkout_path": "/Users/kjn/repos/gd-rs",
+  "resolved_checkout_path": "/Volumes/wd_black/repos/gd-rs",
+  "cpu_topology": "hw.nperflevels: 3\nhw.perflevel0.name: Super\nhw.perflevel0.physicalcpu: 2\nhw.perflevel1.name: Performance\nhw.perflevel1.physicalcpu: 4\nhw.perflevel2.name: Efficiency\nhw.perflevel2.physicalcpu: 6",
+  "cmake": "cmake version 4.4.4\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake).",
+  "python": "3.9.6",
+  "git_status_before": "## main...origin/main",
+  "measurement_mode": "contended diagnostics, following the user's earlier instruction to measure under current load",
+  "quiet_attempt": "The first quiet-mode attempt repeatedly rejected or delayed rounds while audiomxd and configd sustained about 113% aggregate process CPU. Its partial data remain under target/text-workflow/m6-quiet-attempt.json and are excluded from the published matrix.",
+  "git_status_after": "## main...origin/main",
+  "primary_result": "target/text-workflow/text-workflow-m6.json",
+  "recheck_result": "target/text-workflow/text-workflow-m6-confirmations.json"
+}
