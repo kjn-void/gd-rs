@@ -25,6 +25,9 @@ cargo test --all-targets --all-features
 step "cargo test --lib --tests --no-default-features"
 cargo test --lib --tests --no-default-features
 
+step "cargo test --doc --all-features"
+cargo test --doc --all-features
+
 step 'RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features'
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 

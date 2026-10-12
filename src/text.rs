@@ -182,7 +182,7 @@ pub fn escape_xml(text: &str) -> Cow<'_, str> {
     Cow::Owned(escaped)
 }
 
-/// Splits text on `separator`, treating a doubled separator as one literal byte.
+/// Splits text on `separator`, treating a doubled separator as one literal character.
 ///
 /// A trailing single separator produces a final empty part. A doubled separator
 /// at the end belongs to the final part. The separator may be any Unicode scalar

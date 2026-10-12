@@ -1,6 +1,6 @@
 # Text filtering and transforms: GD and gd-rs
 
-All graphs and tables below use a fresh four-way measurement of the current implementation. Fixed-buffer reads trust valid string writes without rescanning UTF-8; bounds, capacity, and nullability checks remain. The [paired before/after experiment](text-validation-results.md) and [archived checked-read matrix](measurements/archive/text-workflow-checked-read.json) retain the earlier implementation for comparison.
+This four-way comparison measures GD buffers, C++ standard strings, gd-rs CompactString columns, and gd-rs fixed buffers. Fixed-buffer reads trust valid string writes without rescanning UTF-8; bounds, capacity, and nullability are checked. The [read-policy comparison](text-validation-results.md) measures the cost of validating UTF-8 on each read.
 
 This comparison exercises text directly in ordinary application tables: filtering, rewriting a string column, and filtering plus materializing and transforming rows. It compares four representations of the same five-column data.
 
@@ -11,7 +11,7 @@ This comparison exercises text directly in ordinary application tables: filterin
 | gd-rs CompactString | Existing `gd::Table` SoA string storage, checked typed descriptor slices |
 | gd-rs fixed buffer | `gd::Table` SoA, one fixed-slot byte buffer per string column; every row has an offset and length |
 
-The new gd-rs storage is a supported table layout, with UTF-8 byte limits, nullability, conversions, atomic failed writes, independent copies, append between layouts, compaction, indexes, and disjoint parallel mutable views. See the [API](../api/tables.md#fixed-capacity-string-buffers) and [storage implementation](../../src/table/fixed_string.rs).
+Fixed-buffer storage is a supported table layout, with UTF-8 byte limits, nullability, conversions, atomic failed writes, independent copies, append between layouts, compaction, indexes, and disjoint parallel mutable views. See the [API](../api/tables.md#fixed-capacity-string-buffers) and [storage implementation](../../src/table/fixed_string.rs).
 
 ## Findings
 

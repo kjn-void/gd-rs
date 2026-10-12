@@ -134,10 +134,7 @@ def main():
              'Both therefore copy eight bytes of text metadata per row; their remaining storage costs differ.' +
              (' The [untimed M6 layout probe](../measurements/filter-copy-arrays-m6-inline-layout.json) '
               'records the exact source snippet, compiler command and row strides.' if args.layout_probe else ''), '',
-             'The [earlier metadata-free cohort and matching source snapshots]'
-             '(../measurements/archive/filter-copy-arrays-without-metadata/README.md) are preserved separately. '
-             'Its timings are excluded from the current means; both GD and Rust were rerun for this comparison.', '',
-             '## Fresh paired results', '', SOURCES, '',
+             '## Paired results', '', SOURCES, '',
              '**Contended diagnostics:** these runs use the authorized current background load, without CPU affinity. '
              'The geometric mean weights all 12 cases equally. Ratios are GD time divided by Rust time: above 1 means Rust is faster.', '',
              f'Overall Rust/GD speed ratio: **{overall:.3f}×**. Rust is faster in '

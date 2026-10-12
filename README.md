@@ -38,6 +38,15 @@ The implemented core currently provides:
 - checked-in C++ Google Benchmark references built against the `external/gd` submodule;
 - Rust integration/property tests and Criterion benchmarks.
 
+The library contains no unsafe code except three unchecked UTF-8 conversions in
+[fixed-capacity string storage](src/table/fixed_string.rs). Writes accept valid
+strings, private offsets and lengths select their initialized prefixes, and safe
+string mutation preserves UTF-8. This avoids rescanning stored strings on each read;
+bounds, capacity, nullability, and borrowing remain checked. The
+[fixed-string API guide](docs/api/tables.md#fixed-capacity-string-buffers) explains
+the storage contract. Separate benchmark-only unsafe code is documented in the
+[filter/copy benchmark guide](benches/filter_copy/README.md#unsafe-code-in-benchmark-experiments).
+
 ## Documentation
 
 ### API guide
@@ -75,7 +84,7 @@ The implemented core currently provides:
 - [Repository guardrails](AGENTS.md)
 - [Porting plan](docs/port/porting-plan.md)
 - [Compatibility decisions](docs/port/compatibility.md)
-- [Architecture postmortem](docs/port/postmortem.md)
+- [Design rationale](docs/port/postmortem.md)
 - [C++ issues and audit](docs/port/cpp-gd-issues.md)
 - [Source size and complexity](docs/port/source-stats.md)
 
@@ -92,6 +101,9 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 cargo test --lib --tests --no-default-features
+cargo test --doc --all-features
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 cargo +1.86.0 check --lib --no-default-features
 ```
+
+The doctest step also compiles and runs the standalone API and usage-guide examples.

@@ -1,16 +1,7 @@
-# Architecture: preserving the three-object core
+# Architecture: values, arguments, and tables
 
-Reviewed on 2026-10-05 against gd-rs `f7c7b91` and the pinned
-[`external/gd`](../../external/gd) reference. This describes current APIs and contracts.
-
-The author of the C++ library described `Variant`, `Arguments`, and `Table` as a
-small framework of foundational data structures rather than three isolated classes.
-The important architectural choice is to concentrate difficult representation and
-ownership problems in those objects so that most application code can remain simple.
-
-That observation maps closely to this port. `gd-rs` does not try to replace the
-three-object model with a large hierarchy of narrowly specialized containers. It
-preserves three owned roots:
+`gd-rs` concentrates dynamic values, ordered arguments, and tabular storage in
+three owned roots:
 
 ```text
 Value
@@ -18,9 +9,10 @@ Arguments
 Table
 ```
 
-Rust does not make the underlying domain simpler. Its contribution is to encode more
-of the contracts around those roots in the type system, while retaining the original
-concentration of responsibility.
+These types own representation and validation so application code can work with
+values, entries, and rows without managing tags, raw pointers, or storage lifetimes.
+Borrowed views, shared schema metadata, and indexes expose specific operations
+without transferring ownership.
 
 ## Concept mapping
 
@@ -37,6 +29,7 @@ concentration of responsibility.
 | table accessors and selections | `Row<'a>`, `Column<'a>`, `TableSelection<'a>`, `SelectedRow<'a>` | borrowed cells with optional owned selection metadata |
 | indexes and sorting | `ColumnIndex<'a>`, `CompositeIndex<'a, N>`, `RowOrder<'a>` | optional borrowed results |
 | concurrent ingestion | `ConcurrentTableBuilder` | validates complete rows, then materializes an owned `Table` |
+| typed shared records | `SharedRecordTable<S>` | optional `Arc<S>` storage with copy-on-write editing, outside the dynamic schema/adapters |
 
 The supporting types are not alternative ownership models. `ValueRef`, `Row`, and
 `Column` are views returned by the owned roots. The index and ordering types are
@@ -44,54 +37,46 @@ optional accelerators or results that borrow their source. `Arc<Schema>` separat
 shared immutable metadata from mutable row storage so the two cannot silently
 diverge, while many small tables can reuse one layout.
 
-There are deliberately no parallel `OwnedValue`, `TypedValue`, `ArgumentsBuilder`,
-`TableMut`, `RowMut`, `Cell`, or `CellMut` families. Mutation remains directly on
-`Arguments` and `Table`; ordinary construction does not require builders. The
-[ownership model](../high-level/architecture.md#ownership-model) shows how these types remain
-centered on the three roots.
+Mutation is available directly on `Arguments` and `Table`;
+`RowMut`, `RowsMut`, `ColumnMut`, and `FixedStringCellMut` are borrowed views for
+editing existing storage, including disjoint parallel partitions. Ordinary
+construction does not require builders. The
+[ownership model](../high-level/architecture.md#ownership-model) shows how these types
+relate to the three roots.
 
-## Current public surface
+## Public surface
 
-The C++ discussion speculated that the central classes might expose hundreds of methods
-while still presenting only a few concepts to users. The Rust surface is currently
-narrower. Counting inherent public method declarations in the source at `f7c7b91`,
-including feature-gated declarations:
+| Root | Operations | Supporting types |
+|---|---|---|
+| `Value` | construction, borrowing, typed access, numeric conversion | `DataType`, `ValueRef` |
+| `Arguments` | ordered insertion/removal, positional and named access, reusable lookup | `Argument`, `ArgumentIndex` |
+| `Table` | schema-checked writes, row/column views, selection, append, indexing, ordering, tombstones and compaction | schema and converter types, mutable views, selections, indexes, `RowOrder`, `RowCompaction`, `ConcurrentTableBuilder` |
 
-| Owned root | Methods on root | Methods in its complete supporting family |
-|---|---:|---:|
-| `Value` | 6 | 16 across `DataType`, `Value`, and `ValueRef` |
-| `Arguments` | 19 | 36 across `Argument`, `Arguments`, and `ArgumentIndex` |
-| `Table` | 61 | 171 across the exported table family, including schema, converters, mappings, selections, indexes, mutable views, compaction, ordering, and concurrent builder |
+`SharedRecordTable<S>` provides a typed alternative for filtering and copying
+shared records. It uses `Arc<S>` handles and copy-on-write editing; it does not
+participate in the dynamic `Table` schema, formatting, or SQLite adapters.
 
-These figures exclude trait implementations such as `From<T>` and methods provided by
-traits. Count `pub fn` / `pub const fn` declarations in inherent `impl` blocks of the
-types [exported at the crate root](../../src/lib.rs), including `src/table.rs` and its
-submodules. They are a snapshot of the current crate, not evidence that Rust expresses
-every C++ convenience method with fewer declarations. The port intentionally implements
-a smaller semantic core; it has not established method-for-method parity with the
-complete C++ API.
+See the [API guides](../api/index.md) for the complete supported operations and
+[source statistics](source-stats.md) for measured implementation size.
 
-## What the original observation gets right
+## Responsibility boundaries
 
-The productive part of the design is architectural rather than language-specific.
-The Rust implementation still concentrates dynamic values, ordered arguments, and
-tabular data in the same three places. Other facilities orbit those objects:
+Other facilities use the three roots through explicit boundaries:
 
 - formatting consumes `Arguments` and `Table`;
 - expression evaluation crosses a `Value` boundary;
 - SQLite binds `Value`/`Arguments` and materializes `Table`;
 - text and binary modules provide checked boundary operations.
 
-The core remains non-trivial, especially the typed column implementation. Rust did
-not remove the need to define nullability, conversion, ordering, indexing, ownership,
-and error behavior. A mature C++ core also has years of production experience that a
-new implementation cannot acquire from tests or static guarantees alone.
+The typed column implementation defines nullability, conversion, ordering,
+indexing, ownership, and error behavior. Tests and static guarantees cover these
+contracts; production maturity also depends on downstream use.
 
 The benchmark results reinforce the same point: there is no universal language win.
 Performance follows the representation, algorithm, ownership boundary, and exact work
 performed.
 
-## What Rust changes
+## Ownership and validity contracts
 
 The port concentrates safety at the core boundaries instead of distributing a large
 set of competing domain abstractions throughout user code:
@@ -127,9 +112,9 @@ The current Rust row-order API builds an `O(n log n)` stable permutation; GD's D
 selection/bubble sorting uses `O(n²)` comparisons and physically moves rows. That
 algorithm and contract difference must be considered when comparing timings.
 
-No retained-memory or allocation-count conclusion follows from the timing results.
-Those measurements are still required before claiming that either representation is
-more memory efficient.
+Timing results do not establish retained-memory or allocation costs. Use the
+memory and layout measurements for those comparisons, with their documented
+schemas and ownership policies.
 
 ## Scope and maturity limits
 
@@ -152,15 +137,3 @@ of the operations used by downstream applications. Consequently:
 Downstream method-for-method parity is not established. The feature matrix covers
 library capabilities, while the order workflow demonstrates one concrete application;
 neither inventories every call site in downstream GD projects.
-
-## Conclusion
-
-The Rust port preserves the C++ author's central architectural insight rather than
-trying to replace it. Its value proposition is not that Rust discovers a simpler
-domain model. It is that the same three pillars can expose narrower interfaces while
-making ownership, lifetime, type, nullability, and mutation contracts mechanically
-enforceable.
-
-If the goal is a method-for-method, production-mature replacement, the work is not
-complete. If the goal is the same concentrated architecture expressed as a safer,
-idiomatic Rust core, that is what has been built.

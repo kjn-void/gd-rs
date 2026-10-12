@@ -18,9 +18,7 @@ Both implementations filter static source row ranges first, retain matched indic
 
 Rust writes values into `Vec::spare_capacity_mut()` using safely split slices, then sets column lengths after every slot has been initialized. This avoids a zero-fill pass absent from GD. Rust text cells occupy 20/132 bytes including the 4-byte metadata, giving 64/288 bytes across all five columns per row. GD additionally stores terminators, spare capacity and alignment: its row stride remains 72/296 bytes. Both therefore copy eight bytes of text metadata per row; their remaining storage costs differ. The [untimed M6 layout probe](../measurements/filter-copy-arrays-m6-inline-layout.json) records the exact source snippet, compiler command and row strides.
 
-The [earlier metadata-free cohort and matching source snapshots](../measurements/archive/filter-copy-arrays-without-metadata/README.md) are preserved separately. Its timings are excluded from the current means; both GD and Rust were rerun for this comparison.
-
-## Fresh paired results
+## Paired results
 
 Sources: [Rust fixed-array SoA](../../../benches/filter_copy/fixed_arrays.rs), [unchanged GD memcpy driver](../../../benches/cpp-reference/filter_copy.cpp), [paired runner and oracle](../../../benches/filter_copy/arrays.py).
 

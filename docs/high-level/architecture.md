@@ -13,30 +13,32 @@ be considered as a separate package if golden-output tests establish a concrete 
 
 ```mermaid
 flowchart TD
-    Value["DataType / Value / ValueRef"] --> Arguments["Arguments / ArgumentIndex"]
-    Value --> Schema["Schema / ColumnSpec / ColumnConverter"]
-    Schema --> Table["Table / Row / Column"]
-    Value --> Table
-    Schema --> Builder["ConcurrentTableBuilder"]
-    Value --> Builder
+    Arguments["Arguments / ArgumentIndex"] --> Value["DataType / Value / ValueRef"]
+    Schema["Schema / ColumnSpec / ColumnConverter"] --> Value
+    Table["Table / Row / Column"] --> Schema
+    Table --> Value
+    Builder["ConcurrentTableBuilder"] --> Schema
+    Builder --> Value
     Builder --> Table
     Builder --> Orx["orx-concurrent-vec"]
-    Table --> ColumnIndex["ColumnIndex"]
+    ColumnIndex["ColumnIndex / CompositeIndex"] --> Table
+    Selection["TableSelection / RowOrder"] --> Table
     Table --> Rayon["Rayon row partitioning (feature)"]
     SharedRecords["SharedRecordTable&lt;S&gt;"] --> ArcRecords["Vec&lt;Arc&lt;S&gt;&gt;"]
     SharedRecords --> Rayon
     Binary["Binary cursors / hex / byte search"]
-    Text["Text and parsing"] --> Value
-    Value --> Expression["Expression engine / context / program"]
-    Arguments --> Formatting["Formatting and adapters"]
-    Table --> Formatting
-    Text --> Formatting
-    Arguments --> SQLite["SQLite adapter (feature)"]
+    Text["Text and parsing"]
+    Expression["Expression engine / context / program"] --> Value
+    Formatting["Formatting and import"] --> Arguments
+    Formatting --> Table
+    Formatting --> Text
+    Formatting --> Binary
+    SQLite["SQLite adapter (feature)"] --> Arguments
     SQLite --> Table
     SQLite --> Rusqlite["rusqlite"]
 ```
 
-Dependencies point from concrete facilities toward the small value core. Only the
+Arrows point from each facility to the facilities it uses. Only the
 feature-gated SQLite adapter depends on a database API; no module depends on a global
 logger or service locator.
 
@@ -154,9 +156,13 @@ These are separate properties, rather than three levels of one guarantee:
 
 #### gd-rs
 
-The crate contains no `unsafe` code or manual `Send`/`Sync` implementations. The
-compiler derives these traits from field types; this is distinct from establishing
-logical correctness or callback reentrancy. With the current dependency features:
+The library contains no unsafe code except three internal unchecked UTF-8 conversions in
+[`fixed_string.rs`](../../src/table/fixed_string.rs). Validity is established by
+string-typed writes; private byte buffers and descriptors, checked bounds, and safe
+`str` mutation preserve it. See the [fixed-string contract](../api/tables.md#fixed-capacity-string-buffers).
+There are no manual `Send`/`Sync` implementations. The compiler derives these traits
+from field types; this is distinct from establishing logical correctness or callback
+reentrancy. With the current dependency features:
 
 | Types | `Send` | `Sync` | Consequence |
 |---|---|---|---|

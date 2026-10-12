@@ -130,6 +130,9 @@ impl<'a> ValueRef<'a> {
 
     /// Converts any numeric variant to `f64`.
     ///
+    /// Large `i64` and `u64` values may round, as with Rust's integer-to-float casts.
+    /// This does not parse strings or reject non-finite floating-point values.
+    ///
     /// # Errors
     ///
     /// Returns [`ValueError::TypeMismatch`] when this is not numeric.

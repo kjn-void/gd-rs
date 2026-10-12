@@ -310,6 +310,8 @@ impl SqliteDatabase {
     /// Integer results are range-checked for the requested integer width. Integers
     /// may also become `F32`/`F64`; Boolean columns accept only 0 or 1. UUID columns
     /// accept a 16-byte blob or UUID text. Nullability is enforced by [`Table`].
+    /// Integer-to-float and `F64`-to-`F32` conversions may round; a finite value
+    /// that would become an infinite `F32` is rejected.
     /// This path reuses one **O(columns)** staging buffer for the entire query,
     /// moving each validated row's values into the returned table.
     ///
@@ -419,7 +421,10 @@ impl SqliteDatabase {
         self.query_table_with_schema(&query, &Arguments::new(), schema)
     }
 
-    /// Returns the wrapped connection for advanced read-only operations.
+    /// Returns a shared borrow of the wrapped connection for advanced operations.
+    ///
+    /// This is not a read-only database handle: `rusqlite` also accepts writes
+    /// through a shared connection reference.
     #[must_use]
     pub const fn connection(&self) -> &SqliteConnection {
         &self.connection

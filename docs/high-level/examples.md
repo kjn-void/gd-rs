@@ -2,8 +2,8 @@
 
 This guide shows equivalent call-site patterns for the characterized C++ `gd`
 library and `gd-rs`. It is a semantic translation guide, not an ABI mapping. The
-examples use the public APIs exercised by the C++ GoogleTest suite and the Rust
-integration tests.
+examples use the public APIs covered by the maintained C++ comparison fixtures and
+Rust integration tests. Rust snippets are also compiled and run as doctests.
 
 | C++ | Rust | Main difference |
 |---|---|---|
@@ -64,6 +64,7 @@ fn rust_owned_values() {
         _ => unreachable!(),
     }
 }
+# rust_owned_values();
 ```
 
 Primitive widths are preserved in both libraries. Rust expresses them as distinct
@@ -109,6 +110,7 @@ fn rust_borrowed_value() {
     let owned: Value = borrowed.to_owned();
     assert_eq!(owned.as_str(), Ok("alpha"));
 }
+# rust_borrowed_value();
 ```
 
 Borrowing a `Value` itself is also O(1):
@@ -145,6 +147,7 @@ fn rust_value_conversion() -> Result<(), ValueError> {
     assert!(Value::from("42").to_i64().is_err());
     Ok(())
 }
+# rust_value_conversion().unwrap();
 ```
 
 Text is not silently parsed as a number. Parse it at the application boundary and
@@ -192,6 +195,7 @@ fn rust_arguments() {
     assert_eq!(values.get(2).unwrap().name(), None);
     assert_eq!(values.get(2).unwrap().value(), &Value::U64(99));
 }
+# rust_arguments();
 ```
 
 The Rust accessors return `Option`; missing names and positions do not depend on an
@@ -357,6 +361,7 @@ fn rust_people_table() -> Result<Table, TableError> {
     );
     Ok(table)
 }
+# rust_people_table().unwrap();
 ```
 
 Primary names and aliases must be unique. `push_row([Value; N])` consumes a fixed-size
@@ -430,6 +435,7 @@ fn rust_files_table() -> Result<Table, TableError> {
     );
     Ok(files)
 }
+# rust_files_table().unwrap();
 ```
 
 In both APIs the custom name is row metadata, not a column available for column scans
@@ -464,6 +470,7 @@ fn rust_nullable_table() -> Result<(), TableError> {
     assert_eq!(table.row_count(), 2);
     Ok(())
 }
+# rust_nullable_table().unwrap();
 ```
 
 Non-nullable columns reject `Value::Null`. Wrong widths, wrong types, and row-width
@@ -481,9 +488,21 @@ const gd::variant_view name = table.cell_get_variant_view(1, "name");
 assert(name.as_string_view() == "Ada");
 ```
 
+The following examples reuse `rust_people_table` from the schema example.
 Rust `Row`, `Column`, and `ValueRef` carry the table borrow:
 
 ```rust
+# fn rust_people_table() -> Result<gd::Table, gd::TableError> {
+#     let schema = gd::Schema::new([
+#         gd::ColumnSpec::new("id", gd::DataType::U64),
+#         gd::ColumnSpec::new("name", gd::DataType::String).with_alias("display_name"),
+#         gd::ColumnSpec::new("active", gd::DataType::Bool),
+#     ])?;
+#     let mut table = gd::Table::new(schema);
+#     table.push_row([gd::Value::U64(8), gd::Value::from("Grace"), gd::Value::Bool(false)])?;
+#     table.push_row([gd::Value::U64(7), gd::Value::from("Ada"), gd::Value::Bool(true)])?;
+#     Ok(table)
+# }
 use gd::TableError;
 
 fn rust_table_views() -> Result<(), TableError> {
@@ -500,6 +519,7 @@ fn rust_table_views() -> Result<(), TableError> {
     assert_eq!(collected, ["Grace", "Ada"]);
     Ok(())
 }
+# rust_table_views().unwrap();
 ```
 
 The compiler prevents table mutation while one of these views remains in use.
@@ -510,6 +530,17 @@ Rust can build a typed, borrowing equality index for a column. Duplicate keys re
 all matching row positions.
 
 ```rust
+# fn rust_people_table() -> Result<gd::Table, gd::TableError> {
+#     let schema = gd::Schema::new([
+#         gd::ColumnSpec::new("id", gd::DataType::U64),
+#         gd::ColumnSpec::new("name", gd::DataType::String).with_alias("display_name"),
+#         gd::ColumnSpec::new("active", gd::DataType::Bool),
+#     ])?;
+#     let mut table = gd::Table::new(schema);
+#     table.push_row([gd::Value::U64(8), gd::Value::from("Grace"), gd::Value::Bool(false)])?;
+#     table.push_row([gd::Value::U64(7), gd::Value::from("Ada"), gd::Value::Bool(true)])?;
+#     Ok(table)
+# }
 use gd::{IndexKeyRef, TableError};
 
 fn rust_table_index() -> Result<(), TableError> {
@@ -520,6 +551,7 @@ fn rust_table_index() -> Result<(), TableError> {
     assert_eq!(names.rows(IndexKeyRef::from("missing")), &[] as &[usize]);
     Ok(())
 }
+# rust_table_index().unwrap();
 ```
 
 The index immutably borrows the table, preventing stale keys after mutation. The C++
@@ -543,6 +575,17 @@ Rust returns a stable permutation and leaves the table unchanged. Null placement
 independent of ascending or descending value order.
 
 ```rust
+# fn rust_people_table() -> Result<gd::Table, gd::TableError> {
+#     let schema = gd::Schema::new([
+#         gd::ColumnSpec::new("id", gd::DataType::U64),
+#         gd::ColumnSpec::new("name", gd::DataType::String).with_alias("display_name"),
+#         gd::ColumnSpec::new("active", gd::DataType::Bool),
+#     ])?;
+#     let mut table = gd::Table::new(schema);
+#     table.push_row([gd::Value::U64(8), gd::Value::from("Grace"), gd::Value::Bool(false)])?;
+#     table.push_row([gd::Value::U64(7), gd::Value::from("Ada"), gd::Value::Bool(true)])?;
+#     Ok(table)
+# }
 use gd::{NullOrder, SortDirection, TableError, ValueRef};
 
 fn rust_table_order() -> Result<(), TableError> {
@@ -561,6 +604,7 @@ fn rust_table_order() -> Result<(), TableError> {
     assert_eq!(table.cell_named(0, "id")?, ValueRef::U64(8)); // original order
     Ok(())
 }
+# rust_table_order().unwrap();
 ```
 
 Constructing `RowOrder` takes O(rows log rows) time and O(rows) additional positions.
@@ -607,6 +651,7 @@ fn rust_tombstone_table() -> Result<(), TableError> {
     assert_eq!(table.live_row_count(), 2);
     Ok(())
 }
+# rust_tombstone_table().unwrap();
 ```
 
 The C++ state word is a general-purpose flag with no ownership of null or payload

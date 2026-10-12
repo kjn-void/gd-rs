@@ -21,8 +21,9 @@ assert_eq!(engine.evaluate(&program, &mut context).unwrap(), Value::I64(48));
 
 `compile_expression` accepts exactly one expression. `compile` accepts a script with
 assignments, statements, functions, and control flow. A `Program` owns its syntax
-tree and can be reused with different mutable `ExpressionContext` values; cloning it
-is cheap because Rhai shares immutable internals.
+tree and can be reused by reference with different mutable `ExpressionContext` values.
+Cloning delegates to Rhai's AST clone, which can copy statement storage even though
+function definitions are shared; it is not guaranteed to be constant time.
 
 For one-off work, `evaluate_expression` compiles and evaluates in one call. Prefer a
 stored `Program` in a loop so parsing does not become the dominant cost.

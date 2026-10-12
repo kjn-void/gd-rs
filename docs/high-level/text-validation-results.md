@@ -1,12 +1,12 @@
 # Fixed strings: validate at the write boundary
 
-Fixed-buffer reads now trust the UTF-8 validity established by string-typed writes. The public API still checks bounds, capacity, and nullability. Raw bytes and descriptors remain private; safe `str` mutation preserves UTF-8. Three small internal unchecked conversions replace repeated validity scans.
+Fixed-buffer reads trust the UTF-8 validity established by string-typed writes. The public API checks bounds, capacity, and nullability. Raw bytes and descriptors are private; safe `str` mutation preserves UTF-8. Three small internal unchecked conversions avoid repeated validity scans.
 
-The checked-read executable was preserved from the original implementation before rebuilding. Its workload source is identical to the new executable's; transform scratch copies and per-cell gathering are unchanged. This experiment measures the read change.
+The paired executables use the same workload, transform scratch copies, and per-cell gathering. They differ in whether reads validate UTF-8 or trust validated writes. This experiment measures that policy difference.
 
 ## Findings
 
-Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs). C++ is not remeasured; its [workloads](../../benches/cpp-reference/text_workflow.cpp) and results remain in the [original comparison](text-workflow-results.md).
+Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs). The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) and results are in the [four-case comparison](text-workflow-results.md).
 
 Removing repeated validation makes a substantial difference. At 1,000,000 rows
 with one worker, filtering improves by 2.27× for 16-byte messages and 2.41× for
@@ -20,7 +20,7 @@ in parallel timings should not be treated as precise isolated costs.
 
 ## Paired measurements
 
-Sources: [unchanged Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [original checked-read storage](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust implementations; C++ is not remeasured here. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) belong to the [original four-case comparison](text-workflow-results.md).
+Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [checked-read comparison source](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust read policies. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) are measured in the [four-case comparison](text-workflow-results.md).
 
 Measured 2026-10-07 on Apple M3 Max, `macOS-27.0.1-arm64-arm-64bit-Mach-O`, with `rustc 1.98.1 (48a229cea 2026-09-01)`. Flags: `release -O3; codegen-units=1; lto=thin; target-cpu=native; no-default-features; features=rayon; --locked`. Scheduling: OS scheduling, no affinity; persistent pools, exactly one static row task per worker; one process at a time.
 
@@ -28,7 +28,7 @@ Measured 2026-10-07 on Apple M3 Max, `macOS-27.0.1-arm64-arm-64bit-Mach-O`, with
 
 Each configuration has 4 rounds, alternating executable order. Each process records 7 calibrated batches, with a 50 ms minimum target. Values are medians of process medians. Fixtures, pool creation, and complete output checks are outside timing; filter and pipeline include allocation and destruction. Transform measures warmed output capacity; pipeline returns ordered worker shards.
 
-All 144 before/after output checks matched the independent oracle from the original matrix, as did all 576 timed processes. CPU activity was sampled before and after each round. 0 rounds were discarded. Boundary samples do not continuously profile competing activity.
+All 144 paired output checks matched the independent oracle, as did all 576 timed processes. CPU activity was sampled before and after each round. 0 rounds were discarded. Boundary samples do not continuously profile competing activity.
 
 Recorded CPU snapshots range from 29.1% to 1476.6%, where 100% represents one
 CPU core and only processes above 5% are counted. Some 10,000-row parallel
@@ -42,7 +42,7 @@ effect of that variability instead of silently replacing individual points.
 
 ## At 1,000,000 rows
 
-Sources: [unchanged Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [original checked-read storage](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust implementations; C++ is not remeasured here. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) belong to the [original four-case comparison](text-workflow-results.md).
+Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [checked-read comparison source](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust read policies. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) are measured in the [four-case comparison](text-workflow-results.md).
 
 Milliseconds per operation; lower is faster. Speedup is checked-read time divided by trusted-read time.
 
@@ -63,7 +63,7 @@ Milliseconds per operation; lower is faster. Speedup is checked-read time divide
 
 ## Filter: few to many rows
 
-Sources: [unchanged Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [original checked-read storage](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust implementations; C++ is not remeasured here. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) belong to the [original four-case comparison](text-workflow-results.md).
+Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [checked-read comparison source](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust read policies. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) are measured in the [four-case comparison](text-workflow-results.md).
 
 Microseconds per operation; lower is faster.
 
@@ -96,7 +96,7 @@ Microseconds per operation; lower is faster.
 
 ## Transform: few to many rows
 
-Sources: [unchanged Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [original checked-read storage](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust implementations; C++ is not remeasured here. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) belong to the [original four-case comparison](text-workflow-results.md).
+Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [checked-read comparison source](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust read policies. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) are measured in the [four-case comparison](text-workflow-results.md).
 
 Microseconds per operation; lower is faster.
 
@@ -129,7 +129,7 @@ Microseconds per operation; lower is faster.
 
 ## Pipeline: few to many rows
 
-Sources: [unchanged Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [original checked-read storage](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust implementations; C++ is not remeasured here. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) belong to the [original four-case comparison](text-workflow-results.md).
+Sources: [Rust workload](../../benches/text_workflow/driver.rs), [paired runner](../../benches/text_workflow/compare_validation.py), [fixed-string storage](../../src/table/fixed_string.rs), [checked-read comparison source](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). This isolates two Rust read policies. The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) are measured in the [four-case comparison](text-workflow-results.md).
 
 Microseconds per operation; lower is faster.
 

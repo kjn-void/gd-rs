@@ -1,8 +1,8 @@
 # Compatibility decisions
 
-This file records intentional differences from the current C++ behavior, reviewed on
-2026-10-05 against gd-rs `f7c7b91` and GD submodule
-`cb11cff90d05260a88d59a30c9da421cd4e19c34`. Rust contracts are covered by current tests.
+This describes the current Rust contracts and their intentional differences from the
+C++ reference at GD submodule `cb11cff90d05260a88d59a30c9da421cd4e19c34`.
+Rust contracts are covered by current tests.
 C++ observations are grounded in the pinned source; that tree has no unit-test
 directory. Maintained workflow probes cover the paths linked in the [workflow
 report](../high-level/order-workflow.md), not every C++ observation below.
@@ -17,7 +17,7 @@ report](../high-level/order-workflow.md), not every C++ observation below.
 | Table input conversion | call-site `tag_convert` attempts broad runtime coercion | strict by default; named per-column converters opt in at schema boundaries | intentional API difference; implemented |
 | Table properties | mutable argument-backed property bag | uniquely named insertion-ordered `Arguments` owned by each table | implemented |
 | Unknown table fields | argument-backed tables redirect unknown names to per-row dynamic storage | strict by default; `UnknownFields::Store` enables lazy owned row extras | implemented |
-| Row status | packed per-row state words with caller-managed use/deleted flags and optional `tag_meta` scanning | lazily allocated tombstone flags at stable physical positions; live views, indexes, ordering, and formatting exclude them, while cell access and diagnostics stay physical; `compact` removes tombstoned rows and maps old positions, and freed slots are never reused (`find_first_free_row` has no counterpart) | intentional API difference; implemented |
+| Row status | packed per-row state words with caller-managed use/deleted flags and optional `tag_meta` scanning | lazily allocated tombstone flags at stable physical positions; live iterators, index keys, and formatting exclude them; row ordering, cell access, and diagnostics retain physical rows; `compact` removes tombstoned rows and maps old positions, and freed slots are never reused (`find_first_free_row` has no counterpart) | intentional API difference; implemented |
 | Empty null-enabled row | cells marked non-null with uninitialized fixed payloads | null must be explicit; non-null columns reject null | intentionally rejected |
 | Column name lengths | unaligned `uint16_t` pointer casts | normal string containers | C++ defect retained; Rust avoids it |
 | Scalar table index miss | lower-bound result accepted without equality; composite lookup checks equality | exact equality required | C++ source defect; Rust exact |

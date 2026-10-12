@@ -956,14 +956,17 @@ for this stable, selected output.
 
 Each logical column has a matching storage variant. Required columns use dense storage
 such as `Vec<i64>` or `Vec<CompactString>`; nullable columns currently use
-`Vec<Option<i64>>` or `Vec<Option<CompactString>>`. This differs from the C++ packed row
-buffer even where the older documentation calls that buffer columnar. Required numeric
+`Vec<Option<i64>>` or `Vec<Option<CompactString>>`. The C++ table uses a packed
+row-major buffer. Required numeric
 columns expose `&[T]` for direct bulk scans, while dynamic `ValueRef` iteration remains
 available for code that does not know the type statically.
 
-Nullable null state currently uses `Option<T>` rather than a separate bitmap. The
-typed-slice API rejects nullable columns, so a measured future validity-bitmap
-optimization can replace that internal representation without changing callers.
+Ordinary nullable columns use `Option<T>` rather than a separate bitmap.
+`as_slice` and `as_mut_slice` require non-nullable storage; `as_nullable_slice` and
+`as_nullable_mut_slice` expose the nullable `Option<T>` layout directly. Changing that
+layout would therefore need to account for these public slice contracts.
+Fixed-capacity strings instead encode null with a reserved descriptor length and
+use the dedicated fixed-string views.
 
 Cloning a `Table` shares its immutable schema and clones its column data. Constructing
 several empty tables from clones of the same `Arc<Schema>` shares metadata while

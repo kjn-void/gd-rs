@@ -1,8 +1,8 @@
 # GD and gd-rs feature matrix
 
-Source audit of the current gd-rs worktree and its pinned
-[`external/gd`](../../external/gd) submodule at
-`cb11cff90d05260a88d59a30c9da421cd4e19c34`, performed on 2026-10-05.
+This describes the current gd-rs worktree and its pinned
+[`external/gd`](../../external/gd) reference at
+`cb11cff90d05260a88d59a30c9da421cd4e19c34`.
 
 GD is the broader toolkit: it includes extensive table-copy
 operations, aggregate helpers, SQL construction, ODBC, and application utilities.

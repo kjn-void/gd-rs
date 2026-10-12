@@ -160,6 +160,8 @@ pub struct FixedStrings<'a> {
     indices: &'a [StringIndex],
     buffer: &'a [u8],
     capacity: usize,
+    // Descriptors retain absolute column offsets after a view is split; base
+    // is the absolute offset represented by buffer[0].
     base: usize,
 }
 
@@ -215,6 +217,7 @@ pub struct FixedStringsMut<'a> {
     buffer: &'a mut [u8],
     capacity: usize,
     nullable: bool,
+    // As in FixedStrings, subtract this origin to address the borrowed buffer.
     base: usize,
 }
 

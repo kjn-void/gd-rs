@@ -1,20 +1,19 @@
 # Table API safety comparison: `gd-rs` and `gd`
 
-This audit compares the Rust table API in this repository with the C++ table
-family in the `external/gd` submodule, with emphasis on mistakes that can cause undefined behavior
-(UB), memory corruption, or a process crash. It is a source audit of
-`gd-rs` commit `cc0ed9ea5b4c3849fa8709186399abed1e9fbfcc` and `gd` commit
-`cb11cff90d05260a88d59a30c9da421cd4e19c34`.
+This compares the current Rust table API with the C++ table family in the
+`external/gd` submodule at `cb11cff90d05260a88d59a30c9da421cd4e19c34`, focusing
+on undefined behavior (UB), memory corruption, and process crashes.
 
-The later fixed-string storage uses three internal unchecked UTF-8 conversions
-to avoid validating reads repeatedly. Its safe API accepts string-typed writes
-and keeps raw bytes and descriptors private; see the
-[write/read invariant](../api/tables.md#fixed-capacity-string-buffers) and
-[implementation](../../src/table/fixed_string.rs). The no-`unsafe` observations
-below apply to the audited revision, before this storage was added.
+The Rust library contains no unsafe code except three unchecked UTF-8 conversions
+in fixed-capacity string storage. String-typed writes establish validity; private
+bytes and descriptors, checked bounds, and safe string mutation preserve it. See
+the [write/read invariant](../api/tables.md#fixed-capacity-string-buffers) and
+[implementation](../../src/table/fixed_string.rs). The separate
+[benchmark experiments](../../benches/filter_copy/README.md#unsafe-code-in-benchmark-experiments)
+have their own explicitly documented unsafe blocks.
 
 The APIs are not method-for-method equivalents. Rust has one fixed-schema
-[`Table`](../../src/table.rs#L194), an immutable [`Schema`](../../src/table/schema.rs#L207),
+[`Table`](../../src/table.rs), an immutable [`Schema`](../../src/table/schema.rs),
 and borrowing row, column, index, and ordering views. C++ has several related
 types: `table_column_buffer` (also exposed as `gd::table::dto::table`),
 `gd::table::table`, `gd::table::arguments::table`, and separate index helpers.
@@ -25,9 +24,9 @@ The C++ API is broader and exposes substantially more low-level state.
 The Rust API is materially safer and substantially harder to misuse.
 Ordinary mistakes such as a bad row width, wrong value type, null in a required
 column, missing name, out-of-range position, overlapping mutable selection, or
-stale view are rejected by `Result`/`Option`, or by the borrow checker. No route
-to UB was found through the safe Rust table API, and the table implementation
-contains no `unsafe` block.
+stale view are rejected by `Result`/`Option`, or by the borrow checker. The
+fixed-string API relies on the write invariant described above for its three
+unchecked UTF-8 conversions; callers cannot directly modify the bytes or descriptors.
 
 The C++ API has a debug/release safety cliff. Many preconditions are `assert`s,
 so a debug build aborts but a release build continues into pointer arithmetic,
@@ -66,7 +65,7 @@ let error = table.cell_named(0, "naem").unwrap_err();
 assert!(matches!(error, TableError::ColumnNotFound(_)));
 ```
 
-[`Table::cell_named`](../../src/table.rs#L778) resolves the name through the
+[`Table::cell_named`](../../src/table.rs) resolves the name through the
 validated schema and returns `ColumnNotFound` when it is absent.
 
 C++ converts the failed lookup into an unsigned index:
@@ -92,10 +91,10 @@ let error = column.as_slice::<u64>().unwrap_err();
 assert!(matches!(error, ColumnSliceError::TypeMismatch { .. }));
 ```
 
-[`Column::as_slice`](../../src/table/views.rs#L223) returns a typed error when
+[`Column::as_slice`](../../src/table/views.rs) returns a typed error when
 `T` does not match the schema and returns only correctly aligned storage when it
 does match. Nullable columns use
-[`as_nullable_slice`](../../src/table/views.rs#L251) with the same type check and
+[`as_nullable_slice`](../../src/table/views.rs) with the same type check and
 explicit `Option<T>` values. The mutable counterpart exposes only correctly typed
 optional values after checking schema nullability.
 
@@ -192,7 +191,7 @@ assert!(matches!(error, TableError::RowWidth { expected: 2, actual: 1 }));
 assert_eq!(table.row_count(), 0);
 ```
 
-[`push_row`](../../src/table.rs#L613) stages conversion and validation before
+[`push_row`](../../src/table.rs) stages conversion and validation before
 publishing the row.
 
 The corresponding C++ overload explicitly accepts fewer values than columns:
@@ -248,7 +247,7 @@ Growth or destruction can invalidate the view, and subsequent use is
 use-after-free UB. The same problem applies to string indexes because
 [`index_string`](../../external/gd/source/gd_table_index.h#L153) stores
 `std::string_view` keys borrowed from table storage. Rust's
-[`ColumnIndex`](../../src/table/index.rs#L98) borrows the table, so mutation and
+[`ColumnIndex`](../../src/table/index.rs) borrows the table, so mutation and
 destruction are statically excluded while the index is usable.
 
 ### 7. Copying the internal C++ `table`
@@ -290,7 +289,7 @@ the C++ type family must not be treated as interchangeable.
 ### 8. Copying row-local extras in `gd::table::arguments::table`
 
 Rust row-local extras are owned per row
-([`ExtrasStorage::Enabled`](../../src/table/storage.rs#L81) holds
+([`ExtrasStorage::Enabled`](../../src/table/storage.rs) holds
 `Option<Box<RowExtras>>`), so a cloned or row-copied table receives an
 independent deep copy:
 
@@ -342,8 +341,8 @@ sanitizer.
 ### Encapsulation and lifecycle
 
 Rust keeps schema, storage, and row count private and constructs column storage
-from an already validated schema ([`Table` fields](../../src/table.rs#L194)).
-Duplicate names and aliases are rejected by [`Schema::new`](../../src/table/schema.rs#L220).
+from an already validated schema ([`Table` fields](../../src/table.rs)).
+Duplicate names and aliases are rejected by [`Schema::new`](../../src/table/schema.rs).
 The schema cannot change behind existing rows.
 
 The C++ API uses a two-phase `column_add` then `prepare` lifecycle. It also
@@ -363,7 +362,7 @@ actually `const` is UB. Rust does not provide a mutable view from `&Table`.
 
 Rust refuses to produce overlapping mutable columns. `columns_io` reports an
 input/output overlap or duplicate output, and `column_pair_mut` returns `None`
-for the same column ([implementation](../../src/table.rs#L880)). Row-range
+for the same column ([implementation](../../src/table.rs)). Row-range
 splitting similarly creates disjoint borrows.
 
 C++ exposes mutable raw pointers from table storage and mutable metadata. Its
@@ -388,7 +387,9 @@ interfaces.
 Safe does not mean impossible to terminate the process. The reviewed Rust API
 documents these table-specific panic cases:
 
-- `RowsMut::split_at(mid)` panics when `mid > len`.
+- `RowsMut::split_at(mid)` and `FixedStringsMut::split_at(mid)` panic when `mid > len`.
+- `ColumnSpec::fixed_string` panics for zero capacity or capacity above `isize::MAX`.
+  Fixed-string allocation also panics if the requested byte capacity overflows.
 - Rayon `par_for_each(0, ...)` panics because zero is not a valid grain size.
 - `ConcurrentTableBuilder` insertion panics if the concurrent vector's maximum
   capacity is exhausted.
@@ -397,15 +398,15 @@ documents these table-specific panic cases:
 - Allocation failure may abort the process, depending on the allocator/panic
   configuration.
 
-These are crash/availability risks, not UB through the safe API. Bounds checks
-and assertions execute in release builds unless a user deliberately selects an
-abort behavior; they do not disappear like C++ `assert`.
+These are crash/availability risks, not UB through the safe API. Rust bounds checks
+and these assertions also run in release builds. Panic handling depends on the
+selected panic strategy; the checks do not disappear like C++ `assert`.
 
-Internal consistency checks in the table, index, column-selection, binary,
-expression, and import paths do not call `unwrap`, `expect`, `panic!`, or
-`unreachable!`; those paths return typed errors such as
-`TableError::InternalInvariant` instead. The list above is limited to documented
-public contracts, allocation failure, and user code.
+Checked table, index, column-selection, binary, expression, and import operations
+return typed errors such as `TableError::InternalInvariant` for internal failures.
+Private fixed-string storage also uses assertions and `expect` for invariants
+established by validated input. Memory safety and recovery from internal logic
+errors are separate concerns.
 
 The most notable mistake-resistance trade-off is `UnknownFields::Store`: it
 intentionally turns an unknown name into a row-local extra, so a typo may be
@@ -475,10 +476,10 @@ assert!(matches!(error, TableError::ConversionFailed { .. }));
 assert_eq!(table.row_count(), 1);
 ```
 
-This follows [`prepare_cell`](../../src/table.rs#L1230): exact types use the fast
+This follows [`prepare_cell`](../../src/table.rs): exact types use the fast
 path, other types require an explicit converter, converter errors are preserved,
 and the result must exactly match the column type and nullability. All cells are
-prepared before [`prepare_row`](../../src/table.rs#L1251) permits publication.
+prepared before [`prepare_row`](../../src/table.rs) permits publication.
 
 The SQLite adapter is stricter still. Given this database:
 
@@ -499,10 +500,10 @@ let result = database.query_table_with_schema(
 assert!(matches!(result, Err(SqliteError::ColumnType { .. })));
 ```
 
-[`query_table_with_schema`](../../src/sqlite.rs#L320) checks result width, reads
+[`query_table_with_schema`](../../src/sqlite.rs) checks result width, reads
 each SQLite value into one reused staging `Vec<Value>`, and only then calls
 atomic table insertion. The values move into typed columns while the staging
-allocation is retained for the next row. [`typed_value`](../../src/sqlite.rs#L678)
+allocation is retained for the next row. [`typed_value`](../../src/sqlite.rs)
 accepts SQLite `INTEGER` for `U32`, range-checks it with `u32::try_from`, and rejects SQLite `TEXT`. It also
 rejects a non-`0`/`1` Boolean, invalid UTF-8/UUID, null in a required column, and
 the wrong storage class. Textual-number parsing therefore has to be an explicit
@@ -510,7 +511,7 @@ application step (or an intentional SQL expression with SQLite's own documented
 conversion semantics).
 
 The inferred Rust import is also defensive: if one result column contains both
-an integer and text in different rows, [`query_table`](../../src/sqlite.rs#L259)
+an integer and text in different rows, [`query_table`](../../src/sqlite.rs)
 returns `SqliteError::MixedColumnType` instead of guessing a common type.
 
 ### C++: `tag_convert` is implicit, unchecked, and non-atomic
@@ -617,14 +618,16 @@ forbids schema mutation and raw access after preparation, retains all validation
 in release builds, owns values returned to callers, and does not expose the
 internal `table` copy operations.
 
-## Validation performed
+## Validation
 
-- Inspected the public table types and their implementations in both trees,
-  including schemas, insertion, cell access, typed views, null handling,
-  ownership/copying, indexes, ordering, concurrent mutation, and serialization.
-- Searched the Rust table module and its submodules for `unsafe`; none was
-  found.
-- Ran `cargo test --all-features --test table`: 29 tests passed.
-- Ran `cargo test --all-features --test sqlite`: 10 tests passed.
-- Compared behavior with assertions enabled and disabled at the source level;
-  no C++ files were modified.
+The repository check script, [`scripts/ci.sh`](../../scripts/ci.sh), runs formatting,
+Clippy, all-target/all-feature tests, minimal-feature tests, doctests, documentation
+checks, and the Rust 1.86 compatibility check.
+
+The [fixed-string tests](../../tests/table_fixed_strings.rs) cover UTF-8 boundaries,
+shorter replacements, nulls, empty strings, rejected writes, split mutable views,
+copying, appending, and compaction. The [table tests](../../tests/table.rs),
+[selection tests](../../tests/table_selection_view.rs), and
+[SQLite tests](../../tests/sqlite.rs) exercise the other Rust contracts described
+here. C++ findings are grounded in the linked source; focused runtime probes and
+their environments are recorded in the [workflow report](order-workflow.md).

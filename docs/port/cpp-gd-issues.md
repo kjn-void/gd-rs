@@ -8,13 +8,12 @@ by accident.
 Current port scope, design choices and crate selection live in
 [`porting-plan.md`](porting-plan.md).
 
-Reviewed on 2026-10-05 against GD submodule `cb11cff90d05260a88d59a30c9da421cd4e19c34`
-and gd-rs `f7c7b91`. The current audit covers the C++ sources in the `external/gd`
+The analysis covers GD submodule `cb11cff90d05260a88d59a30c9da421cd4e19c34`
+and the current Rust worktree. C++ sources are in the `external/gd`
 submodule. Tests and benchmarks are kept separate from product code in the reproducible
 counts in [`source-stats.md`](source-stats.md).
 
-Concurrency, UUID, logger, and move-operation findings were added on 2026-10-06 against
-the same GD revision and gd-rs `70c89f2`. Their probes ran on macOS ARM64 (Apple M3 Max,
+Concurrency, UUID, logger, and move-operation probes cover macOS ARM64 (Apple M3 Max,
 Apple Clang) and Linux x86_64 (Intel Core Ultra 5 225H, GCC 13.3).
 
 ## Baseline and confirmed defects

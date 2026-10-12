@@ -19,7 +19,8 @@ let mut writer = BinaryWriter::new(&mut storage);
 writer.write_u32(0x1234_5678, Endian::Big)?;
 writer.write_f32(1.5, Endian::Little)?;
 
-let mut reader = BinaryReader::new(&storage[..writer.position()]);
+let written = writer.position(); // End the writer borrow before reading storage.
+let mut reader = BinaryReader::new(&storage[..written]);
 assert_eq!(reader.read_u32(Endian::Big)?, 0x1234_5678);
 assert_eq!(reader.read_f32(Endian::Little)?, 1.5);
 # Ok::<(), BinaryError>(())

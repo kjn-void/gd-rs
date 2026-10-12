@@ -9,9 +9,10 @@ central data structures:
 - `table_to_csv`;
 - `table_from_json` and `table_from_csv`, which read the table formats back.
 
-Every writer returns an owned `String` and a `FormatError` when the source cannot be
-represented without ambiguity or data loss. The readers return a new `Table` or an
-`ImportError`.
+Every writer returns an owned `String` or a `FormatError` for unsupported inputs.
+These are interchange formats: they do not preserve every GD type distinction or
+table metadata. For example, CSV and URI output both render null as an empty value,
+and bytes and UUIDs become text. The readers return a new `Table` or an `ImportError`.
 
 ## Arguments as JSON
 
@@ -169,8 +170,9 @@ must have exactly one field per column.
 
 CSV cannot tell null from an empty string or empty byte sequence. An empty field reads
 as null, except in a required string or byte column, where it reads as the empty
-value. The CSV reader also accepts the `NaN` and `inf` text that `table_to_csv` writes
-for non-finite floats.
+value. Empty CSV fields for unknown names are omitted from row-local extras. The CSV
+reader also accepts the `NaN` and `inf` text that `table_to_csv` writes for non-finite
+floats; text formats do not preserve NaN payload bits.
 
 Imported tables have no tombstones and no properties, because the formats carry
 neither. Import may create row-local extras under `UnknownFields::Store`, but the table

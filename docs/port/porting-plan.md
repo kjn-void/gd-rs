@@ -1,7 +1,7 @@
 # Current Rust port scope and design
 
-This records the implemented design and remaining scope decisions for the portable `gd`
-core, reviewed on 2026-10-05 against gd-rs `f7c7b91` and GD submodule
+This describes the current implemented design and scope of the portable `gd` core.
+The C++ reference is the GD submodule at
 `cb11cff90d05260a88d59a30c9da421cd4e19c34`. Observed C++ defects, data races, undefined
 behavior, and algorithmic criticism are kept separately in
 [`cpp-gd-issues.md`](cpp-gd-issues.md). Intentional behavior changes are recorded in
@@ -60,9 +60,12 @@ Binary readers decode integers from bounded byte slices with
 explicit endianness; they do not cast byte pointers to typed pointers. A failed read
 must be observable and leave the documented cursor state intact.
 
-The crate currently contains no `unsafe` block. An unsafe implementation is
-acceptable only when a safe public API states its invariants and before/after
-measurements show a clear timing or retained-size benefit. It must have focused tests,
+The library contains no unsafe code except three internal unchecked UTF-8 conversions
+in fixed-capacity string storage. The
+[implementation](../../src/table/fixed_string.rs) documents how string-typed writes
+and private descriptors preserve validity without rescanning each read. An unsafe
+implementation is acceptable only when a safe public API states its invariants and
+before/after measurements show a clear timing or retained-size benefit. It must have focused tests,
 a local safety argument, Miri coverage where applicable, and tests for every stated
 invariant. Unsafe code without the corresponding measurement or retained-size
 evidence must be removed.

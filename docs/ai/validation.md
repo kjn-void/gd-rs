@@ -24,9 +24,10 @@ Run every check in this document through the repository script:
 ./scripts/ci.sh
 ```
 
-The script runs formatting, Clippy, documentation, all-features tests,
-minimal-features tests, and the MSRV check in order, and reports explicitly when the
-MSRV toolchain is unavailable. The same script runs in
+The script runs formatting, Clippy, all-features tests, minimal-features tests,
+all-features doctests (including the standalone usage guides), documentation, and the
+MSRV check in order. It reports explicitly when the MSRV toolchain is unavailable.
+The same script runs in
 `.github/workflows/ci.yml` on pushes and pull requests. CI installs both the stable
 toolchain and Rust 1.86.0 before invoking the script.
 
@@ -41,4 +42,5 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
 ```
 
 These checks supplement, rather than replace, the two complete test commands required
-by [`AGENTS.md`](../../AGENTS.md).
+by the [pre-commit checklist](pre-commit.md). `cargo test --all-targets` does not run
+doctests, so the script runs `cargo test --doc --all-features` separately.

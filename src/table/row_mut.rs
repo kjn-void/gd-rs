@@ -463,8 +463,8 @@ impl RowMut<'_> {
     ///
     /// # Errors
     ///
-    /// Returns a column bounds, type, or nullability error without changing the
-    /// cell.
+    /// Returns a column bounds, conversion, type, nullability, or fixed-string
+    /// capacity error without changing the cell.
     pub fn set(&mut self, column: usize, mut value: Value) -> Result<(), TableError> {
         let spec = self
             .schema
@@ -487,8 +487,8 @@ impl RowMut<'_> {
     ///
     /// # Errors
     ///
-    /// Returns a type or nullability error for declared columns, or
-    /// [`TableError::ColumnNotFound`] when the schema rejects the unknown name.
+    /// Returns a conversion, type, nullability, or fixed-string capacity error for
+    /// declared columns, or [`TableError::ColumnNotFound`] for a rejected unknown name.
     pub fn set_named(
         &mut self,
         name_or_alias: &str,

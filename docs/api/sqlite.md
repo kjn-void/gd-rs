@@ -106,7 +106,9 @@ one O(columns) staging vector for the entire query. A complete row is validated
 before its owned values move into the columns; the staging allocation is retained
 for the next row. This also applies to `load_table`.
 
-Integers are range-checked; Boolean columns accept only 0 or 1; integer results may become floats; UUID columns
+Integers are range-checked; Boolean columns accept only 0 or 1; integer results may
+become floats. Integer-to-float and `F64`-to-`F32` conversions may round; a finite
+value that would become an infinite `F32` is rejected. UUID columns
 accept either a 16-byte blob or parseable UUID text. Result width, storage class,
 UTF-8, UUID, range, and nullability mismatches are errors.
 
@@ -149,9 +151,13 @@ instead of guessed.
 ## Connection access
 
 `connection` and `connection_mut` expose `rusqlite::Connection` for transactions,
-prepared statement reuse, pragmas, backup APIs, and other advanced operations.
+prepared statement reuse, pragmas, and other advanced operations. Optional rusqlite
+APIs such as online backup require the application to enable the corresponding
+`rusqlite` feature; `gd-rs` enables only `bundled`.
 `from_connection` wraps an existing connection, while `into_connection` returns it.
 `last_insert_rowid` and `is_autocommit` forward common connection state.
+The shared reference from `connection()` permits writes through rusqlite; it is not
+a read-only database capability.
 
 Unlike the broader C++ database layer, this crate currently has no ODBC driver,
 generic database interface, retry/logging policy, cursor wrapper, or SQL builder.

@@ -4,13 +4,13 @@ import argparse
 import json
 from pathlib import Path
 
-SOURCES = ('Sources: [unchanged Rust workload](../../benches/text_workflow/driver.rs), '
+SOURCES = ('Sources: [Rust workload](../../benches/text_workflow/driver.rs), '
            '[paired runner](../../benches/text_workflow/compare_validation.py), '
            '[fixed-string storage](../../src/table/fixed_string.rs), '
-           '[original checked-read storage](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). '
-           'This isolates two Rust implementations; C++ is not remeasured here. '
-           'The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) belong to the '
-           '[original four-case comparison](text-workflow-results.md).')
+           '[checked-read comparison source](https://github.com/kjn-void/gd-rs/blob/d0000f7856cdcb6bc9920dd59e04820477341609/src/table/fixed_string.rs). '
+           'This isolates two Rust read policies. '
+           'The [C++ workloads](../../benches/cpp-reference/text_workflow.cpp) are measured in the '
+           '[four-case comparison](text-workflow-results.md).')
 
 
 def render(report, raw_name, chart_name):
@@ -18,13 +18,13 @@ def render(report, raw_name, chart_name):
     records = report['summary']
     largest = max(r['rows'] for r in records)
     lines = ['# Fixed strings: validate at the write boundary', '',
-             'Fixed-buffer reads now trust the UTF-8 validity established by string-typed writes. '
-             'The public API still checks bounds, capacity, and nullability. '
-             'Raw bytes and descriptors remain private; safe `str` mutation preserves UTF-8. '
-             'Three small internal unchecked conversions replace repeated validity scans.', '',
-             'The checked-read executable was preserved from the original implementation before '
-             'rebuilding. Its workload source is identical to the new executable\'s; transform scratch '
-             'copies and per-cell gathering are unchanged. This experiment measures the read change.', '',
+             'Fixed-buffer reads trust the UTF-8 validity established by string-typed writes. '
+             'The public API checks bounds, capacity, and nullability. '
+             'Raw bytes and descriptors are private; safe `str` mutation preserves UTF-8. '
+             'Three small internal unchecked conversions avoid repeated validity scans.', '',
+             'The paired executables use the same workload, transform scratch copies, and per-cell '
+             'gathering. They differ in whether reads validate UTF-8 or trust validated writes. '
+             'This experiment measures that policy difference.', '',
              '## Paired measurements', '', SOURCES, '',
              f'Measured {meta["utc"][:10]} on {meta["cpu"]}, `{meta["platform"]}`, '
              f'with `{meta["rustc"].splitlines()[0]}`. Flags: `{meta["rust_flags"]}`. '
@@ -38,8 +38,8 @@ def render(report, raw_name, chart_name):
              'Values are medians of process medians. Fixtures, pool creation, and complete output checks '
              'are outside timing; filter and pipeline include allocation and destruction. '
              'Transform measures warmed output capacity; pipeline returns ordered worker shards.', '',
-             f'All {len(report["verification"])} before/after output checks matched the independent oracle '
-             f'from the original matrix, as did all {len(report["measurements"])} timed processes. '
+             f'All {len(report["verification"])} paired output checks matched the independent oracle, '
+             f'as did all {len(report["measurements"])} timed processes. '
              'CPU activity was sampled before and after each round. '
              f'{len(report["discarded_rounds"])} rounds were discarded. Boundary samples do not '
              'continuously profile competing activity.', '',

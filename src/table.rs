@@ -193,9 +193,11 @@ pub enum ColumnSelectionError {
 /// A schema-driven table whose fixed columns store their primitive types
 /// directly and whose optional unknown fields are owned by individual rows.
 ///
-/// Required columns store contiguous `T` values directly. Nullable columns use
-/// `Option<T>` to represent null cells. Schemas that reject unknown fields do not
-/// allocate per-row extras storage. The immutable schema is shared through
+/// Ordinary required columns store contiguous `T` values directly; nullable
+/// columns use `Option<T>`. Fixed-capacity string columns instead keep offsets
+/// and lengths into a byte buffer, with a reserved length for null cells.
+/// Schemas that reject unknown fields do not allocate per-row extras storage.
+/// The immutable schema is shared through
 /// [`Arc`], so tables with the same layout do not duplicate schema metadata.
 ///
 /// A row can additionally be *tombstoned*: logically deleted while its payload
@@ -629,8 +631,8 @@ impl Table {
     /// # Errors
     ///
     /// Returns [`TableError::RowWidth`], [`TableError::ConversionFailed`],
-    /// [`TableError::TypeMismatch`], or [`TableError::NullNotAllowed`] when the
-    /// row does not match the schema.
+    /// [`TableError::TypeMismatch`], [`TableError::NullNotAllowed`], or
+    /// [`TableError::StringTooLong`] when the row does not match the schema.
     pub fn push_row<const N: usize>(
         &mut self,
         mut values: [Value; N],
@@ -677,8 +679,9 @@ impl Table {
     ///
     /// # Errors
     ///
-    /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
-    /// [`TableError::NullNotAllowed`] when the row does not match the schema.
+    /// Returns [`TableError::RowWidth`], [`TableError::ConversionFailed`],
+    /// [`TableError::TypeMismatch`], [`TableError::NullNotAllowed`], or
+    /// [`TableError::StringTooLong`] when the row does not match the schema.
     pub fn push_row_vec(&mut self, mut values: Vec<Value>) -> Result<usize, TableError> {
         prepare_row(self.schema(), &mut values)?;
         self.push_validated_row(values)
@@ -815,7 +818,8 @@ impl Table {
     ///
     /// # Errors
     ///
-    /// Returns a position, type, or nullability error without changing the cell.
+    /// Returns a position, conversion, type, nullability, or fixed-string capacity
+    /// error without changing the cell.
     pub fn set_cell(
         &mut self,
         row: usize,
@@ -848,8 +852,8 @@ impl Table {
     ///
     /// # Errors
     ///
-    /// Returns a row, type, or nullability error for fixed cells, or
-    /// [`TableError::ColumnNotFound`] when an unknown name is rejected.
+    /// Returns a row, conversion, type, nullability, or fixed-string capacity error
+    /// for fixed cells, or [`TableError::ColumnNotFound`] for a rejected unknown name.
     pub fn set_named(
         &mut self,
         row: usize,
@@ -1159,6 +1163,10 @@ fn select_column_storage<const I: usize, const O: usize>(
     }
     requests.sort_unstable_by_key(|request| request.position);
 
+    // Visit storage in physical order so each split leaves only untouched
+    // columns to its right. Ordinals restore the caller's requested order.
+    // Duplicate inputs share one immutable borrow; validation above ensures
+    // every mutable output has its own column and cannot overlap an input.
     let mut input_storage = [None; I];
     let mut output_storage: [Option<&mut ColumnStorage>; O] = std::array::from_fn(|_| None);
     let mut remaining = columns;

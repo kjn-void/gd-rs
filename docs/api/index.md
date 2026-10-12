@@ -39,7 +39,7 @@ with `use gd::{...}` rather than naming private implementation modules.
 | member table | [tables](tables.md) | consolidated into `Table` |
 | DTO table | [tables](tables.md) | consolidated into `Table` |
 | per-row argument table | [tables](tables.md) | opt-in open schemas store unknown names in safe row-local extras |
-| row status and deleted rows | [tables](tables.md) | lazily allocated tombstones retain rows at stable positions; live views, indexes, ordering, and formatting exclude them; `compact` removes them |
+| row status and deleted rows | [tables](tables.md) | lazily allocated tombstones retain rows at stable positions; live views, index keys, and formatting exclude them; row ordering retains physical rows and provides a live iterator; `compact` removes them |
 | table index | [indexes](indexes.md) | single-column/composite hash indexes and lazy borrowed joins |
 | table I/O | [formatting](formatting.md) | JSON and CSV output and schema-driven import; unsupported formats documented |
 | UTF-8 utilities | [text](text.md) | standard Rust text operations plus GD-specific boundaries |
@@ -62,9 +62,10 @@ The port is semantic rather than ABI-compatible:
 - packed byte layouts, raw pointer values, manual allocation flags, COM-style
   interfaces, and C++ tag dispatch are not reproduced;
 - borrowed values and indexes carry lifetimes, so mutation cannot invalidate them;
-- formatting rejects inputs that cannot be represented without losing information;
+- formatting rejects unnamed arguments, duplicate JSON argument keys, and non-finite
+  JSON numbers; its documented mappings omit table metadata and may merge value types;
 - `SQLite` connection and transaction semantics remain those of `rusqlite`.
 
 See the [compatibility decisions](../port/compatibility.md) for characterized
-differences and the [architecture postmortem](../port/postmortem.md) for the design
+differences and the [design rationale](../port/postmortem.md) for the design
 rationale behind the three-object core.

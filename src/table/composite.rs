@@ -26,6 +26,8 @@ use crate::DataType;
 pub struct CompositeIndex<'a, const N: usize> {
     table: &'a Table,
     columns: [usize; N],
+    // Keep row buckets separate from keys so a lookup borrows its result from
+    // the index, independently of the query's potentially shorter-lived text.
     by_key: AHashMap<[IndexKeyRef<'a>; N], usize>,
     matches: Vec<SmallVec<[usize; 1]>>,
     null_rows: Vec<usize>,

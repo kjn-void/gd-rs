@@ -526,7 +526,7 @@ fn is_json_integer(text: &str) -> bool {
     !text.contains(['.', 'e', 'E'])
 }
 
-/// Decodes a JSON number as the narrowest natural type that holds it exactly.
+/// Prefers exact i64/u64 integers, then falls back to finite f64 (which may round).
 fn json_number(text: &str, row: usize, name: &str) -> Result<Value, ImportError> {
     if is_json_integer(text) {
         if let Ok(value) = text.parse() {

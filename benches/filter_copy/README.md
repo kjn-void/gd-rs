@@ -14,6 +14,21 @@ shows AoS row copies, SoA column gathering, fixed text buffers, Arc sharing and
 small-string optimization. Regenerate its PNG and editable SVG with
 `python3 benches/filter_copy/comparison_layout.py` (Matplotlib required).
 
+## Unsafe code in benchmark experiments
+
+These are separate from the library's three fixed-string UTF-8 conversions:
+
+- [`arc_scaling.rs`](arc_scaling.rs) calls `libc::clock_gettime` with an initialized,
+  writable `timespec` to measure process CPU time, which `std::time` does not provide.
+  It checks the return code before reading the result.
+- [`fixed_arrays.rs`](fixed_arrays.rs) gathers into vector spare capacity, then uses
+  `Vec::set_len` after all workers have joined and initialized every selected slot.
+  Disjoint slices assign each slot to one worker. A panic leaves lengths at zero.
+  This avoids an extra initialization pass in that standalone layout experiment.
+
+Neither unsafe block is part of `Table`, `SharedRecordTable`, or their public copy
+APIs. Each block documents its local safety invariant in the source.
+
 ## Whole-record protocol
 
 One source contains 1,000,000 rows with exactly five non-null columns: three `u64`
@@ -178,9 +193,6 @@ The paired runner uses four alternating-order process rounds and seven calibrate
 measured together, separately from the Arc comparison.
 The [M6 paired report](../../docs/high-level/examples/filter-copy-arrays-m6-results.md)
 contains all 12 absolute timings, four group speed ratios, raw data and variability.
-The [earlier metadata-free cohort and its matching sources](../../docs/high-level/measurements/archive/filter-copy-arrays-without-metadata/README.md)
-are preserved separately and excluded from the current means.
-
 The [memory-layout illustration](../../docs/high-level/examples/images/gd-rust-memory-layout.png)
 shows source, filter, copy and destination for GD and gd-rs with constant size fields,
 including the text metadata. Its editable SVG is beside the PNG; regenerate both with

@@ -190,12 +190,6 @@ impl<'a> ColumnIndex<'a> {
                 column,
                 column_count: table.column_count(),
             })?;
-        if matches!(
-            spec.data_type(),
-            DataType::Null | DataType::F32 | DataType::F64
-        ) {
-            return Err(TableError::UnsupportedIndexType(spec.data_type()));
-        }
         let mut by_key = IndexStorage::new(spec.data_type(), table.row_count())?;
         let mut null_rows = SmallVec::new();
         let mut tombstoned_rows = SmallVec::new();

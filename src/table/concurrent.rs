@@ -110,9 +110,9 @@ impl ConcurrentTableBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`TableError::RowWidth`], [`TableError::TypeMismatch`], or
-    /// [`TableError::NullNotAllowed`] without publishing a row when validation
-    /// fails.
+    /// Returns [`TableError::RowWidth`], [`TableError::ConversionFailed`],
+    /// [`TableError::TypeMismatch`], [`TableError::NullNotAllowed`], or
+    /// [`TableError::StringTooLong`] without publishing a row when validation fails.
     ///
     /// # Panics
     ///

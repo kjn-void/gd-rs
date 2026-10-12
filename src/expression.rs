@@ -20,8 +20,9 @@ pub enum ProgramKind {
 /// A compile-once expression or script.
 ///
 /// The syntax tree owns everything needed to execute the source and may be reused
-/// with different [`ExpressionContext`] values. Cloning a program is cheap because
-/// Rhai shares the tree's immutable internals.
+/// with different [`ExpressionContext`] values. Reuse it by reference when possible:
+/// cloning delegates to Rhai's AST clone, which can copy statement storage even
+/// though function definitions are shared.
 #[derive(Clone)]
 pub struct Program {
     ast: AST,

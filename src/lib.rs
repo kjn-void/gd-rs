@@ -7,12 +7,21 @@
 //! The optional `sqlite` feature provides a narrow adapter between GD values,
 //! arguments, typed tables, and `rusqlite`. Other database drivers and a generic
 //! database abstraction are intentionally excluded.
+//!
+//! The library contains no unsafe code except three unchecked UTF-8 conversions
+//! in fixed-capacity string storage. Writes accept valid strings, private lengths
+//! and offsets identify their initialized prefixes, and safe string mutation
+//! preserves UTF-8. The conversions avoid revalidating those bytes on every read;
+//! bounds, capacity, nullability, and borrowing remain checked.
 
 mod arguments;
 mod binary;
 mod expression;
 mod format;
 mod format_import;
+// Keep the standalone usage guides executable without adding them to the public API.
+#[cfg(doctest)]
+mod guide_tests;
 #[cfg(feature = "sqlite")]
 mod sqlite;
 mod table;

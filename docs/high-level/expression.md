@@ -26,6 +26,8 @@ flowchart LR
 Compilation is separate from evaluation so repeated formulas do not repeat parsing
 or syntax-tree allocation. A `Program` is not tied to one context and can be reused
 with different variable values.
+Reusing a borrowed `Program` avoids cloning its statement storage. Rhai shares
+function definitions when cloning an AST, but the clone is not necessarily cheap.
 
 ## Grammar and precedence
 
@@ -48,8 +50,9 @@ The commonly used precedence groups, from tightest to loosest, are:
 | assignment in scripts | `=`, `+=`, `-=`, and related forms |
 
 Rhai is the grammar authority. Compile errors include its source position. The Rust
-property suite checks arithmetic precedence against native Rust arithmetic, while
-GoogleTest records the corresponding C++ formulas.
+property suite checks arithmetic precedence against native Rust arithmetic. The
+maintained [C++ benchmark](../../benches/cpp-reference/expression_benchmark.cpp)
+exercises corresponding formulas; the pinned C++ submodule has no GoogleTest suite.
 
 ## Values and variables
 

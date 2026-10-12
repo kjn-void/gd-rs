@@ -630,10 +630,10 @@ positions and access to row-local extras.
 
 Single-column and composite join iterators borrow both source tables and the index,
 yielding borrowed row pairs lazily. They avoid allocating an entire expanded join
-result and support ordinary iterator limits. The older position-vector joins remain
-available for application code that deliberately wants an owned snapshot.
+result and support ordinary iterator limits. Position-vector joins return owned
+snapshots for applications that need to keep positions without retaining a borrow.
 
-These APIs add no unsafe Rust and do not introduce concurrent mutation of `Table`.
-Existing table-copy and workflow performance figures remain measurements of their
-original benchmark paths; no performance improvement is claimed for the new APIs
-without a corresponding measurement.
+These selection and join implementations use safe Rust and require immutable source
+borrows. Ordinary `Table` mutation requires exclusive access. Performance depends on
+the selected columns, result size, and materialization work; consult the linked
+benchmarks for the operations and workloads they measure.
