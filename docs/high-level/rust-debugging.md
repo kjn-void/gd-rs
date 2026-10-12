@@ -6,20 +6,18 @@ Open the repository root in VS Code (`code .`). Install the recommended
 [tasks](../../.vscode/tasks.json) are dedicated to Rust; the C++ debugging project
 lives separately in [external/order-workflow](../../external/order-workflow/README.md).
 
-Use CodeLLDB 1.12.3 or newer with current Rust toolchains. Earlier versions can
-report `Could not find LLDB data formatters in your Rust toolchain` when Rust
-provides its formatters through `lldb_lookup.py` without an `lldb_commands` file.
-The [CodeLLDB release notes](https://github.com/vadimcn/codelldb/blob/master/CHANGELOG.md#1123)
-describe the compatibility fix. This warning affects value display in the
-debugger; it does not mean the example failed to run.
+Use CodeLLDB 1.12.3 or newer for Rust data-formatter support with current toolchains.
+See [CodeLLDB's compatibility notes](https://github.com/vadimcn/codelldb/blob/master/CHANGELOG.md#1123).
 
 ## Launch a target
 
 Select a `Rust benchmark: …` or `Rust example: …` entry in **Run and Debug**, set
-a breakpoint, then press **F5**. The configurations cover every benchmark and
-example currently declared by Cargo. The single runnable example is
-`order_workflow`, whose source is
+a breakpoint, then press **F5**. The configurations cover the benchmark targets and
+the `order_workflow` example in
 [benches/order_workflow/driver.rs](../../benches/order_workflow/driver.rs).
+Cargo also declares `text_workflow`, `filter_copy`, and `filter_copy_arrays`;
+run those through their documented benchmark drivers or add a launch configuration
+with the corresponding input arguments.
 
 [CodeLLDB's Cargo integration](https://github.com/vadimcn/codelldb/blob/master/MANUAL.md#cargo-support)
 builds the selected target before launch and finds its executable from Cargo's
@@ -44,8 +42,9 @@ Three standalone benchmarks have their own defaults:
 - `price_total_500k` runs its correctness/check mode with no arguments.
 - `par_benchmark` uses 10,000 rows, four workers, and one pass; change its `env`
   entries to select another workload.
-- `simd_comments` verifies every implementation, then runs the `soa` path;
-  change its argument to `pack-hybrid`, `standard`, or `all` as needed.
+- `simd_comments` verifies every implementation and exits in debug builds or with
+  `--test`. Release runs accept `pack-hybrid`, `soa`, `standard`, or `all`; use
+  `benches/run_simd_comments.sh` for the measured comparison.
 
 ## Order workflow example
 

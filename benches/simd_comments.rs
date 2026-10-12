@@ -220,6 +220,12 @@ fn main() {
         assert_eq!(clean_pack_hybrid(fixture), expected);
         assert_eq!(clean_soa(fixture), expected);
     }
+    // Cargo runs harness-free benches during all-target tests. Keep those runs
+    // bounded and avoid reporting debug timings as performance measurements.
+    if cfg!(debug_assertions) || std::env::args_os().any(|argument| argument == "--test") {
+        println!("validation=ok");
+        return;
+    }
     let corpus_bytes = fixtures.iter().map(|fixture| fixture.code.len()).sum();
     let mode = std::env::args().nth(1).unwrap_or_else(|| "all".to_owned());
     match mode.as_str() {

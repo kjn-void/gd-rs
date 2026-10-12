@@ -93,6 +93,8 @@ the 64-byte pack hybrid, a direct scan of a normal typed `U8` SoA column, and a
 line-oriented standard-library implementation. The C++ executable measures the GD
 pack hybrid, its scalar table-access counterpart, and a `std::string_view::find`
 implementation. All variants validate identical output before timing.
+The Rust executable exits after validation in debug builds or when passed `--test`,
+so `cargo test --all-targets --all-features` does not collect debug timing samples.
 
 `stream_benchmark.cpp` is a standalone POSIX array-loop diagnostic retained for
 experimentation. It deliberately has no Rust counterpart, does not use Google

@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured and revalidated on 2026-10-09. Rust scopes describe the current
+baseline measured and revalidated on 2026-10-12. Rust scopes describe the current
 worktree; GD is pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
@@ -19,13 +19,13 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 29 | 8,053 | 288 | 756 | 2.62 |
 | Rust product + tests (`src`, `tests`) | 43 | 12,165 | 446 | 1,062 | 2.38 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 66 | 16,881 | 624 | 1,654 | 2.65 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 66 | 16,885 | 624 | 1,656 | 2.65 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests + maintained benchmarks | 164 | 68,185 | 8,861 | 20,726 | 2.34 |
 
-The Rust totals are **8,053 SLOC in `src`** and **16,881 SLOC including `tests`
-and `benches`**. The separate test tree adds 4,112 SLOC and benchmarks add 4,716
+The Rust totals are **8,053 SLOC in `src`** and **16,885 SLOC including `tests`
+and `benches`**. The separate test tree adds 4,112 SLOC and benchmarks add 4,720
 SLOC, including the shared-record API, ownership tests, whole-record workflow and
 sharing strategy experiment, the typed fixed-array SoA experiment with per-cell tag/length metadata, and the
 Arc core-scaling harness and parallel-cleanup API.
