@@ -68,6 +68,13 @@ impl ColumnStorage {
                 f64::total_cmp,
             ),
             Self::String(values) => ordered!(values),
+            Self::InternedString(values) => compare_optional(
+                values.value(left)?,
+                values.value(right)?,
+                direction,
+                null_order,
+                str::cmp,
+            ),
             Self::FixedString(values) => {
                 let view = values.view();
                 let get = |row| {

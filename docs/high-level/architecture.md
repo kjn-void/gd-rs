@@ -23,6 +23,8 @@ flowchart TD
     Builder --> Orx["orx-concurrent-vec"]
     ColumnIndex["ColumnIndex / CompositeIndex"] --> Table
     Selection["TableSelection / RowOrder"] --> Table
+    SharedSelection["SharedTableSelection"] -->|"Arc ownership"| Table
+    SharedProjection["SharedTableProjection"] -->|"Arc RwLock ownership"| Table
     Table --> Rayon["Rayon row partitioning (feature)"]
     SharedRecords["SharedRecordTable&lt;S&gt;"] --> ArcRecords["Vec&lt;Arc&lt;S&gt;&gt;"]
     SharedRecords --> Rayon
@@ -71,6 +73,8 @@ flowchart LR
     Arguments["Arguments"] -->|"immutable borrow"| ArgumentIndex["ArgumentIndex"]
     Table -->|"borrow"| View["Row / Column"]
     Table -->|"immutable borrow"| ColumnIndex["ColumnIndex"]
+    SharedSelection["SharedTableSelection"] -->|"Arc ownership"| Table
+    SharedSelection --> Plan["Arc selection plan<br/>row range or shared indexes + column map + schema"]
     ArgumentIndex -->|"prevents mutation"| Stable["Stable borrowed keys and positions"]
     ColumnIndex -->|"prevents mutation"| Stable
 ```
@@ -79,12 +83,37 @@ Borrowed views carry lifetimes. An index borrows its source immutably, so the so
 cannot be structurally mutated while offsets or borrowed keys are in use. This removes
 the stale-pointer and stale-offset states possible in the C++ companion index types.
 
+`SharedTableSelection` retains its complete immutable source through `Arc<Table>`
+and shares selection metadata through an `Arc` plan. Cloning a handle is constant
+time. Projections share row mappings, slices share maps, and filtered/explicit row
+selections allocate positions while borrowing all payloads on read. A small or empty
+selection still retains the whole source. Rows and values borrow the reading
+handle; materialization explicitly creates independent mutable storage. The
+`as_borrowed` bridge allocates positions to preserve `TableSelection`'s public slice
+contracts. Owning-selection serializers consume its position iterator directly.
+
+`SharedTableProjection` adds explicit shared mutable ownership through
+`Arc<RwLock<Table>>`. A shared plan maps projected columns and captures the source
+schema. Each read/write guard validates that schema under the lock. The guard then
+keeps row positions, schema and payloads stable until dropped; values and borrowed
+selections are tied to its lifetime. Projections include all current physical rows,
+so they resolve the latest positions after append/removal/compaction rather than
+retaining a row-index snapshot. Immutable snapshots use explicit materialization.
+
 `Schema` is immutable and normally held through `Arc`, so independent tables and
 concurrent builders can share column metadata and named input converters without
 sharing row storage. Converters are explicit per-column policies for mismatched,
 non-null input; their output still passes the schema's ordinary type and nullability
 checks. Standard atomic reference counting replaces the source implementation's manual
 schema lifetime protocol.
+
+Opt-in interned string columns keep independently mutable `Arc<str>` cell handles
+and share a synchronized interner across copies. Only the immutable string payloads
+are shared. An interner counts its cells separately from other interners, releases
+unused entries on replacement/removal/drop, and lets reads borrow text directly
+without locking. Disjoint row views remain safely splittable; brief internal locks
+coordinate interning across worker threads. The default string layout and dynamic
+`DataType::String`/`ValueRef::String` interfaces are unchanged.
 
 Each `Table` also owns an insertion-ordered property collection. Properties describe
 the complete table rather than individual rows, are cloned by row-selection copies,
@@ -130,10 +159,12 @@ no concurrent-element overhead.
 An established table then follows normal Rust borrowing. Multiple threads may share
 immutable access. Mutation requires an exclusive borrow unless the table is first
 partitioned into disjoint typed column slices or row ranges; those disjoint borrows can
-be processed by scoped threads or the optional Rayon integration. There is no API for
-concurrent structural growth, sorting, indexing, and cell mutation on the same live
-`Table`—such operations would need to coordinate every column, extras storage, row
-count, and any outstanding borrowed index or ordering view.
+be processed by scoped threads or the optional Rayon integration.
+`SharedTableProjection` synchronizes shared access to a live table: multiple read
+guards may coexist, while a write guard excludes all other reads and writes.
+Structural operations through its source handle use the same lock, coordinating
+columns, extras, row counts and borrowed indexes or selections. A sequence under a
+write guard is indivisible to other threads but is not a rollback transaction.
 
 ### Thread-safety classification
 
@@ -152,7 +183,7 @@ These are separate properties, rather than three levels of one guarantee:
 |---|---|---|
 | Thread-compatible | Core data types are `Send`; expression objects are not. Borrowing and `Send`/`Sync` constrain cross-thread use | Application must check shared backing objects, non-atomic reference counts, and global state such as the `r64` UUID generator |
 | Reentrant | Borrowing prevents conflicting access to an ordinary `Table`; callback reentrancy and deadlock freedom are not compiler guarantees | No general guarantee; callers must preserve views and avoid conflicting access or callback mutation |
-| Safe sharing | Shared reads of `Table`; shared appends through `ConcurrentTableBuilder`; disjoint mutable partitions | No general internally synchronized table API; verified frozen reads require an application-enforced protocol |
+| Safe sharing | Shared reads of `Table`; guarded mutable access through `SharedTableProjection`; shared appends through `ConcurrentTableBuilder`; disjoint mutable partitions | No general internally synchronized table API; verified frozen reads require an application-enforced protocol |
 
 #### gd-rs
 
@@ -166,7 +197,7 @@ reentrancy. With the current dependency features:
 
 | Types | `Send` | `Sync` | Consequence |
 |---|---|---|---|
-| `Table`, `Schema`, `ConcurrentTableBuilder`, `Value`, `Arguments` | Yes | Yes | May be moved to and shared between threads |
+| `Table`, `SharedTableSelection`, `SharedTableProjection`, `Schema`, `ConcurrentTableBuilder`, `Value`, `Arguments` | Yes | Yes | May be moved to and shared between threads |
 | `SqliteDatabase` | Yes | No | May be moved to another thread; shared access needs synchronization such as a `Mutex` because `rusqlite::Connection` uses `RefCell` |
 | `ExpressionEngine`, `ExpressionContext`, `Program` | No | No | Existing objects cannot be moved or shared across threads; create one per worker. Rhai is built without its `sync` feature, so it uses `Rc` and `RefCell` |
 
@@ -184,10 +215,13 @@ business logic or deadlocks. A panic in a row-wise mutation callback leaves earl
 modified; this is memory-safe but not transactional. `ConcurrentTableBuilder` avoids
 partial rows by validating each complete row before publishing it.
 
-Safe sharing is limited to the phases above: immutable `&Table` access, concurrent
-appends to `ConcurrentTableBuilder`, and disjoint mutable partitions. Concurrent
-structural mutation of one live `Table` requires an application-level `Mutex` or
-`RwLock`.
+Safe sharing includes immutable `&Table` access, concurrent appends to
+`ConcurrentTableBuilder`, disjoint mutable partitions and guarded live projections.
+`SharedTableProjection` owns the `RwLock` protocol for its cell operations; callers
+perform structural operations through the same source lock. Poisoned locks and
+schema changes are explicit errors. Recursive lock acquisition, including through
+converter callbacks, can deadlock. Acquire projection guards in the worker that
+uses them; standard-library lock guards cannot be moved to another thread.
 
 #### GD (C++)
 

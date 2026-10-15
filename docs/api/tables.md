@@ -7,6 +7,8 @@ argument sidecars. `gd-rs` consolidates the fixed-schema behavior into one `Tabl
 - each column stores its primitive type directly in a contiguous vector;
 - an opt-in schema policy stores unknown names as lazy row-local extras;
 - `Row` and `Column` are borrowing views;
+- `SharedTableSelection` retains immutable source storage through `Arc<Table>`;
+- `SharedTableProjection` shares mutable source storage through `Arc<RwLock<Table>>`;
 - all fixed-row mutations validate the complete schema contract.
 
 There is no distinction between a temporary DTO table and a long-lived member table.
@@ -185,6 +187,79 @@ Ordinary string columns additionally support
 slice methods. These expose the existing descriptors without changing the storage
 representation. Requesting these slices from fixed-buffer strings returns
 `ColumnSliceError::FixedStringBuffer`; use the fixed-string views instead.
+
+### Interned string columns
+
+`ColumnSpec::interned_string(name)` opts one column into string interning. Its
+logical type remains `DataType::String`; names, aliases, nullability, converters,
+formatting and index keys retain their ordinary meanings. `is_interned_string()`
+reports the policy. `ColumnSpec::new(name, DataType::String)` continues to use
+ordinary `CompactString` storage, and `fixed_string` continues to use fixed slots.
+
+```rust
+use gd::{ColumnSpec, Schema, Table, Value, ValueRef};
+
+let mut table = Table::new(Schema::new([
+    ColumnSpec::interned_string("country").with_alias("region").nullable(true),
+])?);
+table.push_row(["Belgium".into()])?;
+table.push_row(["Belgium".into()])?;
+table.push_row([Value::Null])?;
+{
+    let strings = table.column(0).unwrap().interned_strings().unwrap();
+    assert_eq!(strings.get(0).unwrap().unwrap().as_ptr(),
+               strings.get(1).unwrap().unwrap().as_ptr());
+    assert_eq!(strings.get(2), Some(None));
+}
+{
+    let (_, [column]) = table.columns_io([], [0])?;
+    let mut strings = column.interned_strings_mut().unwrap();
+    strings.set(0, Some("France"))?;
+    strings.set(2, Some(""))?; // An empty string is distinct from null.
+}
+assert_eq!(table.cell_named(1, "region")?, ValueRef::String("Belgium"));
+assert_eq!(table.cell(2, 0)?, ValueRef::String(""));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Each non-null cell stores an `Arc<str>` handle. A synchronized interner maps string
+contents to one immutable payload and a count of cells using it. Reads borrow
+`&str` from the cell handle without locking; writes hash the new text and briefly
+lock the interner. New columns start with separate interners. Table clones,
+projections and copied row selections share the originating interner and text
+allocations while retaining independent cell handles. Replacing a cell never
+changes another row or table's value.
+
+The interner removes a key when its last associated cell is replaced, removed or
+dropped. Tombstoned rows still retain their values until compaction or removal.
+Clones can keep values alive after source deletion. Hash-table/vector capacity may
+remain reserved. Append between different interners reuses a destination payload
+when its contents match, or retains the incoming immutable payload; reference counts
+are tracked independently for each interner. Appending between ordinary, fixed and
+interned strings preserves the destination storage policy and validates the entire
+batch before changing destination rows.
+
+`Column::interned_strings()` and `ColumnMut::interned_strings_mut()` return `None`
+for other layouts. `InternedStrings` supports `len`, `is_empty`, `get` and `iter`;
+`get` returns outer `None` for out-of-bounds and inner `None` for null. The mutable
+view adds `as_view`, `set`, `cell_mut` and `split_at`. `InternedStringCellMut::set`
+interns a replacement instead of exposing mutable text bytes.
+`InternedStringError` reports bounds or disallowed-null writes before any change.
+Typed string setters accept exact string values and do not run converters.
+
+`split_at` divides cell handles into disjoint ranges. It supports scoped threads;
+the shared interner synchronizes lookup, insertion and release. Existing `RowMut`,
+`RowsMut::split_at`, Rayon row mutation/copies, concurrent-builder finalization,
+borrowed selections, owning immutable selections and shared mutable projections
+all support interned storage. CSV/JSON import and SQLite schema-based loading also
+honor the policy. Ordering and indexes compare string contents.
+
+The typed `CompactString` slice APIs access ordinary columns. Fixed and interned
+columns cannot provide those slices and return the
+`ColumnSliceError::FixedStringBuffer` layout error. Use the corresponding string views.
+Interning adds per-cell reference-counting and write-side hashing/locking costs.
+It is useful when repeated text or shared copies justify that overhead; it does
+not promise a speed or memory improvement for mostly unique or short inline text.
 
 ### Explicit column conversion
 
@@ -1162,3 +1237,186 @@ properties, extras and deletion flags without rerunning converters.
 tombstones, and preserve row order/duplicates. They use the ordinary table formatting
 rules and omit extras/properties. Empty projections produce JSON objects with no
 fields; CSV rejects them with `ZeroColumnTable`.
+
+## Owning immutable selections
+
+`Table::into_shared()` moves a table into a `SharedTableSelection` containing all
+physical rows and fixed columns. `SharedTableSelection::new(table)` also accepts
+an existing `Arc<Table>`, retaining that allocation. Cell payloads, extras,
+tombstones and table properties stay in the source. Cloning a selection shares
+both the source and selection metadata in constant time. A projection can outlive
+the original handle and can be moved to another thread without a scoped borrow:
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, ValueRef, shared_selection_to_json};
+
+let mut table = Table::new(Schema::new([
+    ColumnSpec::new("id", DataType::I64),
+    ColumnSpec::new("name", DataType::String).with_alias("display"),
+])?);
+table.push_row([7_i64.into(), "Ada".into()])?;
+table.push_row([8_i64.into(), "Grace".into()])?;
+let shared = table.into_shared();
+let names = shared.project(&[1])?;
+drop(shared);
+assert_eq!(names.row(0).unwrap().get_named("display"), Some(ValueRef::String("Ada")));
+
+let worker_names = names.clone();
+let worker = std::thread::spawn(move || shared_selection_to_json(&worker_names).unwrap());
+assert_eq!(worker.join().unwrap(), r#"[{"name":"Ada"},{"name":"Grace"}]"#);
+let mut independent = names.materialize()?;
+independent.set_cell(0, 0, "edited".into())?;
+assert_eq!(names.row(0).unwrap().get(0), Some(ValueRef::String("Ada")));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+The source is immutable through selection handles. `table()` returns `&Table`,
+including source columns/rows omitted from the selection; it provides no mutation
+access. Materialization creates an independent mutable `Table`. An external
+`Arc<Table>` owner can use `Arc::make_mut` to edit a detached copy, leaving existing
+selections unchanged. Every selection, including an empty one, retains the entire
+source table until its last owning handle is dropped. Materialize a small subset
+and release the selection when retaining the complete source is undesirable.
+
+The read APIs mirror borrowed selections: `row`, `rows`, `live_rows`, `columns`,
+`schema`, `column`, `row_count`, `column_count` and `is_empty`. They return the same
+`SelectedRow` views with projected lookup, aliases, extras, physical source
+positions and tombstone flags. Rows and cell values borrow from the handle used to
+read them, so they cannot outlive it. `SharedTableSelection` is `Send + Sync`.
+
+Composition uses positions relative to the current selection:
+
+- `project(columns)` reorders/subsets columns and retains every selected row;
+- `select(rows, columns)` selects both dimensions, preserving row order, duplicates
+  and tombstones; repeated columns are rejected like borrowed projections;
+- `slice(range)` takes a contiguous range of selection-relative rows, preserving
+  order, duplicates and tombstones, in constant time;
+- `filter_rows(predicate)` selects matching live rows, passing projected
+  `SelectedRow` values to the predicate and excluding tombstones before it runs.
+
+Invalid positions return the existing `TableError` bounds or duplicate-name
+errors. Range errors report this selection's row count. Empty projections retain
+row count and extras. `materialize` preserves metadata, extras, properties and
+tombstones without rerunning converters.
+
+Whole-table views keep a range rather than allocating every row position.
+Construction allocates O(source columns) metadata; `project` allocates O(selected
+columns) metadata and shares row mappings. `slice` shares even an indexed mapping.
+Explicit `select` allocates O(selected rows + selected columns) metadata, and
+`filter_rows` scans selected live rows and allocates O(matched rows) positions.
+These operations copy no cell payloads. Unlike the borrowed API's
+`positions() -> &[usize]`, the owning API's `positions()` returns an exact-size,
+double-ended iterator of physical source positions.
+
+`as_borrowed()` constructs a `TableSelection<'_>` borrowing this handle. It
+allocates row/column position vectors for the existing slice-based API and shares
+the projected schema and cells. The borrowed selection API and serializers retain
+their signatures and behavior. `shared_selection_to_json` and
+`shared_selection_to_csv` export owning selections directly without this metadata
+conversion or an intermediate materialized table, using the same value, live-row,
+projection-order and error rules as their borrowed counterparts.
+
+## Shared mutable projections
+
+`Table::into_shared_mut()` moves a table into a `SharedTableProjection` of all fixed
+columns, backed by `Arc<RwLock<Table>>`. `SharedTableProjection::new(table)` provides
+the same construction; `from_shared(arc)` accepts an existing `Arc<RwLock<Table>>`
+and captures its schema under a read lock. Clones and projections retain the same
+source, so writes through one are visible through the others.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, ValueRef, selection_to_json};
+
+let mut table = Table::new(Schema::new([
+    ColumnSpec::new("key", DataType::I64),
+    ColumnSpec::new("name", DataType::String),
+    ColumnSpec::new("qty", DataType::U64),
+    ColumnSpec::new("cost", DataType::U64),
+])?);
+table.push_row([1_i64.into(), "Ada".into(), 10_u64.into(), 100_u64.into()])?;
+let shared = table.into_shared_mut();
+let a = shared.project(&[0, 1, 2])?;
+let b = shared.project(&[1, 2, 3])?;
+drop(shared);
+
+{
+    let mut write = a.write()?;
+    let qty = write.cell(0, 2)?.to_i64()?;
+    write.set_cell(0, 2, u64::try_from(qty + 1)?)?;
+    write.set_named(0, "name", "Ada Lovelace")?;
+} // Release the write lock before reading through B.
+{
+    let read = b.read()?;
+    assert_eq!(read.cell(0, 1)?, ValueRef::U64(11));
+    assert_eq!(read.row(0).unwrap().get_named("name"), Some(ValueRef::String("Ada Lovelace")));
+    assert_eq!(selection_to_json(&read.as_borrowed())?,
+        r#"[{"name":"Ada Lovelace","qty":11,"cost":100}]"#);
+}
+
+let snapshot = b.materialize()?.into_shared();
+b.set_cell(0, 1, 99_u64)?; // One checked write under one exclusive lock.
+assert_eq!(snapshot.row(0).unwrap().get(1), Some(ValueRef::U64(11)));
+assert_eq!(b.read()?.cell(0, 1)?, ValueRef::U64(99));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+`project(columns)` uses positions relative to the current projection, rejects
+duplicate columns, and creates column/schema metadata without copying cells or
+acquiring a lock. `columns()`, `schema()` and `column_count()` describe this captured
+metadata. Cloning a projection shares its source and metadata in constant time.
+Every projection retains the entire source, including an empty projection.
+
+`read()` returns a `TableProjectionReadGuard` holding one read lock. It exposes
+projected `cell`, `row`, `rows`, `live_rows`, `schema`, `column`, `columns`,
+`column_count`, `row_count` and `is_empty`. Row iterators allocate no position arrays.
+`table()` borrows the complete source immutably, allowing properties and other
+read-only source operations. Row-local extras and projected aliases follow the
+existing `SelectedRow` rules; omitted fixed columns are hidden by projected lookup.
+Borrowed rows, strings, bytes, indexes and selections cannot outlive the guard.
+
+`write()` returns a `TableProjectionWriteGuard`. It holds one exclusive lock across
+multiple checked reads and writes, including read-modify-write sequences. It exposes
+`cell`, `row`, `row_count`, immutable `table()`, `as_borrowed()`, `set_cell`,
+`set_named`, `tombstone_row` and `restore_row`. Borrowed values must be released before
+the guard can mutate again. Projected setters validate through the existing table
+implementation; converters, type checks, nullability and fixed-string capacity rules
+apply. `set_named` accepts projected names/aliases and permitted row-local extras,
+but rejects omitted fixed columns. Column bounds errors from mapping are projection
+relative; errors from the source setter identify physical source columns.
+
+`set_cell` and `set_named` on the projection acquire a write guard for one operation.
+Use an explicit write guard to make a sequence indivisible with respect to other
+readers and writers. Individual validation errors leave the rejected cell unchanged;
+earlier successful writes in that guard remain committed. A guard is not a rollback
+transaction. Do not acquire the same source lock again while holding a guard,
+including inside converters or callbacks. Recursive locking and read-to-write
+upgrades can deadlock. Move projection handles to worker threads and acquire their
+guards there.
+
+Every current physical row belongs to the projection, including tombstones. A later
+guard observes source appends, `pop_row`, tombstone changes and compaction. Compaction can change what a
+numeric row position identifies between guards. `source_arc()` clones the owner
+handle for explicit structural operations under the source's write lock. A read
+guard prevents those changes until it is dropped. To select specific rows, use
+`guard.as_borrowed().filter_rows(...)` or `select_view` on `guard.table()` within that
+guard's lifetime. Persist a selection across writes by materializing a snapshot.
+
+Each read/write acquisition checks the entire source schema against the captured
+schema, including column order, names/aliases, nullability, converters, storage policy
+and unknown-field policy. A mismatch returns `SharedProjectionError::SchemaChanged`
+before cells are accessed. Rebuild from the current `source_arc()` after an intentional
+schema change. A different schema allocation with equal metadata is accepted;
+converter equality uses the existing semantic-name contract.
+
+`SharedProjectionError::LockPoisoned` reports a source write-lock panic. Poison is
+not automatically ignored or cleared, and a rejected setter does not poison the
+lock. A panic holding only a read lock does not poison it. The `Table` variant wraps
+ordinary checked table errors returned by convenience setters and materialization.
+
+`as_borrowed()` allocates row/column position vectors and shares schema/cell storage,
+allowing the existing selection serializers and filtering APIs to run while the
+guard remains held. `materialize()` on a read guard or projection copies one
+consistent state, including properties, extras and tombstones, without rerunning
+converters. Converting that result with `into_shared()` creates an owning immutable
+snapshot that is unaffected by later writes. Borrowed and owning immutable selection
+APIs retain their signatures and ownership behavior.

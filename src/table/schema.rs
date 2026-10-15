@@ -120,6 +120,7 @@ pub struct ColumnSpec {
     nullable: bool,
     converter: Option<ColumnConverter>,
     fixed_string_capacity: Option<usize>,
+    interned_string: bool,
 }
 
 /// Policy for names that are not declared as schema columns or aliases.
@@ -142,6 +143,7 @@ impl ColumnSpec {
             nullable: data_type == DataType::Null,
             converter: None,
             fixed_string_capacity: None,
+            interned_string: false,
         }
     }
 
@@ -179,7 +181,39 @@ impl ColumnSpec {
         }
     }
 
-    /// Returns the fixed UTF-8 slot capacity, or `None` for ordinary storage.
+    /// Creates a required UTF-8 column that interns equal strings.
+    ///
+    /// The logical type remains [`DataType::String`]. Cells hold shared immutable
+    /// strings; replacing a cell never edits another cell's payload. Use
+    /// [`super::Column::interned_strings`] for typed reads and
+    /// [`super::ColumnMut::interned_strings_mut`] for checked writes.
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, Schema, Table, ValueRef};
+    /// let mut table = Table::new(Schema::new([
+    ///     ColumnSpec::interned_string("country").nullable(true),
+    /// ])?);
+    /// table.push_row(["Belgium".into()])?;
+    /// table.push_row(["Belgium".into()])?;
+    /// table.set_cell(0, 0, "France".into())?;
+    /// assert_eq!(table.cell(1, 0)?, ValueRef::String("Belgium"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[must_use]
+    pub fn interned_string(name: impl Into<CompactString>) -> Self {
+        Self {
+            interned_string: true,
+            ..Self::new(name, DataType::String)
+        }
+    }
+
+    /// Returns whether this column uses interned string storage.
+    #[must_use]
+    pub const fn is_interned_string(&self) -> bool {
+        self.interned_string
+    }
+
+    /// Returns the fixed UTF-8 slot capacity, or `None` for other storage layouts.
     #[must_use]
     pub const fn fixed_string_capacity(&self) -> Option<usize> {
         self.fixed_string_capacity

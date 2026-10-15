@@ -140,3 +140,11 @@ required-features = ["rayon"]
 name = "filter_copy_arrays"
 path = "benches/filter_copy/fixed_arrays.rs"
 required-features = ["rayon"]
+
+[[example]]
+name = "interned_strings"
+path = "benches/interned_strings/driver.rs"
+
+[[example]]
+name = "interned_strings_memory"
+path = "benches/interned_strings/memory_driver.rs"

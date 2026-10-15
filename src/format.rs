@@ -7,7 +7,10 @@ use compact_str::CompactString;
 use thiserror::Error;
 
 use crate::text::push_percent_component;
-use crate::{Arguments, RowOrder, Table, TableError, TableSelection, ValueRef, encode_hex};
+use crate::{
+    Arguments, RowOrder, SharedTableSelection, Table, TableError, TableSelection, ValueRef,
+    encode_hex,
+};
 
 /// An interchange-format or representability error.
 #[derive(Debug, Error)]
@@ -168,6 +171,40 @@ pub fn selection_to_json(selection: &TableSelection<'_>) -> Result<String, Forma
 /// Returns a zero-column, CSV, I/O or UTF-8 writer error.
 pub fn selection_to_csv(
     selection: &TableSelection<'_>,
+    headers: bool,
+) -> Result<String, FormatError> {
+    rows_to_csv(
+        selection.schema(),
+        selection.live_rows().map(crate::SelectedRow::iter),
+        headers,
+    )
+}
+
+/// Serializes an owning selection's live rows and projected columns to JSON.
+///
+/// Uses [`selection_to_json`] rules, preserving order/duplicates and skipping
+/// tombstones. Reads shared cells directly without allocating a borrowed selection
+/// or materializing a table; extras and properties are omitted.
+///
+/// # Errors
+/// Returns a non-finite float or JSON/UTF-8 writer error.
+pub fn shared_selection_to_json(selection: &SharedTableSelection) -> Result<String, FormatError> {
+    rows_to_json(
+        selection.table(),
+        selection.live_rows().map(crate::SelectedRow::position),
+        Some(selection.columns()),
+    )
+}
+
+/// Serializes an owning selection's live rows and projected columns to CSV.
+///
+/// Uses [`selection_to_csv`] rules without allocating a borrowed selection or
+/// materializing a table. Extras and properties are omitted.
+///
+/// # Errors
+/// Returns a zero-column, CSV, I/O or UTF-8 writer error.
+pub fn shared_selection_to_csv(
+    selection: &SharedTableSelection,
     headers: bool,
 ) -> Result<String, FormatError> {
     rows_to_csv(

@@ -10,6 +10,7 @@ use crate::{DataType, Value, ValueRef};
 use super::TableError;
 use super::UnknownFields;
 use super::fixed_string::FixedStringData;
+use super::interned_string::InternedStringData;
 
 const ROW_EXTRAS_HASH_THRESHOLD: usize = 4;
 
@@ -389,6 +390,7 @@ pub(super) enum ColumnStorage {
     F32(ColumnData<f32>),
     F64(ColumnData<f64>),
     String(ColumnData<CompactString>),
+    InternedString(InternedStringData),
     FixedString(FixedStringData),
     Bytes(ColumnData<Box<[u8]>>),
     Uuid(ColumnData<Uuid>),
@@ -432,6 +434,7 @@ impl ColumnStorage {
             Self::F32(values) => values.len(),
             Self::F64(values) => values.len(),
             Self::String(values) => values.len(),
+            Self::InternedString(values) => values.len(),
             Self::FixedString(values) => values.len(),
             Self::Bytes(values) => values.len(),
             Self::Uuid(values) => values.len(),
@@ -463,6 +466,10 @@ impl ColumnStorage {
             Self::F32(values) => copied!(values, F32),
             Self::F64(values) => copied!(values, F64),
             Self::FixedString(values) => values
+                .view()
+                .get(row)
+                .map(|value| value.map_or(ValueRef::Null, ValueRef::String)),
+            Self::InternedString(values) => values
                 .view()
                 .get(row)
                 .map(|value| value.map_or(ValueRef::Null, ValueRef::String)),
@@ -517,6 +524,15 @@ impl ColumnStorage {
             Self::F32(values) => push!(values, value, F32),
             Self::F64(values) => push!(values, value, F64),
             Self::String(values) => push!(values, value, String),
+            Self::InternedString(values) => values.push(match &value {
+                Value::Null => None,
+                Value::String(text) => Some(text.as_str()),
+                _ => {
+                    return Err(TableError::InternalInvariant {
+                        detail: "interned string input type differs",
+                    });
+                }
+            }),
             Self::FixedString(values) => {
                 values.push(match &value {
                     Value::Null => None,
@@ -573,6 +589,23 @@ impl ColumnStorage {
             Self::F32(values) => set!(values, value, F32),
             Self::F64(values) => set!(values, value, F64),
             Self::String(values) => set!(values, value, String),
+            Self::InternedString(values) => values
+                .view_mut()
+                .set(
+                    row,
+                    match &value {
+                        Value::Null => None,
+                        Value::String(text) => Some(text.as_str()),
+                        _ => {
+                            return Err(TableError::InternalInvariant {
+                                detail: "interned string input type differs",
+                            });
+                        }
+                    },
+                )
+                .map_err(|_| TableError::InternalInvariant {
+                    detail: "validated interned string write failed",
+                }),
             Self::FixedString(values) => values
                 .view_mut()
                 .set(
@@ -611,6 +644,7 @@ impl ColumnStorage {
             Self::F32(values) => values.pop(),
             Self::F64(values) => values.pop(),
             Self::String(values) => values.pop(),
+            Self::InternedString(values) => values.pop(),
             Self::FixedString(values) => values.pop(),
             Self::Bytes(values) => values.pop(),
             Self::Uuid(values) => values.pop(),
@@ -632,6 +666,7 @@ impl ColumnStorage {
             Self::F32(values) => values.retain_live(tombstoned),
             Self::F64(values) => values.retain_live(tombstoned),
             Self::String(values) => values.retain_live(tombstoned),
+            Self::InternedString(values) => values.retain_live(tombstoned),
             Self::FixedString(values) => values.retain_live(tombstoned),
             Self::Bytes(values) => values.retain_live(tombstoned),
             Self::Uuid(values) => values.retain_live(tombstoned),
@@ -642,6 +677,7 @@ impl ColumnStorage {
         match (self, other) {
             (Self::Null(_), Self::Null(_)) => true,
             (Self::FixedString(left), Self::FixedString(right)) => left.can_append(right),
+            (Self::InternedString(left), Self::InternedString(right)) => left.can_append(right),
             (Self::Bool(left), Self::Bool(right)) => {
                 std::mem::discriminant(left) == std::mem::discriminant(right)
             }
@@ -717,6 +753,7 @@ impl ColumnStorage {
             (Self::F64(left), Self::F64(right)) => append!(left, right),
             (Self::String(left), Self::String(right)) => append!(left, right),
             (Self::FixedString(left), Self::FixedString(right)) => left.append(right),
+            (Self::InternedString(left), Self::InternedString(right)) => left.append(right)?,
             (Self::Bytes(left), Self::Bytes(right)) => append!(left, right),
             (Self::Uuid(left), Self::Uuid(right)) => append!(left, right),
             _ => {
@@ -748,6 +785,7 @@ impl ColumnStorage {
             Self::F32(values) => copy!(values, F32),
             Self::F64(values) => copy!(values, F64),
             Self::String(values) => copy!(values, String),
+            Self::InternedString(values) => Self::InternedString(values.copy_range(range)),
             Self::FixedString(values) => {
                 Self::FixedString(values.copy_rows(range.clone(), range.len()))
             }
@@ -776,6 +814,7 @@ impl ColumnStorage {
             Self::F32(values) => copy!(values, F32),
             Self::F64(values) => copy!(values, F64),
             Self::String(values) => copy!(values, String),
+            Self::InternedString(values) => Self::InternedString(values.copy_rows(selected_rows)),
             Self::FixedString(values) => Self::FixedString(
                 values.copy_rows(selected_rows.iter().copied(), selected_rows.len()),
             ),

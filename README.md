@@ -24,8 +24,11 @@ The implemented core currently provides:
 - reusable lifetime-bound `ahash` indexes;
 - validated schemas and typed column storage;
 - ordinary UTF-8 strings and fixed-capacity shared column buffers with checked writes;
+- opt-in interned string columns with shared payloads and checked replacement;
 - typed `SharedRecordTable<S>` with `Arc<S>` handles and copy-on-write editing;
 - borrowing row and column views;
+- owning immutable table selections with shared storage and constant-time cloning;
+- shared mutable column projections with read/write guards over `Arc<RwLock<Table>>`;
 - lazily allocated row tombstones with stable positions, live-row views, and
   explicit compaction;
 - stable, lifetime-bound row ordering without moving table payloads;
@@ -70,6 +73,7 @@ the storage contract. Separate benchmark-only unsafe code is documented in the
 - [Interchange formats](docs/high-level/format.md)
 - [SQLite adapter](docs/high-level/sqlite.md)
 - [Benchmark methodology and results](docs/high-level/performance.md)
+- [Interned strings: memory, insertion, copying and mutation](docs/high-level/interned-string-results.md)
 - [Rust benchmarks and examples in VS Code](docs/high-level/rust-debugging.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
 - [Text filtering and transform comparison](docs/high-level/text-workflow-results.md)

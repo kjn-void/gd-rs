@@ -1,5 +1,11 @@
 # Benchmark methodology and results
 
+The [interned string comparison](interned-string-results.md) measures default
+`CompactString` columns, opt-in Rust interning, and C++ GD `rstring` columns at
+five repetition levels. It reports retained allocation sizes and separate timings
+for insertion, copying, replacement with existing values, and replacement with
+new unique values.
+
 The [text filtering and transform comparison](text-workflow-results.md) compares
 GD preallocated buffers, C++ `std::string` rows, existing gd-rs strings, and gd-rs fixed-capacity buffers across small and large
 tables with one and eight workers. Its own report records the current toolchains,

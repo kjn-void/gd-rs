@@ -36,7 +36,8 @@ pub use binary::{
 pub use expression::{ExpressionContext, ExpressionEngine, ExpressionError, Program, ProgramKind};
 pub use format::{
     FormatError, arguments_to_json, arguments_to_uri, row_order_to_json, selection_to_csv,
-    selection_to_json, table_to_csv, table_to_json,
+    selection_to_json, shared_selection_to_csv, shared_selection_to_json, table_to_csv,
+    table_to_json,
 };
 pub use format_import::{ImportError, table_from_csv, table_from_json};
 #[cfg(feature = "sqlite")]
@@ -48,8 +49,11 @@ pub use table::{
     Column, ColumnConversionError, ColumnConverter, ColumnElement, ColumnIndex, ColumnMapping,
     ColumnMut, ColumnSelectionError, ColumnSliceError, ColumnSpec, CompositeIndex,
     ConcurrentTableBuilder, FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut,
-    IndexKeyRef, NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut, Schema, SelectedRow,
-    SharedRecordTable, SortDirection, Table, TableError, TableSelection, UnknownFields,
+    IndexKeyRef, InternedStringCellMut, InternedStringError, InternedStrings, InternedStringsMut,
+    NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut, Schema, SelectedRow,
+    SharedProjectionError, SharedRecordTable, SharedTableProjection, SharedTableSelection,
+    SortDirection, Table, TableError, TableProjectionReadGuard, TableProjectionWriteGuard,
+    TableSelection, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

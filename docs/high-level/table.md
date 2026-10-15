@@ -3,7 +3,7 @@
 `Table` combines a shared immutable `Arc<Schema>` with one typed vector per column.
 `Row` and `Column` are borrowing views; ordinary cell access returns `ValueRef`, while
 fixed-width columns also expose checked required or nullable typed slices. Independent
-tables with the same layout can share all schema metadata without sharing row data.
+tables with the same layout can share schema metadata without sharing mutable row storage.
 
 ```mermaid
 flowchart TD
@@ -51,6 +51,27 @@ than `CompactString`, especially for inline short strings. See the
 [API examples](../api/tables.md#fixed-capacity-string-buffers) and the
 [text comparison](text-workflow-results.md) for workloads, measured results, and
 their limits.
+
+`ColumnSpec::interned_string(name)` provides a third, opt-in layout with
+`Vec<Arc<str>>` or `Vec<Option<Arc<str>>>` cell handles. A shared interner maintains
+one immutable allocation per distinct live value and counts its associated cells.
+Copies share payloads and the interner but own their cell vectors. Writes replace
+a handle; reads borrow from it without locking. Removing the last cell using a
+value removes its interner entry. Tombstones retain values until physically
+removed, and table/selection copies may keep values alive independently.
+
+The interner is synchronized because split mutable row ranges can update disjoint
+cells concurrently. Its lock covers only internal lookup/reference-count updates;
+converters and application callbacks run outside it. Appends across interners
+resolve equal text against the destination pool, and logical types remain
+`DataType::String`. Numeric dictionary IDs are not exposed or stored per cell;
+shared handles preserve the existing disjoint row API in safe Rust. This layout
+adds hashing, locking and atomic reference-count costs, so it is a storage choice
+for repeated strings or shared copies rather than a universal replacement for
+compact strings. See the [interned string API](../api/tables.md#interned-string-columns).
+The [interned string benchmarks](interned-string-results.md) compare memory,
+insertion, copying and mutation with default strings and C++ GD across repetition
+levels and short/long values.
 
 ## Schema and rows
 
@@ -628,12 +649,53 @@ views prevent source mutation at compile time, so their positions cannot become
 stale through compaction. `SelectedRow` exposes projected cells with source row
 positions and access to row-local extras.
 
+`SharedTableSelection` owns an `Arc<Table>` and an `Arc` selection plan. Create it
+with `Table::into_shared()` or `SharedTableSelection::new(Arc<Table>)`. Cloning
+retains both allocations in constant time, so owning selections can outlive their
+original handle and cross thread boundaries. Their reads return the same borrowed
+`SelectedRow`/`ValueRef` interfaces. The source remains immutable; `materialize`
+creates independent mutable storage, preserving extras, properties and tombstones
+without rerunning converters.
+
+Whole-table and contiguous selections store ranges. Indexed selections share an
+`Arc` position array plus a subrange. `project` creates column/schema metadata and
+shares the row mapping; `slice` shares all maps in constant time. `select` creates
+explicit row/column maps, and `filter_rows` scans live projected rows into a new
+position array. Duplicate rows are preserved and duplicate columns rejected.
+`positions` iterates physical source positions without expanding ranges into
+vectors. The source's entire storage remains alive even for an empty selection.
+
+`shared_selection_to_json` and `shared_selection_to_csv` read owning selections
+directly, following the borrowed serializers' rules. `as_borrowed` allocates the
+row/column position vectors required by `TableSelection` and shares its schema
+and cells. The existing borrowed selection API keeps its slice-based positions
+and compile-time mutation protection. See the [owning selection API](../api/tables.md#owning-immutable-selections).
+
+`SharedTableProjection` retains `Arc<RwLock<Table>>` plus shared column/schema
+metadata. Its projections include all current physical rows. `read` holds one
+shared lock for a scan; `write` holds one exclusive lock for a sequence of checked
+updates. Reads borrow ordinary `SelectedRow`/`ValueRef` values from the guard and
+allocate no row-position list. Overlapping projections observe each other's writes,
+and clones share their metadata in constant time. An empty projection retains the
+source too.
+
+Appends, row removal and compaction become visible to later guards; compaction
+can change the meaning of a row position between guards. Persistent row-selection
+maps are represented by independent materialized snapshots, while borrowed filtered
+selections remain scoped to a guard. Each guard validates the captured source schema
+and reports a changed schema or poisoned lock before access. Projection setters
+preserve the table's validation rules. A write guard excludes concurrent access but
+does not undo earlier writes when a later operation fails. The
+[mutable projection API](../api/tables.md#shared-mutable-projections) describes
+lock lifetimes, structural edits, error coordinates and deadlock avoidance.
+
 Single-column and composite join iterators borrow both source tables and the index,
 yielding borrowed row pairs lazily. They avoid allocating an entire expanded join
 result and support ordinary iterator limits. Position-vector joins return owned
 snapshots for applications that need to keep positions without retaining a borrow.
 
-These selection and join implementations use safe Rust and require immutable source
-borrows. Ordinary `Table` mutation requires exclusive access. Performance depends on
+These selection and join implementations use safe Rust. Borrowed views retain
+immutable source borrows; owning selections retain immutable shared ownership.
+Ordinary `Table` mutation requires exclusive access. Performance depends on
 the selected columns, result size, and materialization work; consult the linked
 benchmarks for the operations and workloads they measure.

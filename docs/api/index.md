@@ -6,9 +6,10 @@ Rust ownership, standard containers, typed errors, and the behavior implemented 
 this crate.
 
 The C++ documentation sometimes describes multiple storage classes for the same
-concept. Rust consolidates those into one owned type plus borrowed views and optional
-indexes. C++-only facilities are listed in [C++-only facilities](cpp-only.md) rather
-than being assigned fictional Rust equivalents.
+concept. Rust consolidates those into owned types, borrowed views, owning immutable
+table selections, shared mutable projections and optional indexes. C++-only
+facilities are listed in
+[C++-only facilities](cpp-only.md) rather than being assigned fictional Rust equivalents.
 
 ## Guides
 

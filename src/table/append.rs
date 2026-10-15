@@ -164,6 +164,7 @@ impl Table {
                 if source_spec.data_type() == spec.data_type()
                     && source_spec.is_nullable() == spec.is_nullable()
                     && source_spec.fixed_string_capacity() == spec.fixed_string_capacity()
+                    && source_spec.is_interned_string() == spec.is_interned_string()
                 {
                     staged.columns[destination] = source.columns[from].clone();
                     continue;

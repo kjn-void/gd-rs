@@ -52,6 +52,14 @@ pub struct SelectedRow<'a> {
 }
 
 impl<'a> SelectedRow<'a> {
+    pub(super) fn new(source: Row<'a>, columns: &'a [usize], schema: &'a Schema) -> Self {
+        Self {
+            source,
+            columns,
+            schema,
+        }
+    }
+
     /// Returns the physical source row position.
     #[must_use]
     pub const fn position(self) -> usize {
@@ -111,6 +119,20 @@ impl<'a> SelectedRow<'a> {
 }
 
 impl<'a> TableSelection<'a> {
+    pub(super) fn from_parts(
+        table: &'a Table,
+        positions: Vec<usize>,
+        columns: Vec<usize>,
+        schema: Arc<Schema>,
+    ) -> Self {
+        Self {
+            table,
+            positions,
+            columns,
+            schema,
+        }
+    }
+
     /// Returns the borrowed source table.
     #[must_use]
     pub const fn table(&self) -> &'a Table {

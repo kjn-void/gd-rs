@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured and revalidated on 2026-10-12. Rust scopes describe the current
+baseline measured and revalidated on 2026-10-15. Rust scopes describe the current
 worktree; GD is pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
@@ -17,22 +17,29 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 30 | 8,094 | 285 | 753 | 2.64 |
-| Rust product + tests (`src`, `tests`) | 44 | 12,206 | 443 | 1,059 | 2.39 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 67 | 16,926 | 621 | 1,653 | 2.66 |
+| Rust product (`src`) | 33 | 9,405 | 317 | 845 | 2.67 |
+| Rust product + tests (`src`, `tests`) | 50 | 14,847 | 503 | 1,195 | 2.38 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 77 | 19,797 | 695 | 1,823 | 2.62 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 164 | 68,185 | 8,861 | 20,726 | 2.34 |
+| C++ product + tests + maintained benchmarks | 167 | 68,466 | 8,892 | 20,798 | 2.34 |
 
-The Rust totals are **8,094 SLOC in `src`** and **16,926 SLOC including `tests`
-and `benches`**. The separate test tree adds 4,112 SLOC and benchmarks add 4,720
-SLOC, including the shared-record API, ownership tests, whole-record workflow and
+The Rust totals are **9,405 SLOC in `src`** and **19,797 SLOC including `tests`
+and `benches`**. The separate test tree adds 5,442 SLOC and benchmarks add 4,950
+SLOC, including the interned string timing and allocation benchmark,
+interned string storage and its integration/ownership tests,
+owning immutable selections, shared mutable projections and their
+ownership/composition/concurrency tests,
+the shared-record API, ownership tests, whole-record workflow and
 sharing strategy experiment, the typed fixed-array SoA experiment with per-cell tag/length metadata, and the
 Arc core-scaling harness and parallel-cleanup API.
 Inline unit tests and the doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
-scopes, the pinned baseline has no test directory and the maintained benchmark references add 3,598 SLOC, including the GD SIMD order-workflow adapter
-and the GD/std::string text-workflow cases and whole-record filter-copy benchmark and string layout probe in this worktree.
+scopes, the pinned baseline has no test directory and the maintained benchmark
+references add 3,879 SLOC, including the interned string benchmark and allocation
+observer, the GD SIMD order-workflow adapter,
+the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
+layout probe and projection correctness fixture in this worktree.
 
 These totals do not establish the source size of an identical product. The Rust
 crate implements a deliberately smaller surface, while

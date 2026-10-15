@@ -10,7 +10,8 @@ use crate::{Value, ValueRef};
 
 use super::storage::{ColumnData, ColumnStorage, ExtrasStorage, RowExtras};
 use super::{
-    FixedStringCellMut, FixedStringsMut, Schema, Table, TableError, UnknownFields, prepare_cell,
+    FixedStringCellMut, FixedStringsMut, InternedStringCellMut, InternedStringsMut, Schema, Table,
+    TableError, UnknownFields, prepare_cell,
 };
 
 enum ColumnSliceMut<'a, T> {
@@ -102,6 +103,7 @@ enum CellMut<'a> {
     F32(CellSlotMut<'a, f32>),
     F64(CellSlotMut<'a, f64>),
     String(CellSlotMut<'a, CompactString>),
+    InternedString(InternedStringCellMut<'a>),
     FixedString(FixedStringCellMut<'a>),
     Bytes(CellSlotMut<'a, Box<[u8]>>),
     Uuid(CellSlotMut<'a, Uuid>),
@@ -130,6 +132,7 @@ impl CellMut<'_> {
             Self::F32(slot) => copied!(slot, F32),
             Self::F64(slot) => copied!(slot, F64),
             Self::FixedString(slot) => slot.get().map_or(ValueRef::Null, ValueRef::String),
+            Self::InternedString(slot) => slot.get().map_or(ValueRef::Null, ValueRef::String),
             Self::String(slot) => slot
                 .get()
                 .map_or(ValueRef::Null, |value| ValueRef::String(value)),
@@ -175,6 +178,19 @@ impl CellMut<'_> {
             Self::F32(slot) => set!(slot, F32),
             Self::F64(slot) => set!(slot, F64),
             Self::String(slot) => set!(slot, String),
+            Self::InternedString(slot) => slot
+                .set(match &value {
+                    Value::Null => None,
+                    Value::String(text) => Some(text.as_str()),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "interned string input type differs",
+                        });
+                    }
+                })
+                .map_err(|_| TableError::InternalInvariant {
+                    detail: "validated interned string row write failed",
+                }),
             Self::FixedString(slot) => slot
                 .set(match &value {
                     Value::Null => None,
@@ -208,6 +224,7 @@ enum ColumnRangeMut<'a> {
     F32(ColumnSliceMut<'a, f32>),
     F64(ColumnSliceMut<'a, f64>),
     String(ColumnSliceMut<'a, CompactString>),
+    InternedString(InternedStringsMut<'a>),
     FixedString(FixedStringsMut<'a>),
     Bytes(ColumnSliceMut<'a, Box<[u8]>>),
     Uuid(ColumnSliceMut<'a, Uuid>),
@@ -235,6 +252,7 @@ impl ColumnRangeMut<'_> {
             Self::F32(values) => split!(values, F32),
             Self::F64(values) => split!(values, F64),
             Self::String(values) => split!(values, String),
+            Self::InternedString(values) => split!(values, InternedString),
             Self::FixedString(values) => split!(values, FixedString),
             Self::Bytes(values) => split!(values, Bytes),
             Self::Uuid(values) => split!(values, Uuid),
@@ -261,6 +279,7 @@ impl ColumnRangeMut<'_> {
             Self::F32(values) => cell!(values, F32),
             Self::F64(values) => cell!(values, F64),
             Self::String(values) => cell!(values, String),
+            Self::InternedString(values) => values.cell_mut(row).map(CellMut::InternedString),
             Self::FixedString(values) => values.cell_mut(row).map(CellMut::FixedString),
             Self::Bytes(values) => cell!(values, Bytes),
             Self::Uuid(values) => cell!(values, Uuid),
@@ -289,6 +308,7 @@ impl ColumnStorage {
             Self::F32(values) => range!(values, F32),
             Self::F64(values) => range!(values, F64),
             Self::String(values) => range!(values, String),
+            Self::InternedString(values) => ColumnRangeMut::InternedString(values.view_mut()),
             Self::FixedString(values) => ColumnRangeMut::FixedString(values.view_mut()),
             Self::Bytes(values) => range!(values, Bytes),
             Self::Uuid(values) => range!(values, Uuid),
@@ -315,6 +335,10 @@ impl ColumnStorage {
             Self::F32(values) => cell!(values, F32),
             Self::F64(values) => cell!(values, F64),
             Self::String(values) => cell!(values, String),
+            Self::InternedString(values) => values
+                .view_mut()
+                .into_cell_mut(row)
+                .map(CellMut::InternedString),
             Self::FixedString(values) => values
                 .view_mut()
                 .into_cell_mut(row)

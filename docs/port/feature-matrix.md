@@ -58,6 +58,7 @@ appropriate; they do not imply every GD table class has identical behavior.
 |---|---|---|
 | Typed columns, named schema, aliases, nullable cells | Native | Native `Schema`, `ColumnSpec`, `Table` |
 | Bounded text slots and buffer offsets | Native DTO inline bounded strings and indexed references | Native `ColumnSpec::fixed_string`: per-column fixed slots with checked UTF-8 writes and row offset/length descriptors |
+| Reuse equal string payloads | Native reference-cell setter searches its value pool | Native opt-in `ColumnSpec::interned_string`, shared immutable text and checked replacement |
 | Table properties and row-local extra named fields | Native; table-class/tag dependent | Native properties and `UnknownFields::Store` |
 | Packed row storage, cell addresses, layout control | Native | Absent: typed column vectors, no compatible packed ABI |
 | Borrow a whole numeric column as a contiguous typed slice | Application: row-strided storage; `harvest<T>` copies values | Native `Column::as_slice<T>` for required columns and `as_nullable_slice<T>` for nullable columns |
@@ -65,7 +66,7 @@ appropriate; they do not imply every GD table class has identical behavior.
 | Insert/read/update a row or cell | Native | Native, with typed errors for width/type/nullability/bounds failures |
 | Allocate empty rows and fill later | Native; payload initialization depends on tags | Absent equivalent: inserted Rust rows must be valid complete rows |
 | Rename existing column metadata | Native DTO `column_rename` | Application: construct a new schema/table; no rename API |
-| Select row ranges, row lists, and columns | Native `harvest`, range-copy and related operations | Native owned copies and borrowed `TableSelection` views |
+| Select row ranges, row lists, and columns | Native `harvest`, range-copy and related operations | Native owned copies, borrowed `TableSelection` and owning immutable `SharedTableSelection` views |
 | Filter rows using application business rules | Native scans/callbacks plus harvest; equality `find_all` helpers | Native `select_rows`, materializing `filter_rows`, and borrowed `filter_view` |
 | Append another table with column mapping or matching names | Native DTO `append`, including conversion overloads | Native `append`, `append_named`, `append_mapped`; destination converters and atomic batch validation |
 | Copy values into existing rows by column/name mapping | Native DTO `plant` | Application: setters or typed column views |
@@ -82,10 +83,12 @@ Sources: [GD DTO API](../../external/gd/source/gd_table_column-buffer.h),
 [GD argument table](../../external/gd/source/gd_table_arguments.h),
 [Rust table](../../src/table.rs), [Rust schema](../../src/table/schema.rs),
 [Rust views](../../src/table/views.rs), [Rust selection](../../src/table/selection.rs), [Rust borrowed views](../../src/table/selection_view.rs),
+[Rust owning selections](../../src/table/shared_selection.rs),
 [Rust fixed string buffers](../../src/table/fixed_string.rs),
+[Rust interned strings](../../src/table/interned_string.rs),
 [Rust append](../../src/table/append.rs),
 [Rust compaction](../../src/table/compaction.rs).
-Selection returns snapshots, borrowed views, or owned copies; gd-rs does not expose a general
+Selection returns snapshots, borrowed/owning immutable views, or owned copies; gd-rs does not expose a general
 lazy dataframe/query pipeline. Neither schema automatically validates application
 rules such as permitted regions or positive quantities: callers supply those rules.
 
@@ -142,6 +145,7 @@ working statistics support; this audit did not instantiate every other aggregate
 | Parallel mutation of disjoint row ranges | Application proves disjointness, storage stability and metadata safety | Native `RowsMut::split_at`; optional Rayon row mutation |
 | Parallel table copying | Application threads and ownership discipline | Native `par_copy_range` / `par_copy_rows` with `rayon` feature |
 | Share immutable table data across readers | Possible under application-enforced lifetime/publication/no-mutation rules | Native shared borrowing / `Arc<Table>` under Rust's type contracts |
+| Share edits across overlapping column projections | Application-owned shared table and synchronization | Native `SharedTableProjection` with `Arc<RwLock<Table>>`, guarded reads and checked writes |
 | Unsynchronized arbitrary mutation of an ordinary shared table | **Not supported safely** | **Not supported**; ordinary mutation requires exclusive access |
 | Prevent dangling value/row/index views at compile time | No | Yes through borrowing for the safe API |
 | Release-build checked table type/bounds/nullability failures | Partial; many raw access paths rely on assertions and caller preconditions | Typed errors/optional accessors on checked APIs; slice indexing still has Rust panic behavior |
@@ -149,6 +153,7 @@ working statistics support; this audit did not instantiate every other aggregate
 Sources: [GD reference counters](../../external/gd/source/gd_table.h),
 [GD shared columns](../../external/gd/source/gd_table_column.h),
 [Rust concurrent collector](../../src/table/concurrent.rs),
+[Rust shared mutable projections](../../src/table/shared_projection.rs),
 [Rust mutable rows](../../src/table/row_mut.rs), [Rust views](../../src/table/views.rs).
 
 **GD's table classes are not internally synchronized multithread-safe containers.**

@@ -7,12 +7,15 @@ mod concurrent;
 pub mod debug;
 mod fixed_string;
 mod index;
+mod interned_string;
 mod ordering;
 mod row_mut;
 mod schema;
 mod selection;
 mod selection_view;
+mod shared_projection;
 mod shared_record;
+mod shared_selection;
 mod storage;
 mod tombstones;
 mod views;
@@ -23,11 +26,19 @@ pub use composite::CompositeIndex;
 pub use concurrent::ConcurrentTableBuilder;
 pub use fixed_string::{FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut};
 pub use index::{ColumnIndex, IndexKeyRef};
+pub use interned_string::{
+    InternedStringCellMut, InternedStringError, InternedStrings, InternedStringsMut,
+};
 pub use ordering::{NullOrder, RowOrder, SortDirection};
 pub use row_mut::{RowMut, RowsMut};
 pub use schema::{ColumnConversionError, ColumnConverter, ColumnSpec, Schema, UnknownFields};
 pub use selection_view::{SelectedRow, TableSelection};
+pub use shared_projection::{
+    SharedProjectionError, SharedTableProjection, TableProjectionReadGuard,
+    TableProjectionWriteGuard,
+};
 pub use shared_record::SharedRecordTable;
+pub use shared_selection::SharedTableSelection;
 pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
 
 use compact_str::CompactString;
@@ -196,6 +207,8 @@ pub enum ColumnSelectionError {
 /// Ordinary required columns store contiguous `T` values directly; nullable
 /// columns use `Option<T>`. Fixed-capacity string columns instead keep offsets
 /// and lengths into a byte buffer, with a reserved length for null cells.
+/// Opt-in interned strings hold shared immutable `Arc<str>` payloads; ordinary
+/// strings retain their `CompactString` storage.
 /// Schemas that reject unknown fields do not allocate per-row extras storage.
 /// The immutable schema is shared through
 /// [`Arc`], so tables with the same layout do not duplicate schema metadata.
@@ -230,13 +243,26 @@ impl Table {
         let schema = schema.into();
         let columns = schema
             .iter()
-            .map(|column| match column.fixed_string_capacity() {
-                Some(bytes) => ColumnStorage::FixedString(fixed_string::FixedStringData::new(
-                    bytes,
-                    column.is_nullable(),
-                    capacity,
-                )),
-                None => ColumnStorage::new(column.data_type(), column.is_nullable(), capacity),
+            .map(|column| {
+                if column.is_interned_string() {
+                    ColumnStorage::InternedString(interned_string::InternedStringData::new(
+                        column.is_nullable(),
+                        capacity,
+                    ))
+                } else {
+                    match column.fixed_string_capacity() {
+                        Some(bytes) => {
+                            ColumnStorage::FixedString(fixed_string::FixedStringData::new(
+                                bytes,
+                                column.is_nullable(),
+                                capacity,
+                            ))
+                        }
+                        None => {
+                            ColumnStorage::new(column.data_type(), column.is_nullable(), capacity)
+                        }
+                    }
+                }
             })
             .collect();
         let extras = ExtrasStorage::with_capacity(schema.unknown_fields(), capacity);

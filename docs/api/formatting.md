@@ -197,3 +197,52 @@ objects `{}` for live rows, while CSV returns `FormatError::ZeroColumnTable`.
 
 See [borrowed selections](tables.md#borrowed-selections) for construction,
 composition, and lifetime behavior.
+
+## Exporting owning selections
+
+`shared_selection_to_json(&SharedTableSelection)` and
+`shared_selection_to_csv(&SharedTableSelection, headers)` apply the same rules to
+owning immutable selections. They read shared source cells directly and iterate
+range or indexed positions without constructing a borrowed selection or copying
+cells into a table. Tombstones, extras and properties are omitted; selected row
+order, duplicates and projected primary names are retained.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, shared_selection_to_csv, shared_selection_to_json};
+
+let mut table = Table::new(Schema::new([
+    ColumnSpec::new("id", DataType::I64),
+    ColumnSpec::new("name", DataType::String),
+])?);
+table.push_row([7_i64.into(), "Ada".into()])?;
+let selection = table.into_shared().select(&[0, 0], &[1])?;
+assert_eq!(shared_selection_to_json(&selection)?, r#"[{"name":"Ada"},{"name":"Ada"}]"#);
+assert_eq!(shared_selection_to_csv(&selection, true)?, "name\nAda\nAda\n");
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+See [owning immutable selections](tables.md#owning-immutable-selections) for source
+lifetime, composition, materialization and the `as_borrowed()` compatibility bridge.
+
+## Exporting shared mutable projections
+
+Acquire a projection read guard, then pass `guard.as_borrowed()` to the existing
+selection serializers. The lock remains held for the whole export, so the result
+reflects one consistent table state. The bridge allocates row/column metadata and
+copies no cell payloads. Filters derived from the borrowed view stay inside the
+guard's lifetime.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, selection_to_csv};
+
+let mut table = Table::new(Schema::new([ColumnSpec::new("qty", DataType::U64)])?);
+table.push_row([10_u64.into()])?;
+let projection = table.into_shared_mut();
+projection.set_cell(0, 0, 11_u64)?;
+let read = projection.read()?;
+assert_eq!(selection_to_csv(&read.as_borrowed(), true)?, "qty\n11\n");
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Use `projection.materialize()?.into_shared()` when the immutable snapshot must
+outlive the lock, then export through the owning-selection serializers.

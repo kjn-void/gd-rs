@@ -1,0 +1,5049 @@
+{
+  "metadata": {
+    "utc": "2026-10-15T14:37:27.999318+00:00",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "cpu": "Apple M1",
+    "logical_cpus": 8,
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)\nbinary: rustc\ncommit-hash: b940084d7eb6a299eb4bfeb8e34901bc051e7ac4\ncommit-date: 2026-09-28\nhost: aarch64-apple-darwin\nrelease: 1.99.0\nLLVM version: 23.1.1",
+    "cxx": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin",
+    "revision": "1126787f8e6b5dfbe964f6bb2f0cdd81a4d2c08f",
+    "gd_revision": "cb11cff90d05260a88d59a30c9da421cd4e19c34",
+    "source_sha256": {
+      "benches/interned_strings/driver.rs": "6f2f26dd165764da74b7752a38a493f1cd8bccf3c44dacfa9c1fff5a05957ea6",
+      "benches/interned_strings/memory.rs": "6dbe43f96426bb7d07f0bdf36e9f1e407b4fd1e92b3321246a7df07d684f5dc6",
+      "benches/interned_strings/memory_driver.rs": "47e0f753b3b4d3c198128e023b525899f40fcc8c60488a94d7589e9b2a6dbf6e",
+      "benches/interned_strings/workload.rs": "e4c8c7648b99dee00f5eff6d2975f0265ef57ae30de05dcffb1618d67bb28a9c",
+      "benches/interned_strings/compare.py": "ae36aaabb2dc7d75e20dd0b1e8cd9e67f6d494a9b18683bce68b4cb53f5e87ee",
+      "benches/text_workflow/compare.py": "c25dd8b40e3e1425592b8c77763822e9f8d0aae78019f4fea0ae231b129f1bcc",
+      "benches/cpp-reference/interned_strings.cpp": "3d5a865957d1485ad1883011d3044946ad4faf29cb81db373cc136a56b711ba0",
+      "benches/cpp-reference/interned_strings_memory.h": "146cb253eefee11fcf071fd632e7c14b4d6a95b3f21b3c271531bd1c16d097eb",
+      "Cargo.toml": "202b43f0ee6f09ea6265b8db2771a346f9157c5a661db2b62ebf4131df6fe65b",
+      "Cargo.lock": "b9da6e1deb720058fa9f399811aa1c9fb28206c7b2370197b400473b56e7a6fb",
+      "src/arguments.rs": "d4c09bff787c39f8fdb812cde0f0cdcbd9c848e66675f17ffbf449e2c09d82cb",
+      "src/binary.rs": "737c4c98690cc0262cd8830a934fb7d302a13222c0ecbc645e87c2c37353c44b",
+      "src/expression.rs": "313892e70cd562e59da80841146665cfba3dd0f97e874e816365950649268a55",
+      "src/format.rs": "c74cd1fad531433c9bfc12a01b08c1f0c3c10abb0e55805b5e58650ae1c3c659",
+      "src/format_import.rs": "3334e25fbf927e97ee13d443697bc88edf0283a315a960e51e3fad56fd945e59",
+      "src/guide_tests.rs": "d64568eb47628256f2fcffc97cfa35a64ffe8ef1883049119f5bd5f8d653a36a",
+      "src/lib.rs": "c2ee70482f1f91cf1ed5cae8046df65241da014f17261045d5fb5239c2c0a92a",
+      "src/sqlite.rs": "26fd389fdb032cc8d3d77fccb236a47f56b797c916de995a2597b2fae3fe0f0b",
+      "src/table/append.rs": "37814a7965dd9d5adb28641fafc0f2e9a27631a20e1a556127f73a755f52d563",
+      "src/table/compaction.rs": "3ac29b4c7a7734b0392b6b4e493d03765780601c28ab0f1bd6a6287e0a7e4849",
+      "src/table/composite.rs": "dab49e460e4f73d5eb714d9422837ee453206936dfc6bb74f06777185f3569d7",
+      "src/table/concurrent.rs": "fb4f2f71a0f5ad79934f2148fe8d8459c4d3a8d79158702e975c7ef3b28f961e",
+      "src/table/debug.rs": "52fe2cbdd2de0b6fbed0cd31b8356a5c26c145b6bf3adda8a77103117f938452",
+      "src/table/fixed_string.rs": "0daaa9b1752f83b190f9076be5f0fc12371f987395fda22200b4e066447fc94e",
+      "src/table/index.rs": "b696c704ef28df25af9172cbf2ff4c6d790396aab4f7f5137cf12173a5d26d93",
+      "src/table/interned_string.rs": "fa1c38c087cc9617548fa5feffaf4c05bebcd13ba0ee908879c34585eafd208f",
+      "src/table/ordering.rs": "48ed22d6a92298eef9791f11c3fd5fa1d79755fbead3f1ce05a6a7552146644e",
+      "src/table/row_mut.rs": "087cb53a7ccb68ee98c9fcc910db8c4dcd7144d5922f3e325d9b28fdad51d855",
+      "src/table/schema.rs": "6d35f32bc333719fd408e058301c8847ff90c6202fbbcc7a3a2c1565264c1f8c",
+      "src/table/selection.rs": "eaee85fbbffb1c529e001a5bc33d883f846cdbeda7727aca13a2a2fbe0345188",
+      "src/table/selection_view.rs": "e6a72e158289342b7fc2687f866610440ea3c9ced186a78cc999b524b6118af7",
+      "src/table/shared_projection.rs": "c2444176a04ed181dc2e52d02c36a6b59e65d61bddf041eb9780abdc9674f597",
+      "src/table/shared_record.rs": "6f741c1a835fba09acb5f712f677b74930515d6a5904e04a82700833e5defcf6",
+      "src/table/shared_selection.rs": "c0ec0882f8afb7d7fb4bb695c8f1ce966e85c44b9e6dde7f3915e85ae26833ce",
+      "src/table/storage.rs": "8358c305f50b6f7b78b05cf107f57016d168faba554a0e1794653dfed0a5afa4",
+      "src/table/tombstones.rs": "f93301a392c219c460e4a0cfc618ad736c892c7350c8fe6962547aff7c55bb2f",
+      "src/table/views.rs": "bb3ff2cf5396fe001e26bdf80e8c559dd49e83ef2bb327dbcde42cacb0fe6f37",
+      "src/table.rs": "18afcbcf08e1a6ff46a39b14d1e97422efb11ea6f7c2638a5f9b59a434472b80",
+      "src/text.rs": "3908b66f2fb1a03944c902906ad846f9fa2ea7643a860584da251751234df583",
+      "src/value/borrowed.rs": "401bae6e19d3ac304dbcca11f13d9617f7c0b4ab6caa38ce388d0aaab848b251",
+      "src/value/data_type.rs": "63f7b1d4f67634eab008387a749bd9e29e158207847393e3dd9562ab8e0a6955",
+      "src/value/owned.rs": "f4f74e36c6b3dd8c2c1c602ae6afe771ac71a532daaa8f7f07b8ade048c9a8d5",
+      "src/value.rs": "0ec4f96eb64ce0900cc31af119891e9a1581476917462f5ea1da4eca425ac6ff"
+    },
+    "binary_sha256": {
+      "default_False": "1bc3e3814989587f78a877c1e3af312c6defd22e58072e213a557ae4622b504a",
+      "default_True": "71d4e5a1dfabf538c7bf1be030364cef8c721ff9c5b3e236c15b59bcfb58faa7",
+      "gd_False": "2c1b3b4eee6b2011da049f0e3072dd60a8401249bbe79d757e8661bdde314088",
+      "gd_True": "b4a0e5c0471a42c2ea1ce5a8f93e8dff261f577057f561acb2e430b50417056f"
+    },
+    "gd_source_sha256": "0ce4319005907c5142010c9c38dc0b0a4af6a24acaa0ce23641cf0574473db45",
+    "build_commands": [
+      [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "--no-default-features",
+        "--example",
+        "interned_strings",
+        "--example",
+        "interned_strings_memory"
+      ],
+      [
+        "c++",
+        "-std=c++20",
+        "-O3",
+        "-DNDEBUG",
+        "-march=native",
+        "-flto=thin",
+        "-Wno-deprecated-enum-enum-conversion",
+        "-I",
+        "/Users/kjn/repos/gd-rs/external/gd/source",
+        "-I",
+        "/Users/kjn/repos/gd-rs/target/interned-strings/include",
+        "/Users/kjn/repos/gd-rs/benches/cpp-reference/interned_strings.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_arguments.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_arguments_shared.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_parse.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table_column.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table_column-buffer.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table_table.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_types.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_utf8.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_utf8_2.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_variant.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_variant_view.cpp",
+        "-o",
+        "/Users/kjn/repos/gd-rs/target/interned-strings/gd"
+      ],
+      [
+        "c++",
+        "-std=c++20",
+        "-O3",
+        "-DNDEBUG",
+        "-march=native",
+        "-flto=thin",
+        "-Wno-deprecated-enum-enum-conversion",
+        "-I",
+        "/Users/kjn/repos/gd-rs/external/gd/source",
+        "-I",
+        "/Users/kjn/repos/gd-rs/target/interned-strings/include",
+        "-DGD_BENCH_MEMORY",
+        "/Users/kjn/repos/gd-rs/benches/cpp-reference/interned_strings.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_arguments.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_arguments_shared.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_parse.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table_column.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table_column-buffer.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_table_table.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_types.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_utf8.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_utf8_2.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_variant.cpp",
+        "/Users/kjn/repos/gd-rs/external/gd/source/gd_variant_view.cpp",
+        "-o",
+        "/Users/kjn/repos/gd-rs/target/interned-strings/gd_memory"
+      ]
+    ],
+    "invocation": [
+      "/Users/kjn/repos/gd-rs/benches/interned_strings/compare.py",
+      "--skip-build",
+      "--wait-for-idle",
+      "--unique",
+      "1",
+      "20000",
+      "--lengths",
+      "16",
+      "128",
+      "--rounds",
+      "2",
+      "--samples",
+      "3",
+      "--output",
+      "target/interned-strings/confirmation.json"
+    ],
+    "rust_flags": "release opt-level=3; lto=thin; codegen-units=1; target-cpu=native; no features; --locked",
+    "cpp_flags": "C++20 -O3 -DNDEBUG -march=native -flto=thin; no sanitizers",
+    "workers": 1,
+    "affinity": "OS scheduling; no affinity; one process at a time",
+    "samples": 3,
+    "rounds": 2,
+    "memory": "separate binaries count retained malloc block sizes for System/global new; size-class rounding included, allocator metadata/fragmentation, stack, code and fixture catalogues excluded",
+    "measurement_complete": false,
+    "ram_bytes": 8589934592,
+    "topology": "hw.model: MacBookAir10,1\nhw.physicalcpu: 8\nhw.logicalcpu: 8",
+    "thermal_before": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "source_unchanged": true,
+    "binaries_unchanged": true,
+    "gd_source_unchanged": true,
+    "thermal_after": "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded",
+    "stop_reason": "Stopped during an idle wait after every endpoint had at least one accepted round. Three endpoint cases have two rounds; 128-byte/all-unique has one. A contended additional round is retained in discarded_rounds and excluded from the summary.",
+    "post_measurement_lint_cleanup": {
+      "file": "benches/interned_strings/memory_driver.rs",
+      "measured_sha256": "47e0f753b3b4d3c198128e023b525899f40fcc8c60488a94d7589e9b2a6dbf6e",
+      "current_sha256": "f29ae903700b978a1cb40ce58bdb58db422113d9e09de2467460119c64193bbc",
+      "change": "Added a Clippy allowance for the intentional constant platform assertion; no runtime change.",
+      "release_binaries_identical_after_rebuild": true
+    }
+  },
+  "verification": [
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        208166
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        706125
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        116833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        31958
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        158250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        4417
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        244125
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        755292
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        123500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        220959
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2238833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        373537208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        194167
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1902958
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        330529166
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        29292
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        181208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        524708
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        197917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        827334
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        327365042
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        191791
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2080500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        982971667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        651166
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1530917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        169125
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        328791
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        349167
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        607125
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1833625
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        154625
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        591875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3317000
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        457985459
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        684042
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3117583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        449765625
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        326667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        407959
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        462959
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        614834
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2000042
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        448107833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        586750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2907208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1342753167
+      ]
+    }
+  ],
+  "memory": [
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 491968,
+      "result_bytes": 491968,
+      "nanos": [
+        207333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 328432,
+      "result_bytes": 328432,
+      "nanos": [
+        535250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 163904,
+      "result_bytes": 163904,
+      "nanos": [
+        147708
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 491968,
+      "result_bytes": 491584,
+      "nanos": [
+        30583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 328432,
+      "result_bytes": 327744,
+      "nanos": [
+        157750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 163904,
+      "result_bytes": 163904,
+      "nanos": [
+        4208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 491968,
+      "result_bytes": 491968,
+      "nanos": [
+        225917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 328432,
+      "result_bytes": 328432,
+      "nanos": [
+        771250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 163904,
+      "result_bytes": 163904,
+      "nanos": [
+        112584
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 491968,
+      "result_bytes": 491968,
+      "nanos": [
+        207833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 328432,
+      "result_bytes": 1803872,
+      "nanos": [
+        1684750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 163904,
+      "result_bytes": 1386032,
+      "nanos": [
+        375190041
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 491968,
+      "result_bytes": 491968,
+      "nanos": [
+        207667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1803872,
+      "result_bytes": 1803872,
+      "nanos": [
+        1525917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1385984,
+      "result_bytes": 1385984,
+      "nanos": [
+        328366375
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 491968,
+      "result_bytes": 491584,
+      "nanos": [
+        29500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1803872,
+      "result_bytes": 327744,
+      "nanos": [
+        183541
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1385984,
+      "result_bytes": 1385984,
+      "nanos": [
+        491875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 491968,
+      "result_bytes": 491968,
+      "nanos": [
+        197959
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1803872,
+      "result_bytes": 1803872,
+      "nanos": [
+        822667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1385984,
+      "result_bytes": 1385984,
+      "nanos": [
+        327728000
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 491968,
+      "result_bytes": 491968,
+      "nanos": [
+        207084
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1803872,
+      "result_bytes": 1803872,
+      "nanos": [
+        2012958
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 1385984,
+      "result_bytes": 2608128,
+      "nanos": [
+        980336583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968,
+      "nanos": [
+        745084
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 328560,
+      "result_bytes": 328560,
+      "nanos": [
+        1649709
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 164016,
+      "result_bytes": 164016,
+      "nanos": [
+        161125
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 3051968,
+      "result_bytes": 3051584,
+      "nanos": [
+        520167
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 328560,
+      "result_bytes": 327744,
+      "nanos": [
+        345708
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 164016,
+      "result_bytes": 164016,
+      "nanos": [
+        3875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968,
+      "nanos": [
+        1088250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 328560,
+      "result_bytes": 328560,
+      "nanos": [
+        2067833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 164016,
+      "result_bytes": 164016,
+      "nanos": [
+        177208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968,
+      "nanos": [
+        906041
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 328560,
+      "result_bytes": 4363872,
+      "nanos": [
+        3344834
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 164016,
+      "result_bytes": 3626144,
+      "nanos": [
+        449269000
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968,
+      "nanos": [
+        813417
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 4363872,
+      "result_bytes": 4363872,
+      "nanos": [
+        2862917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3625984,
+      "result_bytes": 3625984,
+      "nanos": [
+        467795250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3051968,
+      "result_bytes": 3051584,
+      "nanos": [
+        498416
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 4363872,
+      "result_bytes": 327744,
+      "nanos": [
+        406542
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3625984,
+      "result_bytes": 3625984,
+      "nanos": [
+        545333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968,
+      "nanos": [
+        1050333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 4363872,
+      "result_bytes": 4363872,
+      "nanos": [
+        2226917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3625984,
+      "result_bytes": 3625984,
+      "nanos": [
+        444539958
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968,
+      "nanos": [
+        926667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 4363872,
+      "result_bytes": 4363872,
+      "nanos": [
+        3340458
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 3625984,
+      "result_bytes": 7088128,
+      "nanos": [
+        1394689625
+      ]
+    }
+  ],
+  "measurements": [
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        284166,
+        286458,
+        256917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        656334,
+        635792,
+        612708
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        118791,
+        120458,
+        120333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        29458,
+        29667,
+        28750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        159125,
+        200250,
+        157417
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3833,
+        3250,
+        3667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        207667,
+        207584,
+        207583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        777375,
+        835542,
+        773625
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        105291,
+        105167,
+        105167
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 1,
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        203459,
+        229750,
+        201458
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2208333,
+        2028625,
+        1996291
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        376505416,
+        376141916,
+        370722958
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        655500,
+        655042,
+        700000
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        126875,
+        126625,
+        126542
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        209125,
+        206625,
+        205458
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        152458,
+        149750,
+        154666
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3500,
+        3000,
+        3000
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        27625,
+        26875,
+        26375
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        742542,
+        720833,
+        752667
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        106375,
+        103208,
+        114083
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 2,
+      "digest": 4669276454632571461,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        203333,
+        193583,
+        193583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2042083,
+        2010750,
+        1911750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        325839708,
+        327952375,
+        325670375
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 2,
+      "digest": 3144674360433048565,
+      "source_digest": 4669276454632571461,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        191875,
+        191333,
+        191291
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 1,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        264250,
+        259083,
+        259875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2150167,
+        1957833,
+        1803792
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        329263833,
+        325612667,
+        328159583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 1,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        28208,
+        29625,
+        28500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        182292,
+        180375,
+        181250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        523875,
+        526500,
+        521750
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 1,
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        202250,
+        202333,
+        197292
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        824417,
+        820333,
+        820625
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        327316875,
+        325217417,
+        327826666
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 1,
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        195000,
+        191916,
+        191542
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2080792,
+        2099833,
+        2094500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1007069459,
+        973029084,
+        1008698209
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2285875,
+        2029916,
+        2055875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        375577250,
+        362309333,
+        327012417
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 2,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        194000,
+        192125,
+        192208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        179041,
+        177792,
+        178666
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        515875,
+        515500,
+        511875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 2,
+      "digest": 15281708055368765717,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        27750,
+        32500,
+        27375
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        809041,
+        807292,
+        799584
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        325645542,
+        319092250,
+        384487500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 2,
+      "digest": 17657514122167644789,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        280333,
+        249834,
+        231833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3005833,
+        2605167,
+        2585292
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        981710834,
+        956855000,
+        971939000
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 2,
+      "digest": 3144674360433048565,
+      "source_digest": 15281708055368765717,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        189375,
+        187583,
+        213916
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        682834,
+        496208,
+        561834
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1353875,
+        1394750,
+        1358541
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        160083,
+        157625,
+        158208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        699333,
+        341167,
+        323458
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        344959,
+        345125,
+        346792
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        4250,
+        3625,
+        3042
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        922917,
+        606792,
+        643375
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1781375,
+        1773750,
+        1803458
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        160125,
+        155625,
+        155166
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 1,
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        620459,
+        586167,
+        586792
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3383708,
+        3007875,
+        3000416
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        450084416,
+        448515208,
+        468262917
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1569500,
+        1459750,
+        1429333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        157666,
+        156958,
+        160584
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        614416,
+        449584,
+        448459
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        347292,
+        359750,
+        347125
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3792,
+        3500,
+        3042
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        470750,
+        325584,
+        326291
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1729000,
+        1806709,
+        1733458
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        155041,
+        155208,
+        154958
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 2,
+      "digest": 4486389084729343813,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        647542,
+        604292,
+        624833
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 2,
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3316667,
+        3103875,
+        3008791
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 2,
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        449905584,
+        449933666,
+        449362333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 2,
+      "digest": 525613130508558069,
+      "source_digest": 4486389084729343813,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        592958,
+        587250,
+        592334
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "round": 1,
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        707625,
+        484917,
+        487250
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        3158041,
+        2806167,
+        2812208
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        449685375,
+        447822000,
+        447710167
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "round": 1,
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        342666,
+        322833,
+        376333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        404583,
+        406000,
+        403708
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 11290232168749750421,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        486083,
+        459750,
+        498875
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "round": 1,
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        616667,
+        609708,
+        610584
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1912750,
+        1899875,
+        1914792
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 9835029165088333557,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        447846375,
+        446619042,
+        455110583
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "round": 1,
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        627875,
+        581708,
+        601333
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "round": 1,
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        2850916,
+        2928292,
+        2807500
+      ]
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "round": 1,
+      "digest": 525613130508558069,
+      "source_digest": 11290232168749750421,
+      "source_bytes": 0,
+      "result_bytes": 0,
+      "nanos": [
+        1361067500,
+        1341028125,
+        1560292208
+      ]
+    }
+  ],
+  "load_samples": [
+    {
+      "utc": "2026-10-15T14:37:32.052807+00:00",
+      "processes": [
+        {
+          "pid": 2349,
+          "cpu_percent": 39.4,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 22.8,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 8.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 81.7
+    },
+    {
+      "utc": "2026-10-15T14:37:35.420915+00:00",
+      "processes": [
+        {
+          "pid": 2349,
+          "cpu_percent": 30.1,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 27.7,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 75.0
+    },
+    {
+      "utc": "2026-10-15T14:37:37.539691+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 28.3,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 2353,
+          "cpu_percent": 14.6,
+          "command": "/System/Library/ExtensionKit/Extensions/GenerativeExperiencesSafetyInferenceProvider.appex/Contents/MacOS/GenerativeExperiencesSafetyInferenceProvider"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 14.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 29241,
+          "cpu_percent": 13.7,
+          "command": "/usr/libexec/aned"
+        },
+        {
+          "pid": 2355,
+          "cpu_percent": 12.8,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        },
+        {
+          "pid": 656,
+          "cpu_percent": 11.3,
+          "command": "/usr/libexec/modelmanagerd"
+        },
+        {
+          "pid": 43363,
+          "cpu_percent": 10.4,
+          "command": "/usr/libexec/textunderstandingd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 41928,
+          "cpu_percent": 7.6,
+          "command": "/System/Library/PrivateFrameworks/ModelCatalogRuntime.framework/Versions/A/modelcatalogd"
+        },
+        {
+          "pid": 2349,
+          "cpu_percent": 7.1,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        }
+      ],
+      "aggregate_cpu_percent": 129.0
+    },
+    {
+      "utc": "2026-10-15T14:37:39.645008+00:00",
+      "processes": [
+        {
+          "pid": 2355,
+          "cpu_percent": 25.2,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 24.2,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 29241,
+          "cpu_percent": 20.9,
+          "command": "/usr/libexec/aned"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 20.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 41928,
+          "cpu_percent": 11.9,
+          "command": "/System/Library/PrivateFrameworks/ModelCatalogRuntime.framework/Versions/A/modelcatalogd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 112.7
+    },
+    {
+      "utc": "2026-10-15T14:38:11.793244+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 27.6,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 47.2
+    },
+    {
+      "utc": "2026-10-15T14:38:15.012963+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 32.5,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 52.1
+    },
+    {
+      "utc": "2026-10-15T14:38:25.102638+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 32.4,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 52.9
+    },
+    {
+      "utc": "2026-10-15T14:38:35.807814+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 45.7,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 448,
+          "cpu_percent": 6.2,
+          "command": "/usr/sbin/securityd"
+        }
+      ],
+      "aggregate_cpu_percent": 72.4
+    },
+    {
+      "utc": "2026-10-15T14:49:09.143647+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 30.7,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 30901,
+          "cpu_percent": 18.7,
+          "command": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "pid": 511,
+          "cpu_percent": 10.6,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 8.2,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 41338,
+          "cpu_percent": 8.2,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        },
+        {
+          "pid": 41275,
+          "cpu_percent": 7.7,
+          "command": "/System/Library/PrivateFrameworks/UsageTracking.framework/Versions/A/UsageTrackingAgent"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 7.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 443,
+          "cpu_percent": 6.7,
+          "command": "/usr/libexec/opendirectoryd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 6.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 450,
+          "cpu_percent": 6.2,
+          "command": "/usr/libexec/locationd"
+        },
+        {
+          "pid": 586,
+          "cpu_percent": 5.3,
+          "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        },
+        {
+          "pid": 43507,
+          "cpu_percent": 5.3,
+          "command": "/System/Library/Frameworks/LocalAuthentication.framework/Support/coreautha.bundle/Contents/MacOS/coreautha"
+        }
+      ],
+      "aggregate_cpu_percent": 121.5
+    },
+    {
+      "utc": "2026-10-15T14:49:11.252628+00:00",
+      "processes": [
+        {
+          "pid": 30901,
+          "cpu_percent": 39.4,
+          "command": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "pid": 482,
+          "cpu_percent": 19.9,
+          "command": "/usr/libexec/runningboardd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.9,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 41275,
+          "cpu_percent": 10.4,
+          "command": "/System/Library/PrivateFrameworks/UsageTracking.framework/Versions/A/UsageTrackingAgent"
+        },
+        {
+          "pid": 511,
+          "cpu_percent": 9.0,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 28447,
+          "cpu_percent": 7.1,
+          "command": "/usr/libexec/routined"
+        }
+      ],
+      "aggregate_cpu_percent": 108.1
+    },
+    {
+      "utc": "2026-10-15T15:04:42.509984+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 43.8,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 31274,
+          "cpu_percent": 17.3,
+          "command": "/usr/libexec/spotlightknowledged.updater"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 448,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/securityd"
+        }
+      ],
+      "aggregate_cpu_percent": 85.3
+    },
+    {
+      "utc": "2026-10-15T15:19:52.410756+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 49.7,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.9,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 27453,
+          "cpu_percent": 9.1,
+          "command": "/System/Library/PrivateFrameworks/CloudKitDaemon.framework/Support/cloudd"
+        },
+        {
+          "pid": 30901,
+          "cpu_percent": 8.6,
+          "command": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 8.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 817,
+          "cpu_percent": 6.7,
+          "command": "/System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent"
+        },
+        {
+          "pid": 448,
+          "cpu_percent": 5.3,
+          "command": "/usr/sbin/securityd"
+        },
+        {
+          "pid": 5847,
+          "cpu_percent": 5.3,
+          "command": "/usr/libexec/trustd"
+        }
+      ],
+      "aggregate_cpu_percent": 105.2
+    },
+    {
+      "utc": "2026-10-15T15:19:54.515615+00:00",
+      "processes": [
+        {
+          "pid": 33548,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 18.0
+    },
+    {
+      "utc": "2026-10-15T15:34:58.555101+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 46.9,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 30901,
+          "cpu_percent": 23.9,
+          "command": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "pid": 482,
+          "cpu_percent": 16.8,
+          "command": "/usr/libexec/runningboardd"
+        },
+        {
+          "pid": 33514,
+          "cpu_percent": 14.4,
+          "command": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 12.9,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 511,
+          "cpu_percent": 12.9,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 454,
+          "cpu_percent": 9.6,
+          "command": "/usr/libexec/dasd"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 7.7,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 7.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 7.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 586,
+          "cpu_percent": 6.2,
+          "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        },
+        {
+          "pid": 43231,
+          "cpu_percent": 5.7,
+          "command": "/System/Library/PrivateFrameworks/IntelligencePlatformCompute.framework/Versions/A/XPCServices/IntelligencePlatformComputeService.xpc/Contents/MacOS/IntelligencePlatformComputeService"
+        }
+      ],
+      "aggregate_cpu_percent": 171.9
+    },
+    {
+      "utc": "2026-10-15T15:35:00.657255+00:00",
+      "processes": [
+        {
+          "pid": 876,
+          "cpu_percent": 93.7,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/corespotlightd"
+        },
+        {
+          "pid": 41323,
+          "cpu_percent": 63.7,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 49.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 31274,
+          "cpu_percent": 23.3,
+          "command": "/usr/libexec/spotlightknowledged.updater"
+        },
+        {
+          "pid": 30901,
+          "cpu_percent": 19.0,
+          "command": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "pid": 482,
+          "cpu_percent": 12.4,
+          "command": "/usr/libexec/runningboardd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 511,
+          "cpu_percent": 8.1,
+          "command": "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow"
+        },
+        {
+          "pid": 526,
+          "cpu_percent": 8.1,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 41338,
+          "cpu_percent": 7.6,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        },
+        {
+          "pid": 29241,
+          "cpu_percent": 6.7,
+          "command": "/usr/libexec/aned"
+        },
+        {
+          "pid": 768,
+          "cpu_percent": 5.7,
+          "command": "/usr/sbin/cfprefsd"
+        },
+        {
+          "pid": 454,
+          "cpu_percent": 5.2,
+          "command": "/usr/libexec/dasd"
+        }
+      ],
+      "aggregate_cpu_percent": 311.5
+    },
+    {
+      "utc": "2026-10-15T15:35:32.815920+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 54.8,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 41353,
+          "cpu_percent": 6.0,
+          "command": "/System/Library/PrivateFrameworks/PhotoAnalysis.framework/Versions/A/Support/photoanalysisd"
+        }
+      ],
+      "aggregate_cpu_percent": 78.9
+    },
+    {
+      "utc": "2026-10-15T15:35:36.775587+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 104.6,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 122.2
+    },
+    {
+      "utc": "2026-10-15T15:35:38.885178+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 38.4,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 56.9
+    },
+    {
+      "utc": "2026-10-15T15:35:40.995975+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 23.3,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 38501,
+          "cpu_percent": 6.6,
+          "command": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "pid": 41338,
+          "cpu_percent": 5.2,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        }
+      ],
+      "aggregate_cpu_percent": 53.1
+    },
+    {
+      "utc": "2026-10-15T15:35:44.924737+00:00",
+      "processes": [
+        {
+          "pid": 33548,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 38501,
+          "cpu_percent": 9.5,
+          "command": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33311,
+          "cpu_percent": 5.7,
+          "command": "/usr/libexec/sysmond"
+        }
+      ],
+      "aggregate_cpu_percent": 33.7
+    },
+    {
+      "utc": "2026-10-15T15:35:59.094259+00:00",
+      "processes": [
+        {
+          "pid": 33577,
+          "cpu_percent": 12.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 6.7,
+          "command": "/sbin/launchd"
+        }
+      ],
+      "aggregate_cpu_percent": 30.0
+    },
+    {
+      "utc": "2026-10-15T15:39:15.598497+00:00",
+      "processes": [
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 19.1
+    },
+    {
+      "utc": "2026-10-15T15:39:17.674738+00:00",
+      "processes": [
+        {
+          "pid": 33577,
+          "cpu_percent": 49.7,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33514,
+          "cpu_percent": 8.2,
+          "command": "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT"
+        },
+        {
+          "pid": 526,
+          "cpu_percent": 5.8,
+          "command": "/usr/libexec/airportd"
+        }
+      ],
+      "aggregate_cpu_percent": 72.9
+    },
+    {
+      "utc": "2026-10-15T15:39:31.597298+00:00",
+      "processes": [
+        {
+          "pid": 41338,
+          "cpu_percent": 92.6,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 11.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 6.2,
+          "command": "/sbin/launchd"
+        }
+      ],
+      "aggregate_cpu_percent": 119.3
+    },
+    {
+      "utc": "2026-10-15T15:39:33.698737+00:00",
+      "processes": [
+        {
+          "pid": 41338,
+          "cpu_percent": 94.7,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        },
+        {
+          "pid": 42942,
+          "cpu_percent": 14.3,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/managedcorespotlightd"
+        },
+        {
+          "pid": 526,
+          "cpu_percent": 12.4,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 586,
+          "cpu_percent": 5.7,
+          "command": "/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN"
+        }
+      ],
+      "aggregate_cpu_percent": 149.0
+    },
+    {
+      "utc": "2026-10-15T15:39:35.809929+00:00",
+      "processes": [
+        {
+          "pid": 41338,
+          "cpu_percent": 92.6,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        },
+        {
+          "pid": 526,
+          "cpu_percent": 14.2,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.9,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 38501,
+          "cpu_percent": 5.2,
+          "command": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "pid": 42942,
+          "cpu_percent": 5.2,
+          "command": "/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/managedcorespotlightd"
+        }
+      ],
+      "aggregate_cpu_percent": 138.1
+    },
+    {
+      "utc": "2026-10-15T15:39:37.915562+00:00",
+      "processes": [
+        {
+          "pid": 41338,
+          "cpu_percent": 92.6,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 114.4
+    },
+    {
+      "utc": "2026-10-15T15:55:09.177306+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 17.6,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 16.7,
+          "command": "/sbin/launchd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 14.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.2,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 43618,
+          "cpu_percent": 7.4,
+          "command": "/Library/Apple/System/Library/CoreServices/XProtect.app/Contents/XPCServices/XProtectPluginService.xpc/Contents/MacOS/XProtectPluginService"
+        }
+      ],
+      "aggregate_cpu_percent": 66.3
+    }
+  ],
+  "timing_load_samples": [
+    {
+      "utc": "2026-10-15T14:37:32.052807+00:00",
+      "processes": [
+        {
+          "pid": 2349,
+          "cpu_percent": 39.4,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 22.8,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.4,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 8.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        }
+      ],
+      "aggregate_cpu_percent": 81.7
+    },
+    {
+      "utc": "2026-10-15T14:37:35.420915+00:00",
+      "processes": [
+        {
+          "pid": 2349,
+          "cpu_percent": 30.1,
+          "command": "/System/Library/ExtensionKit/Extensions/TGOnDeviceInferenceProviderService.appex/Contents/MacOS/TGOnDeviceInferenceProviderService"
+        },
+        {
+          "pid": 473,
+          "cpu_percent": 27.7,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 75.0
+    },
+    {
+      "utc": "2026-10-15T14:38:11.793244+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 27.6,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 47.2
+    },
+    {
+      "utc": "2026-10-15T14:38:15.012963+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 32.5,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 52.1
+    },
+    {
+      "utc": "2026-10-15T14:38:25.102638+00:00",
+      "processes": [
+        {
+          "pid": 473,
+          "cpu_percent": 32.4,
+          "command": "/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 52.9
+    },
+    {
+      "utc": "2026-10-15T14:38:35.807814+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 45.7,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 448,
+          "cpu_percent": 6.2,
+          "command": "/usr/sbin/securityd"
+        }
+      ],
+      "aggregate_cpu_percent": 72.4
+    },
+    {
+      "utc": "2026-10-15T15:04:42.509984+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 43.8,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 31274,
+          "cpu_percent": 17.3,
+          "command": "/usr/libexec/spotlightknowledged.updater"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 448,
+          "cpu_percent": 5.6,
+          "command": "/usr/sbin/securityd"
+        }
+      ],
+      "aggregate_cpu_percent": 85.3
+    },
+    {
+      "utc": "2026-10-15T15:19:52.410756+00:00",
+      "processes": [
+        {
+          "pid": 526,
+          "cpu_percent": 49.7,
+          "command": "/usr/libexec/airportd"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 11.9,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 27453,
+          "cpu_percent": 9.1,
+          "command": "/System/Library/PrivateFrameworks/CloudKitDaemon.framework/Support/cloudd"
+        },
+        {
+          "pid": 30901,
+          "cpu_percent": 8.6,
+          "command": "/usr/libexec/PerfPowerServices"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 8.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 817,
+          "cpu_percent": 6.7,
+          "command": "/System/Library/CoreServices/WiFiAgent.app/Contents/MacOS/WiFiAgent"
+        },
+        {
+          "pid": 448,
+          "cpu_percent": 5.3,
+          "command": "/usr/sbin/securityd"
+        },
+        {
+          "pid": 5847,
+          "cpu_percent": 5.3,
+          "command": "/usr/libexec/trustd"
+        }
+      ],
+      "aggregate_cpu_percent": 105.2
+    },
+    {
+      "utc": "2026-10-15T15:19:54.515615+00:00",
+      "processes": [
+        {
+          "pid": 33548,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 18.0
+    },
+    {
+      "utc": "2026-10-15T15:35:32.815920+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 54.8,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.3,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 41353,
+          "cpu_percent": 6.0,
+          "command": "/System/Library/PrivateFrameworks/PhotoAnalysis.framework/Versions/A/Support/photoanalysisd"
+        }
+      ],
+      "aggregate_cpu_percent": 78.9
+    },
+    {
+      "utc": "2026-10-15T15:35:36.775587+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 104.6,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.6,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 122.2
+    },
+    {
+      "utc": "2026-10-15T15:35:38.885178+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 38.4,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 56.9
+    },
+    {
+      "utc": "2026-10-15T15:35:40.995975+00:00",
+      "processes": [
+        {
+          "pid": 41323,
+          "cpu_percent": 23.3,
+          "command": "/System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 8.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 38501,
+          "cpu_percent": 6.6,
+          "command": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "pid": 41338,
+          "cpu_percent": 5.2,
+          "command": "/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd"
+        }
+      ],
+      "aggregate_cpu_percent": 53.1
+    },
+    {
+      "utc": "2026-10-15T15:35:44.924737+00:00",
+      "processes": [
+        {
+          "pid": 33548,
+          "cpu_percent": 9.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 38501,
+          "cpu_percent": 9.5,
+          "command": "/System/Applications/Utilities/Activity Monitor.app/Contents/MacOS/Activity Monitor"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33311,
+          "cpu_percent": 5.7,
+          "command": "/usr/libexec/sysmond"
+        }
+      ],
+      "aggregate_cpu_percent": 33.7
+    },
+    {
+      "utc": "2026-10-15T15:35:59.094259+00:00",
+      "processes": [
+        {
+          "pid": 33577,
+          "cpu_percent": 12.8,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        },
+        {
+          "pid": 33548,
+          "cpu_percent": 10.5,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 1,
+          "cpu_percent": 6.7,
+          "command": "/sbin/launchd"
+        }
+      ],
+      "aggregate_cpu_percent": 30.0
+    },
+    {
+      "utc": "2026-10-15T15:39:15.598497+00:00",
+      "processes": [
+        {
+          "pid": 33548,
+          "cpu_percent": 10.0,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)"
+        },
+        {
+          "pid": 33577,
+          "cpu_percent": 9.1,
+          "command": "/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)"
+        }
+      ],
+      "aggregate_cpu_percent": 19.1
+    }
+  ],
+  "discarded_rounds": [
+    {
+      "reason": "Host has sustained unrelated CPU load: {\"utc\": \"2026-10-15T15:39:33.698737+00:00\", \"processes\": [{\"pid\": 41338, \"cpu_percent\": 94.7, \"command\": \"/System/Library/PrivateFrameworks/PhotoLibraryServices.framework/Versions/A/Support/photolibraryd\"}, {\"pid\": 42942, \"cpu_percent\": 14.3, \"command\": \"/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/managedcorespotlightd\"}, {\"pid\": 526, \"cpu_percent\": 12.4, \"command\": \"/usr/libexec/airportd\"}, {\"pid\": 33577, \"cpu_percent\": 11.4, \"command\": \"/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Renderer).app/Contents/MacOS/Codex (Renderer)\"}, {\"pid\": 33548, \"cpu_percent\": 10.5, \"command\": \"/Applications/ChatGPT.app/Contents/Frameworks/Codex Framework.framework/Versions/155.0.8059.40/Helpers/Codex (Service).app/Contents/MacOS/Codex (Service)\"}, {\"pid\": 586, \"cpu_percent\": 5.7, \"command\": \"/System/Library/DriverExtensions/com.apple.DriverKit-AppleBCMWLAN.dext/com.apple.DriverKit-AppleBCMWLAN\"}], \"aggregate_cpu_percent\": 149.0}. Pause the jobs and rerun, or explicitly request contended diagnostics with --allow-contended.",
+      "measurements": [
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "insert",
+          "implementation": "interned",
+          "round": 2,
+          "digest": 11290232168749750421,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            3107250,
+            2717416,
+            2642667
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "insert",
+          "implementation": "gd",
+          "round": 2,
+          "digest": 11290232168749750421,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            449251791,
+            447482458,
+            448663833
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "insert",
+          "implementation": "default",
+          "round": 2,
+          "digest": 11290232168749750421,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            667250,
+            474917,
+            478709
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "copy",
+          "implementation": "interned",
+          "round": 2,
+          "digest": 11290232168749750421,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            405709,
+            417792,
+            410125
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "copy",
+          "implementation": "gd",
+          "round": 2,
+          "digest": 11290232168749750421,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            471375,
+            461125,
+            460958
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "copy",
+          "implementation": "default",
+          "round": 2,
+          "digest": 11290232168749750421,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            409958,
+            324542,
+            323750
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "rotate",
+          "implementation": "interned",
+          "round": 2,
+          "digest": 9835029165088333557,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            1907083,
+            1914875,
+            1904709
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "rotate",
+          "implementation": "gd",
+          "round": 2,
+          "digest": 9835029165088333557,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            447717375,
+            449126417,
+            446822208
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "rotate",
+          "implementation": "default",
+          "round": 2,
+          "digest": 9835029165088333557,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            611208,
+            607791,
+            612958
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "replace",
+          "implementation": "interned",
+          "round": 2,
+          "digest": 525613130508558069,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            2988542,
+            2811500,
+            2805042
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "replace",
+          "implementation": "gd",
+          "round": 2,
+          "digest": 525613130508558069,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            1359630375,
+            1357316709,
+            1359766208
+          ]
+        },
+        {
+          "rows": 20000,
+          "unique": 20000,
+          "length": 128,
+          "operation": "replace",
+          "implementation": "default",
+          "round": 2,
+          "digest": 525613130508558069,
+          "source_digest": 11290232168749750421,
+          "source_bytes": 0,
+          "result_bytes": 0,
+          "nanos": [
+            801041,
+            624000,
+            610083
+          ]
+        }
+      ]
+    }
+  ],
+  "summary": [
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "median_ms": 0.0281665,
+      "min_round_ms": 0.026875,
+      "max_round_ms": 0.029458,
+      "source_bytes": 491968,
+      "result_bytes": 491584
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "median_ms": 0.0033335,
+      "min_round_ms": 0.003,
+      "max_round_ms": 0.003667,
+      "source_bytes": 163904,
+      "result_bytes": 163904
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "median_ms": 0.1557915,
+      "min_round_ms": 0.152458,
+      "max_round_ms": 0.159125,
+      "source_bytes": 328432,
+      "result_bytes": 327744
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "median_ms": 0.2453955,
+      "min_round_ms": 0.206625,
+      "max_round_ms": 0.284166,
+      "source_bytes": 491968,
+      "result_bytes": 491968
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "median_ms": 0.12347899999999999,
+      "min_round_ms": 0.120333,
+      "max_round_ms": 0.126625,
+      "source_bytes": 163904,
+      "result_bytes": 163904
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "median_ms": 0.6456459999999999,
+      "min_round_ms": 0.635792,
+      "max_round_ms": 0.6555,
+      "source_bytes": 328432,
+      "result_bytes": 328432
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "median_ms": 0.19739600000000002,
+      "min_round_ms": 0.191333,
+      "max_round_ms": 0.203459,
+      "source_bytes": 491968,
+      "result_bytes": 491968
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "median_ms": 350.990812,
+      "min_round_ms": 325.839708,
+      "max_round_ms": 376.141916,
+      "source_bytes": 163904,
+      "result_bytes": 1386032
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "median_ms": 2.0196875,
+      "min_round_ms": 2.01075,
+      "max_round_ms": 2.028625,
+      "source_bytes": 328432,
+      "result_bytes": 1803872
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "median_ms": 0.2005835,
+      "min_round_ms": 0.193583,
+      "max_round_ms": 0.207584,
+      "source_bytes": 491968,
+      "result_bytes": 491968
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "median_ms": 0.105771,
+      "min_round_ms": 0.105167,
+      "max_round_ms": 0.106375,
+      "source_bytes": 163904,
+      "result_bytes": 163904
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "median_ms": 0.7599585,
+      "min_round_ms": 0.742542,
+      "max_round_ms": 0.777375,
+      "source_bytes": 328432,
+      "result_bytes": 328432
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "median_ms": 0.333729,
+      "min_round_ms": 0.326291,
+      "max_round_ms": 0.341167,
+      "source_bytes": 3051968,
+      "result_bytes": 3051584
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "median_ms": 0.0035625,
+      "min_round_ms": 0.0035,
+      "max_round_ms": 0.003625,
+      "source_bytes": 164016,
+      "result_bytes": 164016
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "median_ms": 0.34620850000000003,
+      "min_round_ms": 0.345125,
+      "max_round_ms": 0.347292,
+      "source_bytes": 328560,
+      "result_bytes": 327744
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "median_ms": 0.505709,
+      "min_round_ms": 0.449584,
+      "max_round_ms": 0.561834,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "median_ms": 0.157937,
+      "min_round_ms": 0.157666,
+      "max_round_ms": 0.158208,
+      "source_bytes": 164016,
+      "result_bytes": 164016
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "median_ms": 1.4091455000000002,
+      "min_round_ms": 1.358541,
+      "max_round_ms": 1.45975,
+      "source_bytes": 328560,
+      "result_bytes": 328560
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "median_ms": 0.5895630000000001,
+      "min_round_ms": 0.586792,
+      "max_round_ms": 0.592334,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "median_ms": 449.995,
+      "min_round_ms": 449.905584,
+      "max_round_ms": 450.084416,
+      "source_bytes": 164016,
+      "result_bytes": 3626144
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "median_ms": 3.055875,
+      "min_round_ms": 3.007875,
+      "max_round_ms": 3.103875,
+      "source_bytes": 328560,
+      "result_bytes": 4363872
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "median_ms": 0.634104,
+      "min_round_ms": 0.624833,
+      "max_round_ms": 0.643375,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "median_ms": 0.155333,
+      "min_round_ms": 0.155041,
+      "max_round_ms": 0.155625,
+      "source_bytes": 164016,
+      "result_bytes": 164016
+    },
+    {
+      "rows": 20000,
+      "unique": 1,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "median_ms": 1.7574165,
+      "min_round_ms": 1.733458,
+      "max_round_ms": 1.781375,
+      "source_bytes": 328560,
+      "result_bytes": 328560
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "default",
+      "median_ms": 0.028125,
+      "min_round_ms": 0.02775,
+      "max_round_ms": 0.0285,
+      "source_bytes": 491968,
+      "result_bytes": 491584
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "gd",
+      "median_ms": 0.5196875,
+      "min_round_ms": 0.5155,
+      "max_round_ms": 0.523875,
+      "source_bytes": 1385984,
+      "result_bytes": 1385984
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "copy",
+      "implementation": "interned",
+      "median_ms": 0.179958,
+      "min_round_ms": 0.178666,
+      "max_round_ms": 0.18125,
+      "source_bytes": 1803872,
+      "result_bytes": 327744
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "default",
+      "median_ms": 0.2260415,
+      "min_round_ms": 0.192208,
+      "max_round_ms": 0.259875,
+      "source_bytes": 491968,
+      "result_bytes": 491968
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "gd",
+      "median_ms": 345.234458,
+      "min_round_ms": 328.159583,
+      "max_round_ms": 362.309333,
+      "source_bytes": 1385984,
+      "result_bytes": 1385984
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "insert",
+      "implementation": "interned",
+      "median_ms": 2.0068539999999997,
+      "min_round_ms": 1.957833,
+      "max_round_ms": 2.055875,
+      "source_bytes": 1803872,
+      "result_bytes": 1803872
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "default",
+      "median_ms": 0.1906455,
+      "min_round_ms": 0.189375,
+      "max_round_ms": 0.191916,
+      "source_bytes": 491968,
+      "result_bytes": 491968
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "gd",
+      "median_ms": 989.5042295000001,
+      "min_round_ms": 971.939,
+      "max_round_ms": 1007.069459,
+      "source_bytes": 1385984,
+      "result_bytes": 2608128
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "replace",
+      "implementation": "interned",
+      "median_ms": 2.3498335,
+      "min_round_ms": 2.0945,
+      "max_round_ms": 2.605167,
+      "source_bytes": 1803872,
+      "result_bytes": 1803872
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "default",
+      "median_ms": 0.22604200000000002,
+      "min_round_ms": 0.20225,
+      "max_round_ms": 0.249834,
+      "source_bytes": 491968,
+      "result_bytes": 491968
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "gd",
+      "median_ms": 326.4812085,
+      "min_round_ms": 325.645542,
+      "max_round_ms": 327.316875,
+      "source_bytes": 1385984,
+      "result_bytes": 1385984
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 16,
+      "operation": "rotate",
+      "implementation": "interned",
+      "median_ms": 0.8139585,
+      "min_round_ms": 0.807292,
+      "max_round_ms": 0.820625,
+      "source_bytes": 1803872,
+      "result_bytes": 1803872
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "default",
+      "median_ms": 0.342666,
+      "min_round_ms": 0.342666,
+      "max_round_ms": 0.342666,
+      "source_bytes": 3051968,
+      "result_bytes": 3051584
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "gd",
+      "median_ms": 0.486083,
+      "min_round_ms": 0.486083,
+      "max_round_ms": 0.486083,
+      "source_bytes": 3625984,
+      "result_bytes": 3625984
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "copy",
+      "implementation": "interned",
+      "median_ms": 0.404583,
+      "min_round_ms": 0.404583,
+      "max_round_ms": 0.404583,
+      "source_bytes": 4363872,
+      "result_bytes": 327744
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "default",
+      "median_ms": 0.48725,
+      "min_round_ms": 0.48725,
+      "max_round_ms": 0.48725,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "gd",
+      "median_ms": 447.822,
+      "min_round_ms": 447.822,
+      "max_round_ms": 447.822,
+      "source_bytes": 3625984,
+      "result_bytes": 3625984
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "insert",
+      "implementation": "interned",
+      "median_ms": 2.812208,
+      "min_round_ms": 2.812208,
+      "max_round_ms": 2.812208,
+      "source_bytes": 4363872,
+      "result_bytes": 4363872
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "default",
+      "median_ms": 0.601333,
+      "min_round_ms": 0.601333,
+      "max_round_ms": 0.601333,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "gd",
+      "median_ms": 1361.0675,
+      "min_round_ms": 1361.0675,
+      "max_round_ms": 1361.0675,
+      "source_bytes": 3625984,
+      "result_bytes": 7088128
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "replace",
+      "implementation": "interned",
+      "median_ms": 2.850916,
+      "min_round_ms": 2.850916,
+      "max_round_ms": 2.850916,
+      "source_bytes": 4363872,
+      "result_bytes": 4363872
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "default",
+      "median_ms": 0.610584,
+      "min_round_ms": 0.610584,
+      "max_round_ms": 0.610584,
+      "source_bytes": 3051968,
+      "result_bytes": 3051968
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "gd",
+      "median_ms": 447.846375,
+      "min_round_ms": 447.846375,
+      "max_round_ms": 447.846375,
+      "source_bytes": 3625984,
+      "result_bytes": 3625984
+    },
+    {
+      "rows": 20000,
+      "unique": 20000,
+      "length": 128,
+      "operation": "rotate",
+      "implementation": "interned",
+      "median_ms": 1.91275,
+      "min_round_ms": 1.91275,
+      "max_round_ms": 1.91275,
+      "source_bytes": 4363872,
+      "result_bytes": 4363872
+    }
+  ]
+}
