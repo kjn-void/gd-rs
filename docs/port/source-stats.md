@@ -1,7 +1,7 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured and revalidated on 2026-10-15. Rust scopes describe the current
+baseline measured and revalidated on 2026-10-16. Rust scopes describe the current
 worktree; GD is pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
@@ -17,17 +17,17 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 33 | 9,405 | 317 | 845 | 2.67 |
-| Rust product + tests (`src`, `tests`) | 50 | 14,847 | 503 | 1,195 | 2.38 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 77 | 19,797 | 695 | 1,823 | 2.62 |
+| Rust product (`src`) | 33 | 9,485 | 335 | 852 | 2.54 |
+| Rust product + tests (`src`, `tests`) | 50 | 14,972 | 522 | 1,208 | 2.31 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 77 | 19,922 | 714 | 1,836 | 2.57 |
 | C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
 | C++ product + tests + maintained benchmarks | 167 | 68,466 | 8,892 | 20,798 | 2.34 |
 
-The Rust totals are **9,405 SLOC in `src`** and **19,797 SLOC including `tests`
-and `benches`**. The separate test tree adds 5,442 SLOC and benchmarks add 4,950
+The Rust totals are **9,485 SLOC in `src`** and **19,922 SLOC including `tests`
+and `benches`**. The separate test tree adds 5,487 SLOC and benchmarks add 4,950
 SLOC, including the interned string timing and allocation benchmark,
-interned string storage and its integration/ownership tests,
+interned string storage, entry-handle copying and its integration/ownership tests,
 owning immutable selections, shared mutable projections and their
 ownership/composition/concurrency tests,
 the shared-record API, ownership tests, whole-record workflow and

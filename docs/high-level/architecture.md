@@ -107,12 +107,15 @@ non-null input; their output still passes the schema's ordinary type and nullabi
 checks. Standard atomic reference counting replaces the source implementation's manual
 schema lifetime protocol.
 
-Opt-in interned string columns keep independently mutable `Arc<str>` cell handles
-and share a synchronized interner across copies. Only the immutable string payloads
-are shared. An interner counts its cells separately from other interners, releases
-unused entries on replacement/removal/drop, and lets reads borrow text directly
-without locking. Disjoint row views remain safely splittable; brief internal locks
-coordinate interning across worker threads. The default string layout and dynamic
+Opt-in interned string columns keep independently mutable thin `Arc` entry handles
+and share a lookup cache across copies. Entries own immutable `Arc<str>` payloads
+and weak references to their interner; the cache holds weak entry references.
+Copying clones handles without hashing strings or locking. Last-entry destruction
+removes its key under the cache lock, checking identity against concurrent
+replacement. Distinct interners use distinct entries even when appends share
+the same payload. Reads borrow text directly without locking. Disjoint row views
+remain safely splittable; brief internal locks coordinate lookups and cleanup.
+The default string layout and dynamic
 `DataType::String`/`ValueRef::String` interfaces are unchanged.
 
 Each `Table` also owns an insertion-ordered property collection. Properties describe

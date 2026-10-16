@@ -31,7 +31,8 @@ ID `r % distinct`. The four operations are:
 - `copy`: clone the complete table with independently mutable cells. Rust uses
   `Table::clone`; C++ uses its native copy constructor plus one schema reference
   acquisition to compensate for the pinned GD constructor's missing acquisition.
-  Rust interned copies share immutable payloads and the synchronized pool.
+  Rust interned copies share immutable entries and payloads without string hashing
+  or cache locking.
   C++ copies its reference pool. This is **not** an O(1) selection/view benchmark.
   Revalidate the schema-reference adapter when updating the pinned GD revision.
 - `rotate`: replace every row through `set_cell` / `cell_set` with ID
@@ -47,6 +48,14 @@ round medians. Fresh processes separate implementations and operations. Implemen
 order rotates each round. The existing text-workflow load guard samples process
 CPU deltas before/after each round, confirms aggregate background load over one
 core, and rejects affected rounds. No sanitizers are enabled for measurements.
+
+The runner also rejects entire rounds after a process spends over one second
+off CPU, any timed sample exceeds 30 seconds, or sample spread exceeds both
+10 times the minimum and a one-millisecond grace interval. These limits catch
+system suspension and preemption; they are the same for every implementation.
+Rejected records remain in the report and never enter its timing summary.
+Run `python3 -B -m unittest discover -s benches/interned_strings -p test_compare.py`
+to test these checks.
 
 The runner calculates full FNV-1a digests independently in Python, validates both
 binaries of each implementation, and validates every timed result. Native checks
@@ -69,5 +78,36 @@ The Rust allocator wrapper has focused alignment/zeroing/reallocation tests. It
 needs a system allocator; unsupported platforms still build the examples but
 reject execution of the memory executable. All reference sources are read-only;
 the runner builds only maintained C++ fixtures and writes under `target`.
+
+## Comparing an earlier implementation
+
+Build a frozen baseline from a local committed revision, then add it to the same
+rotating process order as the current implementation and C++ GD:
+
+```sh
+python3 benches/interned_strings/baseline.py ba8c32a \
+  --output target/interned-strings/baseline
+./benches/run_interned_strings.sh --wait-for-idle --rounds 4 \
+  --baseline-dir target/interned-strings/baseline
+```
+
+The baseline builder requires a fresh output directory, extracts `git archive`
+under that directory, and builds only Rust executables there. It changes no
+checkout or branch. `baseline.json` records the revision, flags, source hashes
+and executable hashes. The runner checks the executable hashes before running
+and again afterward, and verifies the baseline against the same content oracle.
+The native implementation argument remains `interned`; report entries distinguish
+it as `interned-baseline`. The main report includes the baseline manifest.
+Use `--operations copy` for a focused copy recheck; omitting it runs all four
+operations. Four rounds give each of the four implementations the first position
+once. Retained memory and mutation costs should also be compared because an
+entry-handle layout can trade per-value overhead for cheaper cell copies.
+
+Add `--resume --skip-build` to continue an interrupted timing run from its output
+file using the same options. The runner verifies native source and executable
+hashes, reaudits earlier samples, preserves earlier metadata as run segments,
+and skips completed valid rounds. A harness-only update is allowed so older
+checkpoints can be audited; changes to Rust/C++ sources or binaries are rejected.
+Older records without process CPU accounting are checked by duration and spread.
 
 Measured results: [interned string results](../../docs/high-level/interned-string-results.md).

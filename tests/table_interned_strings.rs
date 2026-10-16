@@ -13,6 +13,52 @@ use proptest::prelude::*;
 
 const LONG: &str = "a repeated string long enough to require allocated storage";
 
+#[test]
+fn concurrent_copies_and_replacements_preserve_source_and_payload_sharing() {
+    let mut source = single(true);
+    for row in 0..128 {
+        source
+            .push_row([if row % 3 == 0 {
+                Value::Null
+            } else {
+                LONG.into()
+            }])
+            .unwrap();
+    }
+    let source = Arc::new(source);
+    let workers: Vec<_> = (0..4)
+        .map(|worker| {
+            let source = Arc::clone(&source);
+            std::thread::spawn(move || {
+                for iteration in 0..32 {
+                    let mut copy = source.as_ref().clone();
+                    let range = source.copy_range(1..128).unwrap();
+                    let rows = source.copy_rows(&[1, 1, 0, 2]).unwrap();
+                    assert_eq!(text(&copy, 1).as_ptr(), text(&source, 1).as_ptr());
+                    assert_eq!(text(&range, 0).as_ptr(), text(&source, 1).as_ptr());
+                    assert_eq!(text(&rows, 0).as_ptr(), text(&rows, 1).as_ptr());
+                    copy.set_cell(
+                        1,
+                        0,
+                        format!("worker {worker}, iteration {iteration}").into(),
+                    )
+                    .unwrap();
+                    copy.set_cell(2, 0, Value::Null).unwrap();
+                    copy.pop_row();
+                    assert_eq!(text(&source, 1), LONG);
+                    assert_eq!(text(&source, 2), LONG);
+                    assert_eq!(rows.cell(2, 0).unwrap(), ValueRef::Null);
+                }
+            })
+        })
+        .collect();
+    for worker in workers {
+        worker.join().unwrap();
+    }
+    assert_eq!(source.row_count(), 128);
+    assert_eq!(text(&source, 127), LONG);
+}
+
 fn single(nullable: bool) -> Table {
     Table::new(
         Schema::new([ColumnSpec::interned_string("text")

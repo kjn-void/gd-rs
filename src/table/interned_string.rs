@@ -2,7 +2,7 @@
 
 use std::{
     fmt,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
 use ahash::AHashMap;
@@ -26,12 +26,52 @@ pub enum InternedStringError {
     NullNotAllowed,
 }
 
-// Counts track cells in this interner's columns, not Arc strong counts: a payload
-// may also be shared by a different interner after an append. This lets each pool
-// remove its key as soon as its own last cell releases that value.
+// Cells own entries, while the cache holds only weak entry references. Entry
+// strong counts therefore track cells without hashing on clone/copy. Only the
+// last entry drop removes its cache key. Each pool has its own entries even when
+// an append shares the Arc<str> payload.
 #[derive(Default)]
 struct Interner {
-    entries: Mutex<AHashMap<Arc<str>, usize>>,
+    entries: Mutex<AHashMap<Arc<str>, Weak<InternedValue>>>,
+}
+
+struct InternedValue {
+    text: Arc<str>,
+    interner: Weak<Interner>,
+}
+
+impl InternedValue {
+    fn as_str(&self) -> &str {
+        &self.text
+    }
+}
+
+impl fmt::Debug for InternedValue {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.text.fmt(formatter)
+    }
+}
+
+impl PartialEq for InternedValue {
+    fn eq(&self, other: &Self) -> bool {
+        self.text == other.text
+    }
+}
+
+impl Drop for InternedValue {
+    fn drop(&mut self) {
+        if let Some(interner) = self.interner.upgrade() {
+            let mut entries = interner.entries();
+            // Another thread may have found this dead weak entry and replaced
+            // it while this destructor waited for the lock. Only remove ours.
+            if entries
+                .get(self.text.as_ref())
+                .is_some_and(|entry| std::ptr::eq(entry.as_ptr(), self))
+            {
+                entries.remove(self.text.as_ref());
+            }
+        }
+    }
 }
 
 impl fmt::Debug for Interner {
@@ -43,90 +83,53 @@ impl fmt::Debug for Interner {
 }
 
 impl Interner {
-    fn entries(&self) -> MutexGuard<'_, AHashMap<Arc<str>, usize>> {
+    fn entries(&self) -> MutexGuard<'_, AHashMap<Arc<str>, Weak<InternedValue>>> {
         // No user callbacks or fallible validation run while this lock is held.
         self.entries.lock().expect("interned string pool poisoned")
     }
 
-    fn intern(&self, text: &str) -> Arc<str> {
+    fn intern(self: &Arc<Self>, text: &str) -> Arc<InternedValue> {
         self.acquire(text, || Arc::from(text))
     }
 
-    fn intern_shared(&self, text: &Arc<str>) -> Arc<str> {
+    fn intern_shared(self: &Arc<Self>, text: &Arc<str>) -> Arc<InternedValue> {
         self.acquire(text, || Arc::clone(text))
     }
 
-    fn acquire(&self, text: &str, create: impl FnOnce() -> Arc<str>) -> Arc<str> {
+    fn acquire(
+        self: &Arc<Self>,
+        text: &str,
+        create: impl FnOnce() -> Arc<str>,
+    ) -> Arc<InternedValue> {
         let mut entries = self.entries();
-        if let Some((value, _)) = entries.get_key_value(text) {
-            let value = Arc::clone(value);
-            *entries.get_mut(text).expect("interned string exists") += 1;
-            value
+        let text = if let Some((text, entry)) = entries.get_key_value(text) {
+            if let Some(value) = entry.upgrade() {
+                return value;
+            }
+            // Reuse the cached payload if the last entry's destructor has not
+            // acquired the lock yet. That destructor must not remove this entry.
+            Arc::clone(text)
         } else {
-            let value = create();
-            entries.insert(Arc::clone(&value), 1);
-            value
-        }
-    }
-
-    fn release(&self, text: &str) {
-        Self::release_entry(&mut self.entries(), text);
-    }
-
-    fn release_entry(entries: &mut AHashMap<Arc<str>, usize>, text: &str) {
-        let count = entries.get_mut(text).expect("interned string exists");
-        *count -= 1;
-        if *count == 0 {
-            entries.remove(text);
-        }
-    }
-
-    fn retain_values(&self, values: &ColumnData<Arc<str>>) {
-        let mut entries = self.entries();
-        for text in strings(values) {
-            *entries
-                .get_mut(text.as_ref())
-                .expect("interned string exists") += 1;
-        }
-    }
-
-    fn release_values(&self, values: &ColumnData<Arc<str>>) {
-        let mut entries = self.entries();
-        for text in strings(values) {
-            Self::release_entry(&mut entries, text);
-        }
+            create()
+        };
+        let value = Arc::new(InternedValue {
+            text,
+            interner: Arc::downgrade(self),
+        });
+        entries.insert(Arc::clone(&value.text), Arc::downgrade(&value));
+        value
     }
 }
 
-fn strings(values: &ColumnData<Arc<str>>) -> impl Iterator<Item = &Arc<str>> {
-    let (required, nullable): (&[Arc<str>], &[Option<Arc<str>>]) = match values {
-        ColumnData::Required(values) => (values, &[]),
-        ColumnData::Nullable(values) => (&[], values),
-    };
-    required.iter().chain(nullable.iter().flatten())
-}
-
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(super) struct InternedStringData {
-    values: ColumnData<Arc<str>>,
+    values: ColumnData<Arc<InternedValue>>,
     interner: Arc<Interner>,
-}
-
-impl Clone for InternedStringData {
-    fn clone(&self) -> Self {
-        self.with_values(self.values.clone())
-    }
 }
 
 impl PartialEq for InternedStringData {
     fn eq(&self, other: &Self) -> bool {
         self.values == other.values
-    }
-}
-
-impl Drop for InternedStringData {
-    fn drop(&mut self) {
-        self.interner.release_values(&self.values);
     }
 }
 
@@ -138,8 +141,7 @@ impl InternedStringData {
         }
     }
 
-    fn with_values(&self, values: ColumnData<Arc<str>>) -> Self {
-        self.interner.retain_values(&values);
+    fn with_values(&self, values: ColumnData<Arc<InternedValue>>) -> Self {
         Self {
             values,
             interner: Arc::clone(&self.interner),
@@ -151,7 +153,9 @@ impl InternedStringData {
     }
 
     pub(super) fn value(&self, row: usize) -> Result<Option<&str>, TableError> {
-        self.values.value(row).map(|value| value.map(AsRef::as_ref))
+        self.values
+            .value(row)
+            .map(|value| value.map(|value| value.as_str()))
     }
 
     pub(super) fn view(&self) -> InternedStrings<'_> {
@@ -189,37 +193,17 @@ impl InternedStringData {
     }
 
     pub(super) fn pop(&mut self) {
-        let value = match &mut self.values {
-            ColumnData::Required(values) => values.pop(),
-            ColumnData::Nullable(values) => values.pop().flatten(),
-        };
-        if let Some(text) = value {
-            self.interner.release(&text);
+        match &mut self.values {
+            ColumnData::Required(values) => drop(values.pop()),
+            ColumnData::Nullable(values) => drop(values.pop()),
         }
     }
 
     pub(super) fn retain_live(&mut self, tombstoned: &[bool]) {
-        let mut entries = self.interner.entries();
         let mut flags = tombstoned.iter();
         match &mut self.values {
-            ColumnData::Required(values) => values.retain(|text| {
-                if flags.next() == Some(&true) {
-                    Interner::release_entry(&mut entries, text);
-                    false
-                } else {
-                    true
-                }
-            }),
-            ColumnData::Nullable(values) => values.retain(|text| {
-                if flags.next() == Some(&true) {
-                    if let Some(text) = text {
-                        Interner::release_entry(&mut entries, text);
-                    }
-                    false
-                } else {
-                    true
-                }
-            }),
+            ColumnData::Required(values) => values.retain(|_| flags.next() != Some(&true)),
+            ColumnData::Nullable(values) => values.retain(|_| flags.next() != Some(&true)),
         }
     }
 
@@ -254,18 +238,22 @@ impl InternedStringData {
                 if same_pool {
                     left.append(right);
                 } else {
-                    left.extend(right.iter().map(|text| self.interner.intern_shared(text)));
+                    left.extend(
+                        right
+                            .iter()
+                            .map(|value| self.interner.intern_shared(&value.text)),
+                    );
                 }
             }
             (ColumnData::Nullable(left), ColumnData::Nullable(right)) => {
                 if same_pool {
                     left.append(right);
                 } else {
-                    left.extend(
-                        right.iter().map(|text| {
-                            text.as_ref().map(|text| self.interner.intern_shared(text))
-                        }),
-                    );
+                    left.extend(right.iter().map(|value| {
+                        value
+                            .as_ref()
+                            .map(|value| self.interner.intern_shared(&value.text))
+                    }));
                 }
             }
             _ => {
@@ -280,8 +268,8 @@ impl InternedStringData {
 
 #[derive(Clone, Copy, Debug)]
 enum StringSlots<'a> {
-    Required(&'a [Arc<str>]),
-    Nullable(&'a [Option<Arc<str>>]),
+    Required(&'a [Arc<InternedValue>]),
+    Nullable(&'a [Option<Arc<InternedValue>>]),
 }
 
 /// A borrowed interned string column. Nulls and empty strings are distinct.
@@ -313,8 +301,10 @@ impl<'a> InternedStrings<'a> {
     #[must_use]
     pub fn get(self, row: usize) -> Option<Option<&'a str>> {
         match self.values {
-            StringSlots::Required(values) => values.get(row).map(|text| Some(text.as_ref())),
-            StringSlots::Nullable(values) => values.get(row).map(|text| text.as_deref()),
+            StringSlots::Required(values) => values.get(row).map(|value| Some(value.as_str())),
+            StringSlots::Nullable(values) => values
+                .get(row)
+                .map(|value| value.as_ref().map(|value| value.as_str())),
         }
     }
 
@@ -327,8 +317,8 @@ impl<'a> InternedStrings<'a> {
 
 #[derive(Debug)]
 enum StringSlotsMut<'a> {
-    Required(&'a mut [Arc<str>]),
-    Nullable(&'a mut [Option<Arc<str>>]),
+    Required(&'a mut [Arc<InternedValue>]),
+    Nullable(&'a mut [Option<Arc<InternedValue>>]),
 }
 
 /// An exclusive interned string view with checked replacement and disjoint splits.
@@ -348,7 +338,7 @@ enum StringSlotsMut<'a> {
 #[derive(Debug)]
 pub struct InternedStringsMut<'a> {
     values: StringSlotsMut<'a>,
-    interner: &'a Interner,
+    interner: &'a Arc<Interner>,
 }
 
 impl<'a> InternedStringsMut<'a> {
@@ -452,8 +442,8 @@ impl<'a> InternedStringsMut<'a> {
 
 #[derive(Debug)]
 enum StringSlotMut<'a> {
-    Required(&'a mut Arc<str>),
-    Nullable(&'a mut Option<Arc<str>>),
+    Required(&'a mut Arc<InternedValue>),
+    Nullable(&'a mut Option<Arc<InternedValue>>),
 }
 
 /// One exclusively borrowed interned string cell.
@@ -462,7 +452,7 @@ enum StringSlotMut<'a> {
 #[derive(Debug)]
 pub struct InternedStringCellMut<'a> {
     value: StringSlotMut<'a>,
-    interner: &'a Interner,
+    interner: &'a Arc<Interner>,
 }
 
 impl InternedStringCellMut<'_> {
@@ -470,8 +460,8 @@ impl InternedStringCellMut<'_> {
     #[must_use]
     pub fn get(&self) -> Option<&str> {
         match &self.value {
-            StringSlotMut::Required(value) => Some(value),
-            StringSlotMut::Nullable(value) => value.as_deref(),
+            StringSlotMut::Required(value) => Some(value.as_str()),
+            StringSlotMut::Nullable(value) => value.as_ref().map(|value| value.as_str()),
         }
     }
 
@@ -490,9 +480,7 @@ impl InternedStringCellMut<'_> {
                 std::mem::replace(*value, text.map(|text| self.interner.intern(text)))
             }
         };
-        if let Some(old) = old {
-            self.interner.release(&old);
-        }
+        drop(old);
         Ok(())
     }
 }
@@ -533,15 +521,15 @@ mod tests {
         let pool = Arc::clone(&data.interner);
         let clone = data.clone();
         let selected = data.copy_rows(&[1]);
-        assert_eq!(pool.entries().get("a"), Some(&5));
+        assert_eq!(pool.entries().get("a").unwrap().strong_count(), 5);
         drop(clone);
         data.pop();
         assert!(!pool.entries().contains_key("b"));
         data.view_mut().set(0, Some("c")).unwrap();
-        assert_eq!(pool.entries().get("a"), Some(&2));
+        assert_eq!(pool.entries().get("a").unwrap().strong_count(), 2);
         drop(data);
         assert_eq!(pool.entries().len(), 1);
-        assert_eq!(pool.entries().get("a"), Some(&1));
+        assert_eq!(pool.entries().get("a").unwrap().strong_count(), 1);
         drop(selected);
         assert!(pool.entries().is_empty());
     }
@@ -558,12 +546,12 @@ mod tests {
         let right_pool = Arc::clone(&right.interner);
         left.append(right).unwrap();
         assert!(right_pool.entries().is_empty());
-        assert_eq!(left_pool.entries().get("a"), Some(&2));
+        assert_eq!(left_pool.entries().get("a").unwrap().strong_count(), 2);
         let same_pool = left.copy_range(0..2);
         left.append(same_pool).unwrap();
-        assert_eq!(left_pool.entries().get("a"), Some(&4));
+        assert_eq!(left_pool.entries().get("a").unwrap().strong_count(), 4);
         left.retain_live(&[true, true, true, true, false, false]);
-        assert_eq!(left_pool.entries().get("a"), Some(&2));
+        assert_eq!(left_pool.entries().get("a").unwrap().strong_count(), 2);
         assert!(!left_pool.entries().contains_key("b"));
         drop(left);
         assert!(left_pool.entries().is_empty());
@@ -598,7 +586,104 @@ mod tests {
         for _ in 0..8 {
             assert!(target.append(&source).is_err());
         }
-        assert_eq!(pool.entries().get("shared"), Some(&1));
+        assert_eq!(pool.entries().get("shared").unwrap().strong_count(), 1);
         assert_eq!(target.row_count(), 0);
+    }
+
+    #[test]
+    fn all_copy_paths_complete_while_the_cache_is_locked() {
+        use std::{sync::mpsc, thread, time::Duration};
+
+        for nullable in [false, true] {
+            let mut data = InternedStringData::new(nullable, 4);
+            let long = "long shared payload ".repeat(512);
+            data.push(Some(&long)).unwrap();
+            data.push(Some(&long)).unwrap();
+            data.push(Some("other")).unwrap();
+            if nullable {
+                data.push(None).unwrap();
+            }
+            let pool = Arc::clone(&data.interner);
+            let cache = pool.entries();
+            let (send, receive) = mpsc::channel();
+            let worker = thread::spawn(move || {
+                let full = data.clone();
+                let range = data.copy_range(0..2);
+                let rows = data.copy_rows(&[2, 0, 0]);
+                send.send((data, full, range, rows)).unwrap();
+            });
+            // Copying must neither hash strings nor acquire the lookup-cache
+            // mutex. Release it even on failure so a regression cannot hang CI.
+            let result = receive.recv_timeout(Duration::from_secs(5));
+            drop(cache);
+            worker.join().unwrap();
+            let (data, full, range, rows) = result.expect("copy accessed the locked cache");
+            assert_eq!(full, data);
+            assert_eq!(range.value(0).unwrap(), Some(long.as_str()));
+            assert_eq!(rows.value(0).unwrap(), Some("other"));
+            assert_eq!(rows.value(1).unwrap(), Some(long.as_str()));
+            assert_eq!(rows.value(2).unwrap(), Some(long.as_str()));
+            assert_eq!(pool.entries().get(long.as_str()).unwrap().strong_count(), 8);
+            drop((data, full, range, rows));
+            assert!(pool.entries().is_empty());
+        }
+    }
+
+    #[test]
+    fn last_cell_cleanup_does_not_remove_a_concurrent_replacement() {
+        use std::{
+            thread,
+            time::{Duration, Instant},
+        };
+
+        let pool = Arc::new(Interner::default());
+        let old = pool.intern("shared");
+        let old_weak = Arc::downgrade(&old);
+        let mut cache = pool.entries();
+        let worker = thread::spawn(move || drop(old));
+        let start = Instant::now();
+        while old_weak.strong_count() != 0 {
+            assert!(start.elapsed() < Duration::from_secs(5));
+            thread::yield_now();
+        }
+        // The destructor is waiting for this lock. Model an acquire that wins
+        // it first: reuse the payload and publish a new entry under the same key.
+        let text = Arc::clone(cache.get_key_value("shared").unwrap().0);
+        let replacement = Arc::new(InternedValue {
+            text,
+            interner: Arc::downgrade(&pool),
+        });
+        cache.insert(Arc::clone(&replacement.text), Arc::downgrade(&replacement));
+        drop(cache);
+        worker.join().unwrap();
+        let acquired = pool.intern("shared");
+        assert!(Arc::ptr_eq(&replacement, &acquired));
+        assert_eq!(pool.entries().len(), 1);
+        drop((acquired, replacement));
+        assert!(pool.entries().is_empty());
+        assert!(old_weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn independent_pools_release_entries_even_when_the_payload_is_shared() {
+        let left = Arc::new(Interner::default());
+        let right = Arc::new(Interner::default());
+        let left_value = left.intern("shared");
+        let payload = Arc::downgrade(&left_value.text);
+        let right_value = right.intern_shared(&left_value.text);
+        assert!(Arc::ptr_eq(&left_value.text, &right_value.text));
+        assert!(!Arc::ptr_eq(&left_value, &right_value));
+        drop(left_value);
+        assert!(left.entries().is_empty());
+        assert_eq!(right.entries().len(), 1);
+        drop(right_value);
+        assert!(right.entries().is_empty());
+        assert!(payload.upgrade().is_none());
+        let weak_pool = Arc::downgrade(&right);
+        drop(right);
+        assert!(
+            weak_pool.upgrade().is_none(),
+            "entry/cache ownership formed a cycle"
+        );
     }
 }

@@ -1,286 +1,268 @@
-# Interned string columns: memory and throughput
+# Interned string copying with entry handles
 
-This comparison measures gd-rs's default `CompactString` column, its opt-in
-`Arc<str>` interned column, and C++ GD's `rstring` reference column. It uses one
-required string column and 20,000 rows, with 1, 16, 256, 4,096 or 20,000 distinct
-values. The corresponding average rows per value are 20,000, 1,250, 78.1, 4.88 and
-1. Strings are either 16 bytes (inline in `CompactString`) or 128 bytes (allocated).
+Interned columns use thin `Arc` entry handles. Copying a table, range or row list
+clones those handles without hashing the strings or acquiring the lookup-cache
+mutex. Entry reference counts track live cells; the last entry reference removes
+its weak cache entry. Each entry owns an immutable `Arc<str>` payload and a weak
+reference to its interner. Public string values, checked writes and selection
+APIs are unchanged. Copies remain independently mutable and still take O(rows)
+time; they are not constant-time selection handles.
 
-Sources: [Rust workload](../../benches/interned_strings/workload.rs),
+This comparison uses four variants:
+
+- **Default:** current gd-rs `CompactString` columns.
+- **Baseline:** the interned implementation at `ba8c32a`, whose copies hash each
+  string to update logical cell counts under the pool lock.
+- **Entry:** current interned columns with reference-counted entry handles.
+- **GD:** C++ GD `rstring` columns at `cb11cff90d05260a88d59a30c9da421cd4e19c34`.
+
+Sources: [current interned storage](../../src/table/interned_string.rs),
+[baseline interned storage](https://github.com/kjn-void/gd-rs/blob/ba8c32ab8fefbe1b90d3f009fecb1e33c8c1f7f3/src/table/interned_string.rs),
+[Rust workload](../../benches/interned_strings/workload.rs),
 [C++ workload](../../benches/cpp-reference/interned_strings.cpp),
-[runner and independent checksum oracle](../../benches/interned_strings/compare.py),
-[full methodology](../../benches/interned_strings/README.md).
+[comparison runner](../../benches/interned_strings/compare.py), and
+[methodology](../../benches/interned_strings/README.md).
 
-## Reproduction and scope
+## Reproduction and workload
 
-Measured on 2026-10-15 on an Apple M1 MacBook Air (`MacBookAir10,1`), eight logical
-CPUs and 8 GiB RAM, Darwin 27.0.0 arm64. Rust was 1.99.0
-(`b940084d7`, LLVM 23.1.1); C++ was Apple Clang 21.0.0
-(`clang-2100.3.34.2`). Rust used the release profile, optimization level 3,
-one codegen unit, thin LTO, native CPU targeting, and no crate features. C++ used
-`-std=c++20 -O3 -DNDEBUG -march=native -flto=thin`. Both ran one thread, under OS
-scheduling without affinity. Sanitizers were disabled for measurement.
+The experiment uses 20,000 rows, one required string column, and 1, 16, 256,
+4,096 or 20,000 distinct values. Strings have fixed lengths of 16 or 128 bytes,
+with deterministic ASCII IDs repeated evenly in row order. It measures insertion,
+complete table copying, replacement with existing values (`rotate`), and
+replacement with entirely new unique values (`replace`). Input generation,
+mutation fixtures, result destruction and full-content checks are outside the
+timer. Insertion and copying include allocation and normal API overhead.
 
-The gd-rs worktree was based on `1126787f8e6b5dfbe964f6bb2f0cdd81a4d2c08f`
-with the uncommitted interned-column and benchmark implementation. C++ GD was
-`cb11cff90d05260a88d59a30c9da421cd4e19c34`. The raw report records SHA-256 hashes
-of the Rust sources, benchmark sources and executables, complete build commands,
-thermal state and background CPU samples. The runner verifies those hashes again
-after measurement and checks that the C++ reference sources remain unchanged.
-A Clippy allowance was subsequently added to the memory driver; rebuilding produced
-byte-for-byte identical release executables. Both reports record this source-only
-lint cleanup separately from the original measurement hashes.
+Build a baseline from a committed revision into a fresh directory, then run:
 
 ```sh
-./benches/run_interned_strings.sh --wait-for-idle
+python3 benches/interned_strings/baseline.py ba8c32a \
+  --output target/interned-strings/rebuilt-baseline
+./benches/run_interned_strings.sh --wait-for-idle --rounds 4 --samples 5 \
+  --baseline-dir target/interned-strings/rebuilt-baseline \
+  --output target/interned-strings/entry-results.json
 ```
 
-This builds both timing and memory executables. After that build, the measured
-run can be repeated with `--skip-build --wait-for-idle`. Defaults are three rounds
-of five individual samples; implementation order rotates across rounds. Timings
-are medians of round medians, in milliseconds per whole 20,000-row operation.
-Result destruction and full-content checks are outside the timer. Insertion and
-copying include allocation; mutations include releasing replaced cells and use
-independently populated tables created before timing. Input string catalogues
-are prebuilt. All APIs include their usual validation and temporary value costs.
+Both current and baseline Rust use release optimization level 3, thin LTO, one
+codegen unit, native CPU targeting and no crate features. C++ uses C++20,
+`-O3 -DNDEBUG -march=native -flto=thin`. Measurements are sequential, single-threaded
+and use OS scheduling without affinity. Implementation order rotates over four
+rounds, each containing five samples. The baseline builder and raw report record
+source revisions, compiler versions, source hashes and executable hashes.
+The [full raw report](measurements/interned-entry-copy-m1.json) contains all
+accepted samples, memory results, rejected rounds and run-segment metadata.
 
-C++ copying uses the native copy constructor with a benchmark-side schema
-reference increment to compensate for its missing acquisition in this pinned
-revision. No upstream code is changed. Rust copies independently mutable cell
-vectors and shares interned payloads; C++ copies its reference pool. These are
-complete table copies, not immutable selection handles. The single-thread results
-include Rust's synchronized interner costs; C++'s reference pool has no matching
-internal synchronization.
+The host is an Apple M1 MacBook Air (`MacBookAir10,1`), with eight physical/logical
+CPU cores and 8 GiB RAM, running macOS 27.0.1. Rust is 1.99.0 with LLVM 23.1.1;
+C++ uses Apple Clang 21.0.0. The full matrix spans October 15–16, 2026. The runner
+waits for quiet periods and rejects complete rounds when its background-load checks detect
+sustained unrelated activity. It also rejects rounds with excessive process
+off-CPU time, sample duration or sample spread. The limits and all rejected
+records are preserved in the raw report.
 
-Every executable's result is checked against a Python FNV-1a digest of every
-expected row. Verification also checks that writing a result does not change its
-source and that a copy survives destruction of its immediate source.
+The initial run exposed system-suspension gaps inside native samples. The runner
+was extended with interruption checks, and the checkpoint was audited before
+resuming. Five previously accepted rounds were discarded and remeasured. Earlier
+retained records were checked by duration and spread; the resumed segment also
+records process wall/CPU time. The same native executables and workload sources
+were used throughout, with hashes checked between segments and after completion.
 
-## Interpreting the memory figures
+C++ table copying uses its native copy constructor plus a schema-reference
+increment in the benchmark adapter, compensating for the pinned constructor's
+missing acquisition. No upstream source is modified. C++ copies its reference
+pool; both Rust interned variants share payloads. All variants have independently
+mutable cells. C++ does not have Rust's synchronized lookup cache.
 
-Sources: [Rust memory observer](../../benches/interned_strings/memory.rs),
-[Rust workload](../../benches/interned_strings/workload.rs),
-[C++ observer](../../benches/cpp-reference/interned_strings_memory.h) and
-[C++ workload](../../benches/cpp-reference/interned_strings.cpp).
+## Copy time
 
-Separate executables measure retained allocator block bytes using macOS
-`malloc_size` (Linux uses `malloc_usable_size`). They include size-class rounding,
-but exclude allocator metadata, unused arena pages, stack, code, input catalogues
-and the already-created schema. This is live heap storage, not peak RSS or total
-allocation traffic. C++ counts `new`/`delete` storage, including the table and its
-reference pool; Rust counts `System` allocations. Counters are absent from the
-timing binaries. Shared payloads are counted once.
-Only the raw report's uninstrumented `measurements` entries contribute to the
-timing tables; durations in its instrumented `memory` entries are not used.
+Sources: [Rust workload](../../benches/interned_strings/workload.rs),
+[C++ workload](../../benches/cpp-reference/interned_strings.cpp), and
+[runner](../../benches/interned_strings/compare.py).
 
-“Table” means one newly populated table. “Copy extra” is additional heap retained
-by its copy with the original alive. “After new values” is an independently
-populated result after replacing all rows with unique, previously unseen strings;
-the original table remains alive but has a separate interner.
+Milliseconds to copy all 20,000 rows, reported as the median of four round
+medians (five samples per round). Lower is better.
 
+| Bytes/string | Distinct | Default | Baseline | Entry | GD | Baseline / Entry |
+|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 1 | 0.0281 | 0.1485 | 0.0505 | 0.0031 | 2.94× |
+| 16 | 16 | 0.0276 | 0.1474 | 0.0498 | 0.0036 | 2.96× |
+| 16 | 256 | 0.0278 | 0.1490 | 0.0498 | 0.0104 | 2.99× |
+| 16 | 4,096 | 0.0281 | 0.1681 | 0.0505 | 0.1112 | 3.33× |
+| 16 | 20,000 | 0.0279 | 0.1827 | 0.0511 | 0.5278 | 3.58× |
+| 128 | 1 | 0.3393 | 0.3526 | 0.0511 | 0.0036 | 6.90× |
+| 128 | 16 | 0.3238 | 0.3517 | 0.0498 | 0.0040 | 7.07× |
+| 128 | 256 | 0.3275 | 0.3574 | 0.0504 | 0.0111 | 7.09× |
+| 128 | 4,096 | 0.3330 | 0.3873 | 0.0509 | 0.1038 | 7.60× |
+| 128 | 20,000 | 0.3309 | 0.4181 | 0.0519 | 0.4826 | 8.05× |
 
-KiB (1,024 bytes), rounded to one decimal:
+Entry copies take about 0.050–0.052 ms across this matrix: **2.94–3.58× faster**
+than the baseline for 16-byte strings and **6.90–8.05× faster** for 128-byte strings.
+They are insensitive to payload length because copying touches entry handles,
+not string bytes. Default inline short strings still copy about 1.8× faster than
+Entry; for allocated 128-byte strings, Entry is about 6.4–6.6× faster than Default.
+GD copies a small repeated dictionary faster, while its time grows with the
+number of distinct payloads it copies. These costs include cell-vector copying;
+borrowed and owning selections have different semantics and are not measured here.
 
-| Bytes/string | Distinct | Default table | Default copy extra | Interned table | Interned copy extra | GD table | GD copy extra |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 16 | 1 | 480.4 | 480.1 | 320.7 | 320.1 | 160.1 | 160.1 |
-| 16 | 16 | 480.4 | 480.1 | 322.0 | 320.1 | 160.9 | 160.9 |
-| 16 | 256 | 480.4 | 480.1 | 342.6 | 320.1 | 174.0 | 174.0 |
-| 16 | 4,096 | 480.4 | 480.1 | 656.6 | 320.1 | 384.0 | 384.0 |
-| 16 | 20,000 | 480.4 | 480.1 | 1,761.6 | 320.1 | 1,353.5 | 1,353.5 |
-| 128 | 1 | 2,980.4 | 2,980.1 | 320.9 | 320.1 | 160.2 | 160.2 |
-| 128 | 16 | 2,980.4 | 2,980.1 | 324.0 | 320.1 | 162.6 | 162.6 |
-| 128 | 256 | 2,980.4 | 2,980.1 | 374.6 | 320.1 | 202.0 | 202.0 |
-| 128 | 4,096 | 2,980.4 | 2,980.1 | 1,168.6 | 320.1 | 832.0 | 832.0 |
-| 128 | 20,000 | 2,980.4 | 2,980.1 | 4,261.6 | 320.1 | 3,541.0 | 3,541.0 |
+An independent four-round [copy confirmation](measurements/interned-entry-copy-m1-confirmation.json)
+on October 16 repeated the one-value and all-unique endpoints with the same
+[Rust](../../benches/interned_strings/workload.rs) and
+[C++](../../benches/cpp-reference/interned_strings.cpp) workloads:
 
-For 128-byte strings and one distinct value, Rust interning reduces the table's
-retained storage by 89.2% and a copy's incremental storage by 89.3% relative to
-default strings. Even at 4,096 distinct values it retains less than half as much
-as the default table. At 20,000 distinct values it uses 43.0% more than default;
-its hash table and reference-counted payloads outweigh deduplication. For unique
-16-byte strings it uses 3.67 times the default table's memory.
-
-C++ GD's eight-byte reference indices make its highly repeated columns smaller
-than Rust's sixteen-byte `Arc<str>` cell handles. Default Rust strings use
-24-byte descriptors, with the 16-byte text stored inline. Rust interned copies
-always add approximately 320 KiB for cell handles here, irrespective of dictionary
-size; C++ deep-copies its reference payloads along with the row buffer.
-Sharing can therefore help copies even with unique values: for 128-byte strings,
-the all-unique source plus one copy totals 4,582 KiB with interning versus
-5,961 KiB by default, despite the larger interned source on its own.
-
-After replacing every cell with a new unique value, the result retains:
-
-| Bytes/string | Starting distinct | Default KiB | Interned KiB | GD KiB |
+| Bytes/string | Distinct | Baseline ms | Entry ms | Baseline / Entry |
 |---:|---:|---:|---:|---:|
-| 16 | 1 | 480.4 | 1,761.6 | 1,353.5 |
-| 16 | 16 | 480.4 | 1,761.6 | 1,354.2 |
-| 16 | 256 | 480.4 | 1,761.6 | 1,365.5 |
-| 16 | 4,096 | 480.4 | 1,761.6 | 1,545.5 |
-| 16 | 20,000 | 480.4 | 1,761.6 | 2,547.0 |
-| 128 | 1 | 2,980.4 | 4,261.6 | 3,541.2 |
-| 128 | 16 | 2,980.4 | 4,261.6 | 3,543.5 |
-| 128 | 256 | 2,980.4 | 4,261.6 | 3,581.0 |
-| 128 | 4,096 | 2,980.4 | 4,261.6 | 4,181.0 |
-| 128 | 20,000 | 2,980.4 | 4,261.6 | 6,922.0 |
+| 16 | 1 | 0.1699 | 0.0579 | 2.93× |
+| 16 | 20,000 | 0.1969 | 0.0543 | 3.63× |
+| 128 | 1 | 0.3514 | 0.0521 | 6.74× |
+| 128 | 20,000 | 0.4098 | 0.0513 | 7.98× |
 
-Rust releases interner entries whose final associated cell is replaced, although
-its hash-table capacity is retained. C++ GD's reference pool retains old entries
-as new ones are added. With 20,000 initially unique 128-byte values, GD ends at
-6,922 KiB after replacement, versus Rust interning at 4,262 KiB. Default strings
-remain at 2,980 KiB. This workload turns every starting repetition level into an
-all-unique result; it does not preserve the starting repetition ratio.
+The relative gains repeat despite variation in absolute runtimes between runs.
+Reproduction command, after the initial build:
 
+```sh
+./benches/run_interned_strings.sh --skip-build --wait-for-idle \
+  --baseline-dir target/interned-strings/rebuilt-baseline \
+  --operations copy --unique 1 20000 --lengths 16 128 --rounds 4 --samples 5 \
+  --output target/interned-strings/entry-copy-confirmation.json
+```
 
-## Insertion, copying and mutation times
+## Insertion and mutation
 
-Sources: [Rust](../../benches/interned_strings/workload.rs),
-[C++ GD](../../benches/cpp-reference/interned_strings.cpp), and
-[raw samples, round ranges and metadata](measurements/interned-strings-m1.json).
+Sources: [Rust workload](../../benches/interned_strings/workload.rs),
+[C++ workload](../../benches/cpp-reference/interned_strings.cpp), and
+[runner](../../benches/interned_strings/compare.py).
 
-Milliseconds per 20,000-row operation, median of three round medians. `Existing`
-replaces each row with the next value in the original dictionary. For one distinct
-value this sets the current value again. `New unique` replaces every row with a
-new, unique string. Small differences, particularly sub-millisecond copies,
-should be read with the round ranges and confirmation results below.
+Insertion times, in milliseconds:
 
-**16-byte strings**
+| Bytes/string | Distinct | Default | Baseline | Entry | GD |
+|---:|---:|---:|---:|---:|---:|
+| 16 | 1 | 0.225 | 0.586 | 0.484 | 0.122 |
+| 16 | 16 | 0.222 | 0.589 | 0.486 | 0.479 |
+| 16 | 256 | 0.202 | 0.601 | 0.512 | 4.485 |
+| 16 | 4,096 | 0.201 | 0.911 | 0.742 | 67.992 |
+| 16 | 20,000 | 0.201 | 1.828 | 1.430 | 329.587 |
+| 128 | 1 | 0.457 | 1.406 | 1.119 | 0.162 |
+| 128 | 16 | 0.470 | 1.358 | 1.046 | 0.511 |
+| 128 | 256 | 0.476 | 1.379 | 1.210 | 4.546 |
+| 128 | 4,096 | 0.469 | 1.770 | 1.566 | 94.909 |
+| 128 | 20,000 | 0.483 | 2.665 | 2.454 | 460.305 |
 
-| Distinct | Operation | Default Rust ms | Interned Rust ms | C++ GD ms |
-|---:|---|---:|---:|---:|
-| 1 | Insert | 0.227 | 0.609 | 0.127 |
-| 1 | Copy | 0.0272 | 0.151 | 0.00308 |
-| 1 | Existing | 0.197 | 0.734 | 0.105 |
-| 1 | New unique | 0.194 | 1.96 | 327 |
-| 16 | Insert | 0.225 | 0.613 | 0.504 |
-| 16 | Copy | 0.0276 | 0.149 | 0.00371 |
-| 16 | Existing | 0.197 | 0.734 | 0.441 |
-| 16 | New unique | 0.191 | 1.97 | 329 |
-| 256 | Insert | 0.197 | 0.636 | 4.57 |
-| 256 | Copy | 0.0276 | 0.149 | 0.0105 |
-| 256 | Existing | 0.201 | 0.736 | 4.4 |
-| 256 | New unique | 0.192 | 1.95 | 336 |
-| 4,096 | Insert | 0.198 | 0.94 | 67.6 |
-| 4,096 | Copy | 0.0281 | 0.17 | 0.11 |
-| 4,096 | Existing | 0.198 | 0.783 | 67.5 |
-| 4,096 | New unique | 0.192 | 1.92 | 463 |
-| 20,000 | Insert | 0.199 | 1.81 | 328 |
-| 20,000 | Copy | 0.0281 | 0.181 | 0.524 |
-| 20,000 | Existing | 0.197 | 0.823 | 327 |
-| 20,000 | New unique | 0.192 | 2.05 | 981 |
+Mutation times, in milliseconds. `rotate` reuses existing dictionary values;
+`replace` ends with 20,000 new distinct values regardless of the initial dictionary.
+Each cell contains `rotate / replace`.
 
-**128-byte strings**
+| Bytes/string | Initial distinct | Default | Baseline | Entry | GD |
+|---:|---:|---:|---:|---:|---:|
+| 16 | 1 | 0.196 / 0.192 | 0.738 / 1.966 | 0.410 / 1.380 | 0.104 / 328.976 |
+| 16 | 16 | 0.194 / 0.191 | 0.733 / 1.958 | 0.404 / 1.381 | 0.433 / 329.737 |
+| 16 | 256 | 0.196 / 0.192 | 0.739 / 1.963 | 0.410 / 1.393 | 4.430 / 338.467 |
+| 16 | 4,096 | 0.200 / 0.192 | 0.783 / 1.972 | 0.445 / 1.566 | 67.877 / 464.863 |
+| 16 | 20,000 | 0.201 / 0.194 | 0.871 / 2.140 | 0.492 / 2.384 | 334.011 / 1027.903 |
+| 128 | 1 | 0.611 / 0.588 | 1.781 / 3.003 | 1.096 / 2.425 | 0.154 / 450.575 |
+| 128 | 16 | 0.617 / 0.596 | 1.779 / 3.019 | 1.087 / 2.319 | 0.493 / 450.721 |
+| 128 | 256 | 0.614 / 0.607 | 1.835 / 3.173 | 1.140 / 2.546 | 4.439 / 481.382 |
+| 128 | 4,096 | 0.634 / 0.615 | 1.931 / 3.032 | 1.182 / 2.654 | 93.400 / 660.864 |
+| 128 | 20,000 | 0.623 / 0.605 | 2.032 / 2.852 | 1.238 / 3.403 | 457.606 / 1453.921 |
 
-| Distinct | Operation | Default Rust ms | Interned Rust ms | C++ GD ms |
-|---:|---|---:|---:|---:|
-| 1 | Insert | 0.452 | 1.36 | 0.158 |
-| 1 | Copy | 0.325 | 0.345 | 0.00346 |
-| 1 | Existing | 0.615 | 1.76 | 0.154 |
-| 1 | New unique | 0.627 | 3.04 | 457 |
-| 16 | Insert | 0.462 | 1.42 | 0.52 |
-| 16 | Copy | 0.325 | 0.344 | 0.00387 |
-| 16 | Existing | 0.619 | 1.75 | 0.493 |
-| 16 | New unique | 0.596 | 3.06 | 456 |
-| 256 | Insert | 0.459 | 1.43 | 4.43 |
-| 256 | Copy | 0.323 | 0.349 | 0.0104 |
-| 256 | Existing | 0.616 | 1.79 | 4.49 |
-| 256 | New unique | 0.602 | 3.06 | 470 |
-| 4,096 | Insert | 0.465 | 1.74 | 92.8 |
-| 4,096 | Copy | 0.331 | 0.39 | 0.0979 |
-| 4,096 | Existing | 0.618 | 1.91 | 92.4 |
-| 4,096 | New unique | 0.614 | 3.04 | 642 |
-| 20,000 | Insert | 0.46 | 2.79 | 457 |
-| 20,000 | Copy | 0.33 | 0.416 | 0.471 |
-| 20,000 | Existing | 0.625 | 1.95 | 456 |
-| 20,000 | New unique | 0.619 | 2.86 | 1,395 |
+Entry insertion improves over the baseline throughout this matrix, and `rotate`
+improves because removing a non-final cell no longer hashes or updates the cache.
+Default strings remain faster for insertion and mutation. Replacing an initially
+all-unique column exposes the cost of new entry allocations and final-entry
+cleanup: Entry is about 11% slower than Baseline for 16-byte values and 19% slower
+for 128-byte values in the full run. This tradeoff matters for high-cardinality,
+write-heavy columns even when copying is faster.
 
-The shared payloads save memory but do not make this `Table::clone` constant time.
-It still copies cell handles, increments `Arc` counts, and hashes each string to
-update the pool's logical cell counts under a lock. See
-[`InternedStringData::clone` and `Interner::retain_values`](../../src/table/interned_string.rs).
-For repeated 128-byte values, the main run has default and interned copies around
-0.33 and 0.35 ms respectively. For 16-byte values the inline default copies are
-substantially faster than interning. These results do not support a copy-speed
-advantage for the current interned implementation at these string lengths.
+A separate October 16 [replacement confirmation](measurements/interned-entry-copy-m1-replace-confirmation.json)
+used the same [Rust](../../benches/interned_strings/workload.rs) and
+[C++](../../benches/cpp-reference/interned_strings.cpp) workloads with four rounds
+of five samples. It reproduced the all-unique regression at about 9% for short
+strings and 15% for long strings:
 
-Writes through the normal public API are also more expensive with Rust interning.
-For one distinct 128-byte value, insertion takes about 1.36 ms versus 0.45 ms by
-default; replacing with existing values takes 1.76 ms versus 0.61 ms. With all
-20,000 values unique, insertion takes 2.79 ms versus 0.46 ms. Hashing, synchronized
-pool bookkeeping and atomic reference counts are included, as is temporary `Value`
-construction. This does not benchmark a specialized bulk interning API.
+| Bytes/string | Default ms | Baseline ms | Entry ms | GD ms |
+|---:|---:|---:|---:|---:|
+| 16 | 0.194 | 2.161 | 2.359 | 998.057 |
+| 128 | 0.621 | 2.914 | 3.354 | 1,452.116 |
 
-C++ GD is fastest for a tiny dictionary but its
-[`references::find`](../../external/gd/source/gd_table.cpp) scans the pool linearly.
-All values in a case have the same byte length, so candidates cannot be rejected
-by length alone. At 20,000 distinct 128-byte values, GD insertion takes about
-457 ms versus 2.79 ms for Rust interning. Adding 20,000 new unique values to that
-pool takes about 1,395 ms versus 2.86 ms. This is a comparison of these storage
-implementations and public API paths, not a general Rust-versus-C++ result.
+```sh
+./benches/run_interned_strings.sh --skip-build --wait-for-idle \
+  --baseline-dir target/interned-strings/rebuilt-baseline \
+  --operations replace --unique 20000 --lengths 16 128 --rounds 4 --samples 5 \
+  --output target/interned-strings/entry-replace-confirmation.json
+```
 
+GD's [reference lookup](../../external/gd/source/gd_table.cpp) scans its reference
+collection; its larger insertion and mutation costs at high cardinality follow
+that algorithm. The result applies to
+the pinned GD `rstring` path and this workload, not to all C++ string layouts.
+The benchmark does not test reads in isolation, parallel mutation, null-heavy
+columns, variable-length strings, or application-level selection pipelines.
 
-## Confirmation, variation and limits
+## Retained memory
 
-Sources: [Rust](../../benches/interned_strings/workload.rs),
-[C++ GD](../../benches/cpp-reference/interned_strings.cpp),
-[main run](measurements/interned-strings-m1.json), and
-[accepted endpoint rechecks](measurements/interned-strings-m1-confirmation.json).
+Sources: [Rust workload](../../benches/interned_strings/workload.rs),
+[Rust observer](../../benches/interned_strings/memory.rs),
+[C++ workload](../../benches/cpp-reference/interned_strings.cpp), and
+[C++ observer](../../benches/cpp-reference/interned_strings_memory.h).
 
-The main run completed all 30 rounds: 360 processes, each with five samples,
-for 1,800 accepted timed operations. An independent run rechecked one-distinct
-and all-unique data at both lengths, using three samples per process. Three
-endpoint cases completed two rounds; the all-unique 128-byte case completed one
-accepted round. An additional round was rejected after sustained background load
-returned. The recheck was stopped during the subsequent idle wait, so its raw
-metadata deliberately records an incomplete two-round request and explains the
-stop. All four endpoints have accepted rechecks: 252 additional timed operations.
-Rejected samples are retained separately and do not contribute to any estimate.
+Separate executables count retained allocator block sizes, including size-class
+rounding, using `malloc_size` on macOS or `malloc_usable_size` on Linux. These
+figures exclude allocator metadata, unused arena pages, stack, code, input
+catalogues and the prebuilt schema. They are not peak RSS or allocation traffic.
+The timing binaries have no allocation counters.
 
-The rechecks differ from the main medians by at most 14.7% across these endpoints;
-all 128-byte endpoint results differ by at most 11.8%. For the closely matched
-one-distinct 128-byte copy, default/interned times were 0.325/0.345 ms in the main
-run and 0.334/0.346 ms in the recheck. This supports the memory finding, not a
-copy-speed advantage. The large-cardinality C++ lookup cost and Rust's additional
-write cost also repeated. The independent full memory pass reproduced every
-reported byte count exactly.
+KiB (1,024 bytes), one populated table. The final two columns show additional
+storage for an interned copy while its source remains alive:
 
-The runner samples background process CPU time before and after each round. Two
-consecutive samples above one core's aggregate CPU use cause an idle wait or
-rejection; an isolated spike followed by a quiet confirmation is allowed. The
-main run waited for quiet periods and rejected no rounds; the recheck rejected
-one. The raw files retain these load samples. `pmset` reported no thermal or
-performance warning, but OS scheduling, allocator reuse and brief activity still
-cause variation. Main-run round medians for several fast cases vary by 25–35%;
-the tiny C++ copy with 16 distinct long values spans 0.00371–0.00579 ms. Do not
-interpret the displayed digits as stable precision or small gaps as universal.
+| Bytes/string | Distinct | Default | Baseline | Entry | GD | Baseline copy extra | Entry copy extra |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 16 | 1 | 480.4 | 320.7 | 160.8 | 160.1 | 320.1 | 160.1 |
+| 16 | 16 | 480.4 | 322.0 | 162.7 | 160.9 | 320.1 | 160.1 |
+| 16 | 256 | 480.4 | 342.6 | 194.6 | 174.0 | 320.1 | 160.1 |
+| 16 | 4,096 | 480.4 | 656.6 | 688.6 | 384.0 | 320.1 | 160.1 |
+| 16 | 20,000 | 480.4 | 1,761.6 | 2,539.1 | 1,353.5 | 320.1 | 160.1 |
+| 128 | 1 | 2,980.4 | 320.9 | 160.9 | 160.2 | 320.1 | 160.1 |
+| 128 | 16 | 2,980.4 | 324.0 | 164.7 | 162.6 | 320.1 | 160.1 |
+| 128 | 256 | 2,980.4 | 374.6 | 226.6 | 202.0 | 320.1 | 160.1 |
+| 128 | 4,096 | 2,980.4 | 1,168.6 | 1,200.6 | 832.0 | 320.1 | 160.1 |
+| 128 | 20,000 | 2,980.4 | 4,261.6 | 5,039.1 | 3,541.0 | 320.1 | 160.1 |
 
-All results come from a single machine and a single required string column.
-There are no nulls, mixed string lengths, skewed distributions, multiple columns,
-parallel writes or strings longer than 128 bytes. Input generation, initial
-mutation fixtures, full-content checks and final result destruction are outside
-timing; memory measurements omit allocator arenas and fragmentation. This is a
-steady workload comparison, not an RSS, cold-start or application-latency study.
+The entry layout halves incremental copy storage from about 320 to 160 KiB by
+using eight-byte cell handles in place of sixteen-byte `Arc<str>` handles.
+For one distinct 128-byte value, the table also falls from 321 to 161 KiB, about
+94.6% below default storage. The tradeoff is an extra entry allocation per distinct
+value. With 20,000 distinct 128-byte values, the entry table retains about 5,039 KiB,
+18.2% more than the baseline interned table and 69.1% more than default strings.
+Additional copies are smaller, so the total cost depends on how many copies live
+at once. Shared allocations are counted once.
 
-Choose interning here for repeated-payload memory savings and smaller incremental
-copies, while budgeting for slower writes. Keep default strings for this workload's
-write-heavy cases or standalone tables with unique values. Existing borrowed/owning
-selections and shared mutable projections have different ownership costs and are
-not measured here.
+Appends between different interners can still share immutable text, but each
+interner has its own entries. Deleting the last cell in one pool removes that
+pool's entry even if another pool retains the same payload. No strong reference
+cycle is formed between entries and caches.
 
-## Correctness checks
+## Correctness and scope
 
-The 120 main cases pass the full-content Python oracle in both native timing and
-memory executables. Each verification checks source independence after a result
-write and a copy surviving destruction of its immediate source. The smaller
-64-row matrix also passed all operations at both lengths and three repetition
-levels. Rust's allocator wrapper tests allocation, alignment through 4,096 bytes,
-zeroing, reallocation, content preservation and release; these tests also passed
-under AddressSanitizer. Twelve C++ verification cases passed in a separate
-AddressSanitizer build (`-O1 -g -fsanitize=address -fno-omit-frame-pointer`, without
-LTO or `NDEBUG`). No sanitizer instrumentation was used for reported timings.
+The [Rust workload](../../benches/interned_strings/workload.rs) and
+[C++ workload](../../benches/cpp-reference/interned_strings.cpp) validate every
+timed result against independently generated full-content digests. Both ordinary
+and allocation-counting executables check result contents, unchanged source
+contents, and a copy surviving its source. Verification mode also mutates the
+result to check source independence. All 160 implementation/workload cases passed
+verification and memory checks; all 3,200 accepted timed operations passed their checks.
+The full run's memory results match the separate verification pass in all cases.
 
-`./scripts/ci.sh` passed formatting, Clippy, all-features tests, minimal-features
-tests, doctests, documentation and the Rust 1.86.0 minimum-version check
-(`cargo +1.86.0 check --lib --no-default-features`). The `external/gd` source
-fingerprint is unchanged.
+The [storage unit tests](../../src/table/interned_string.rs) cover required and
+nullable copies while the lookup-cache mutex is locked, entry cleanup after
+copy/drop/replacement, independent pools sharing a payload, and a last-entry
+destructor racing with publication of a replacement. The
+[integration tests](../../tests/table_interned_strings.rs) cover concurrent table,
+range and row-list copies with mutation and source independence, alongside the
+existing borrowed, owning and shared-selection behavior. The full CI script
+passes formatting, Clippy, all-feature and minimal-feature tests, doctests,
+documentation and the Rust 1.86 library check. No unsafe code was added.
+
+This is a single-machine comparison of these storage paths. Fixed-length ASCII
+payloads, one column, sequential operations and retained allocator block sizes
+do not predict every application workload. Entry copying remains O(rows), and
+its per-value allocation and extra read indirection should be considered when
+choosing storage for mostly unique data.

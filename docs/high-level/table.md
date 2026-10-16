@@ -53,15 +53,17 @@ than `CompactString`, especially for inline short strings. See the
 their limits.
 
 `ColumnSpec::interned_string(name)` provides a third, opt-in layout with
-`Vec<Arc<str>>` or `Vec<Option<Arc<str>>>` cell handles. A shared interner maintains
-one immutable allocation per distinct live value and counts its associated cells.
-Copies share payloads and the interner but own their cell vectors. Writes replace
-a handle; reads borrow from it without locking. Removing the last cell using a
-value removes its interner entry. Tombstones retain values until physically
-removed, and table/selection copies may keep values alive independently.
+thin `Arc` entry handles in required or nullable cell vectors. Each distinct live
+entry owns an immutable `Arc<str>` payload and a weak reference to its interner.
+The interner's lookup cache holds weak entry references. Copies share entries
+and payloads but own their cell vectors; they increment entry reference counts
+without string hashing or cache locking. Writes replace a handle, and reads
+borrow text without locking. The last cell releases the entry and removes its
+cache key. Tombstones retain values until physically removed, and table/selection
+copies may keep values alive independently.
 
-The interner is synchronized because split mutable row ranges can update disjoint
-cells concurrently. Its lock covers only internal lookup/reference-count updates;
+The lookup cache is synchronized because split mutable row ranges can update
+disjoint cells concurrently. Its lock covers lookup, insertion and last-entry removal;
 converters and application callbacks run outside it. Appends across interners
 resolve equal text against the destination pool, and logical types remain
 `DataType::String`. Numeric dictionary IDs are not exposed or stored per cell;

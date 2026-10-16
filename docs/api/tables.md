@@ -222,16 +222,20 @@ assert_eq!(table.cell(2, 0)?, ValueRef::String(""));
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
-Each non-null cell stores an `Arc<str>` handle. A synchronized interner maps string
-contents to one immutable payload and a count of cells using it. Reads borrow
-`&str` from the cell handle without locking; writes hash the new text and briefly
-lock the interner. New columns start with separate interners. Table clones,
+Each non-null cell owns an `Arc` entry containing an immutable `Arc<str>` payload.
+A synchronized lookup cache maps string contents to weak entry references.
+Reads borrow `&str` without locking. Copies clone entry handles without hashing
+strings or locking the cache; entry reference counts track the associated cells.
+Writes hash the new text and briefly lock the cache. New columns start with
+separate interners. Table clones,
 projections and copied row selections share the originating interner and text
 allocations while retaining independent cell handles. Replacing a cell never
 changes another row or table's value.
 
-The interner removes a key when its last associated cell is replaced, removed or
-dropped. Tombstoned rows still retain their values until compaction or removal.
+The entry's destructor removes its cache key when its last associated cell is
+replaced, removed or dropped. It checks entry identity so a concurrent replacement
+under the same key remains valid. Tombstoned rows still retain their values until
+compaction or removal.
 Clones can keep values alive after source deletion. Hash-table/vector capacity may
 remain reserved. Append between different interners reuses a destination payload
 when its contents match, or retains the incoming immutable payload; reference counts
