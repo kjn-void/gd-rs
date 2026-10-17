@@ -6,6 +6,7 @@ mod composite;
 mod concurrent;
 pub mod debug;
 mod fixed_string;
+mod float_sum;
 mod index;
 mod interned_string;
 mod ordering;

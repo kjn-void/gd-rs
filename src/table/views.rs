@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::{DataType, ValueRef};
 
+use super::float_sum;
 use super::storage::{ColumnData, ColumnStorage};
 use super::{
     ColumnSpec, FixedStrings, FixedStringsMut, InternedStrings, InternedStringsMut, Table,
@@ -308,6 +309,72 @@ impl<'a> Column<'a> {
     /// or interned string storage requested as `CompactString` descriptors.
     pub fn as_nullable_slice<T: ColumnElement>(self) -> Result<&'a [Option<T>], ColumnSliceError> {
         <T as column_element_private::Sealed>::nullable_values(self)
+    }
+
+    /// Sums a required or nullable `F64` column using 16 independent accumulators.
+    ///
+    /// A sequential floating-point sum such as `iter().sum()` is one dependency
+    /// chain: every addition waits for the previous one, and the compiler may not
+    /// reorder IEEE additions. This method instead adds element `i` of the leading
+    /// `len - len % 16` elements to accumulator `i % 16`, combines the accumulators
+    /// in order, and then adds the trailing elements in row order. The independent
+    /// chains overlap in the CPU pipeline and auto-vectorize without fast-math.
+    ///
+    /// The summation order is fixed, so the result is deterministic for the same
+    /// cells, but its rounding can differ from a sequential sum. NaN and infinities
+    /// propagate as in any IEEE sum. Null cells contribute nothing, and an empty or
+    /// all-null column sums to `+0.0`. Like [`Self::as_slice`], the sum covers every
+    /// physical row, including tombstoned rows.
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, DataType, Schema, Table, Value};
+    /// let schema = Schema::new([
+    ///     ColumnSpec::new("price", DataType::F64),
+    ///     ColumnSpec::new("discount", DataType::F64).nullable(true),
+    /// ])?;
+    /// let mut table = Table::new(schema);
+    /// table.push_row([Value::F64(1.5), Value::F64(0.25)])?;
+    /// table.push_row([Value::F64(2.5), Value::Null])?;
+    /// assert_eq!(table.column(0).unwrap().sum_f64()?, 4.0);
+    /// assert_eq!(table.column(1).unwrap().sum_f64()?, 0.25);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSliceError::TypeMismatch`] unless the column type is
+    /// [`DataType::F64`].
+    pub fn sum_f64(self) -> Result<f64, ColumnSliceError> {
+        match self.storage {
+            ColumnStorage::F64(ColumnData::Required(values)) => Ok(float_sum::sum_required(values)),
+            ColumnStorage::F64(ColumnData::Nullable(values)) => Ok(float_sum::sum_nullable(values)),
+            _ => Err(ColumnSliceError::TypeMismatch {
+                expected: DataType::F64,
+                actual: self.spec.data_type(),
+            }),
+        }
+    }
+
+    /// Sums a required or nullable `F32` column using 16 independent `f32`
+    /// accumulators.
+    ///
+    /// The summation order, null handling, and tombstone behavior are the same as
+    /// for [`Self::sum_f64`]. Accumulation stays in `f32`; for a wider
+    /// accumulator, convert the values from [`Self::as_slice`] explicitly.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ColumnSliceError::TypeMismatch`] unless the column type is
+    /// [`DataType::F32`].
+    pub fn sum_f32(self) -> Result<f32, ColumnSliceError> {
+        match self.storage {
+            ColumnStorage::F32(ColumnData::Required(values)) => Ok(float_sum::sum_required(values)),
+            ColumnStorage::F32(ColumnData::Nullable(values)) => Ok(float_sum::sum_nullable(values)),
+            _ => Err(ColumnSliceError::TypeMismatch {
+                expected: DataType::F32,
+                actual: self.spec.data_type(),
+            }),
+        }
     }
 
     /// Iterates contiguously over this column.

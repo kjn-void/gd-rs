@@ -279,6 +279,50 @@ mask operation.
 There is no C++ counterpart for this result: it isolates Rust's nullable storage and
 code generation rather than comparing the GD table APIs.
 
+#### Floating-point column sums
+
+Benchmark source: [Rust sequential and lane-split float sums](../../benches/float_sum.rs)
+
+This fixture compares the idiomatic sequential reductions `values.iter().sum()` and
+`values.iter().flatten().sum()` with `Column::sum_f64` and `Column::sum_f32`, which
+use 16 independent accumulators in a fixed order. Each table has 1,000,000 rows: one
+required column and one nullable column of the same type, holding a fixed
+pseudo-random pattern of integers from 0 to 999. Every tenth nullable cell is null.
+The benchmark asserts that both orders give the same `f64` totals, which the
+integer-valued input guarantees; the `f32` totals exceed 2^24 and may differ in
+rounding.
+
+The sequential `f64` sum is the same single dependency chain that dominates the `f64`
+and `f32` rows of the [Average](#average) results above, where the accumulator is
+`f64`.
+
+There is no exact C++ counterpart. C++ GD has no column-sum API, and its
+`gd_table_simd` `pack_sum` reduces one pack of 4 to 16 values at a time.
+
+The benchmark is reproduced with:
+
+```sh
+cargo bench --bench float_sum --no-default-features
+```
+
+Criterion means from ten flat samples, measured on 2026-10-17 on an Apple M1 (macOS
+27.0.1) with rustc 1.99.0 (LLVM 23.1.1), the repository release profile, and no
+`target-cpu` flag. Source revision: the change introducing these methods, on top of
+`3d1e099`. A second run was within 14% for every row.
+
+| Column | Sequential iterator | Lane-split method | Sequential / lane-split |
+|---|---:|---:|---:|
+| Required `f64` | 1.013 ms | 0.122 ms | ×8.30 |
+| Nullable `f64` | 1.617 ms | 0.373 ms | ×4.34 |
+| Required `f32` | 0.977 ms | 0.062 ms | ×15.83 |
+| Nullable `f32` | 1.637 ms | 0.260 ms | ×6.31 |
+
+The sequential sums run at about one element per floating-point addition latency
+whatever the element width, so `f32` gains nothing from being narrower. With 16
+independent chains the required sums reach the speed of the vectorized integer sum,
+and `f32` processes twice as many elements per vector as `f64`. Nullable columns gain
+less because each `Option<T>` must be unpacked before it can be added.
+
 #### Price calculation: aligned AoS versus typed SoA
 
 Benchmark sources: [Rust typed-SoA price calculation](../../benches/price_total.rs) ·

@@ -694,6 +694,47 @@ also lets LLVM eliminate bounds checks and auto-vectorize suitable integer reduc
 and element-wise transformations. For a table filter, retain row identity by using
 `enumerate` and collecting positions as above.
 
+#### Floating-point column sums
+
+`Column::sum_f64` and `Column::sum_f32` sum a required or nullable `F64` or `F32`
+column without returning a slice first. They check the column type once and return
+`ColumnSliceError::TypeMismatch` for any other type; nullability selects the storage
+path automatically.
+
+```rust
+use gd::{ColumnSpec, DataType, Schema, Table, Value};
+
+let schema = Schema::new([
+    ColumnSpec::new("price", DataType::F64),
+    ColumnSpec::new("weight", DataType::F32).nullable(true),
+])?;
+let mut table = Table::new(schema);
+table.push_row([Value::F64(1.5), Value::F32(0.5)])?;
+table.push_row([Value::F64(2.5), Value::Null])?;
+table.push_row([Value::F64(4.0), Value::F32(2.0)])?;
+
+assert_eq!(table.column(0).unwrap().sum_f64()?, 8.0);
+assert_eq!(table.column(1).unwrap().sum_f32()?, 2.5);
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+A sequential `values.iter().sum()` over `f32` or `f64` is a single dependency chain:
+IEEE addition is not associative, so the compiler must keep every addition in row
+order and can neither overlap nor vectorize them. These methods fix a different
+order instead. Element `i` of the leading `len - len % 16` elements is added to
+accumulator `i % 16`; the 16 accumulators are then combined in order, followed by the
+trailing elements in row order. The independent chains overlap in the pipeline and
+auto-vectorize without fast-math.
+
+- The order is fixed, so the same cells always produce the same bits. Rounding can
+  differ from a sequential sum.
+- NaN and infinities propagate as in any IEEE sum.
+- Null cells contribute nothing. An empty or all-null column sums to `+0.0`.
+- `sum_f32` accumulates in `f32`. For a wider accumulator, sum the values from
+  `as_slice::<f32>` or `as_nullable_slice::<f32>` explicitly.
+- Like typed slices, both methods include tombstoned rows. Compact the table first,
+  or iterate live rows, to exclude them.
+
 `Table::columns_io(inputs, outputs)` supports direct bulk transforms without exposing
 the storage enum. Its const-generic position arrays can select any number of immutable
 `Column` inputs and mutable `ColumnMut` outputs. Input positions may repeat; outputs

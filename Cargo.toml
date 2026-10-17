@@ -93,6 +93,10 @@ name = "nullable_maximum"
 harness = false
 
 [[bench]]
+name = "float_sum"
+harness = false
+
+[[bench]]
 name = "price_total"
 harness = false
 

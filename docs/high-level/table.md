@@ -385,6 +385,14 @@ let total = values.iter().copied().fold(0_u64, u64::saturating_add);
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
+Floating-point sums are the exception to plain iterator reductions. A sequential
+`f32` or `f64` sum is one dependency chain that the compiler may not reorder, so it
+runs at the latency of one addition per element. `Column::sum_f64` and
+`Column::sum_f32` handle required and nullable columns with 16 independent
+accumulators in a fixed, documented order. The result is deterministic but can round
+differently from `iter().sum()`; see [Tables and schemas](../api/tables.md#floating-point-column-sums)
+and the [measurements](perf_large_table.md#floating-point-column-sums).
+
 For an element-wise transform, `Table::columns_io` borrows any number of immutable
 inputs and mutable outputs together. Each view can then be converted to a typed slice
 with one type/nullability check:
