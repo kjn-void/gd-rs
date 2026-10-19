@@ -2,7 +2,7 @@
 
 This describes the current gd-rs worktree and its pinned
 [`external/gd`](../../external/gd) reference at
-`cb11cff90d05260a88d59a30c9da421cd4e19c34`.
+`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`.
 
 GD is the broader toolkit: it includes extensive table-copy
 operations, aggregate helpers, SQL construction, ODBC, and application utilities.
@@ -224,6 +224,7 @@ round-trip archive of schema, properties, extras, and deletion state.
 | Base64 encode/decode/validation | Native `gd_translate` | Application: use a Base64 codec crate directly |
 | URI parsing, pattern matching, format-string and line parsing helpers | Native `parse/` modules | Application: use URI/parser crates and standard formatting directly; percent-component decoding is not a URI parser |
 | Custom strings, string collections, vectors and arenas | Native toolkit types | Standard Rust containers; application selects specialized storage when needed |
+| Build text in a caller-provided buffer | Native `string_transport`: borrows a byte buffer and moves to owned heap storage when full | Application: write into a stack `&mut [u8]` with `io::Write`/`write!`, or use `arrayvec::ArrayString` or `String`; see the [string-building benchmark](../high-level/performance.md#string-building-in-a-stack-buffer) |
 | CLI argument/options parser | Native `gd_cli_options` | Application: gd-rs assumes use of `clap` directly |
 | Logging/printers/macros and file rotation | Native `gd_log_*`, `gd_file_rotate` | Application selects its logging sink/appender; optional instrumentation belongs at that boundary |
 | File/path helpers and archive/repository streams | Native `gd_file`, `io/` modules | Application: use `std::fs`, `std::path`, `std::io` and archive crates directly |

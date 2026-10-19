@@ -32,6 +32,7 @@ set(GD_CORE_SOURCES
     gd_database_sqlite.cpp
     gd_parse.cpp
     gd_sql_value.cpp
+    gd_string_transport.cpp
     gd_table.cpp
     gd_table_arguments.cpp
     gd_table_column.cpp

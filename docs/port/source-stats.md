@@ -1,8 +1,8 @@
 # Source size and complexity
 
 This is a snapshot of the current `gd-rs` worktree and the `external/gd` submodule
-baseline measured and revalidated on 2026-10-17. Rust scopes describe the current
-worktree; GD is pinned to `cb11cff90d05260a88d59a30c9da421cd4e19c34`. It measures
+baseline measured and revalidated on 2026-10-18. Rust scopes describe the current
+worktree; GD is pinned to `1bba194909d997891c05fe5a4ce1d3d3a888e0cf`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include maintained
@@ -19,14 +19,14 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 34 | 9,543 | 338 | 859 | 2.54 |
 | Rust product + tests (`src`, `tests`) | 52 | 15,227 | 540 | 1,245 | 2.31 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 80 | 20,275 | 740 | 1,891 | 2.56 |
-| C++ product (`source`) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests (`source`, `tests`; `tests` absent) | 140 | 64,587 | 8,638 | 19,875 | 2.30 |
-| C++ product + tests + maintained benchmarks | 167 | 68,466 | 8,892 | 20,798 | 2.34 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 81 | 20,391 | 740 | 1,891 | 2.56 |
+| C++ product (`source`) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
+| C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
+| C++ product + tests + maintained benchmarks | 170 | 68,815 | 8,942 | 20,879 | 2.33 |
 
-The Rust totals are **9,543 SLOC in `src`** and **20,275 SLOC including `tests`
-and `benches`**. The separate test tree adds 5,684 SLOC and benchmarks add 5,048
-SLOC, including the lane-split float column sums, their summation-order tests and
+The Rust totals are **9,543 SLOC in `src`** and **20,391 SLOC including `tests`
+and `benches`**. The separate test tree adds 5,684 SLOC and benchmarks add 5,164
+SLOC, including the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
 owning immutable selections, shared mutable projections and their
@@ -37,7 +37,8 @@ Arc core-scaling harness and parallel-cleanup API.
 Inline unit tests and the doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 3,879 SLOC, including the interned string benchmark and allocation
+references add 3,951 SLOC, including the `string_transport` benchmark, the interned
+string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
 layout probe and projection correctness fixture in this worktree.
@@ -80,6 +81,10 @@ and loops. Its parsers are language-aware but not compiler front ends. Macros ca
 control flow—especially Google Benchmark bodies—and generated or macro-expanded
 complexity is not represented. Parser recovery can also change after a purely mechanical
 file split without a change in behavior. Smaller modules can let Lizard recognize
-functions it missed in larger files. Consequently, the average is a repeatable
+functions it missed in larger files. Lizard 1.17.31's Rust parser also stops
+recognizing functions after a lifetime parameter such as `<'a>`: it finds 1 of the 11
+functions in `benches/string_transport.rs` and only 3 in `src/table/views.rs`. Rust
+function counts and total CCN are therefore lower bounds, while SLOC is unaffected.
+Consequently, the average is a repeatable
 static-analysis indicator, not an exact count of runtime paths. Function count and total
 CCN are included so rounding and shifts in the average remain visible.

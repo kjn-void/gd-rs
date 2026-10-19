@@ -97,6 +97,10 @@ name = "float_sum"
 harness = false
 
 [[bench]]
+name = "string_transport"
+harness = false
+
+[[bench]]
 name = "price_total"
 harness = false
 

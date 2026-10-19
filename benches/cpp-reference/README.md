@@ -59,6 +59,7 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 | `utf8_benchmark.cpp` | `../text.rs` |
 | `variant_benchmark.cpp` | `../value.rs` |
 | `simd_comments_benchmark.cpp` | `../simd_comments.rs` |
+| `string_transport_benchmark.cpp` | `../string_transport.rs` |
 
 These files are comparison fixtures owned by `gd-rs`; update them alongside changes
 to the corresponding Rust benchmark or the C++ API being measured.
@@ -82,6 +83,20 @@ The Rust suite additionally compares sequential column copying with Rayon-backed
 parallel column copying. It creates a persistent worker pool outside the timed loop,
 limited to half the fixed-column count rounded down. Each column remains an independent
 task so the workers can dynamically balance columns of different widths.
+
+Run `../run_string_transport.sh` for the matched `gd::string_transport` comparison.
+Each iteration constructs a string, assigns `"0123456789!"`, appends `" 0123456789!"`
+five times, and destroys it; the 71-character result fits the 150-byte stack buffer of
+the borrowed case. The C++ side compares a borrowed buffer, owned storage, and
+`std::string`; the Rust side compares a borrowed `&mut [u8]` writer, a port of the
+owned storage that allocates an exact-size buffer per append, and `String`. Both hide
+the string's state before filling it so the constant result cannot be precomputed.
+
+The string-transport benchmark has its own executable, built with `-flto` (`/GL` and
+`/LTCG` with MSVC) to match the link-time optimization of the Rust release profile.
+It compiles its own copy of `gd_string_transport.cpp`, so `gd::core` and the other
+reference benchmarks keep their non-LTO build. Configure with
+`-DGD_STRING_TRANSPORT_LTO_FLAG=-flto=thin` to measure ThinLTO instead of full LTO.
 
 The SIMD comment benchmark has its own executable because `gd_table_simd.cpp` is not
 part of `gd::core`. CMake generates a corrected build-tree copy of

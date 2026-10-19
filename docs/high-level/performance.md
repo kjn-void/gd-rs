@@ -539,6 +539,81 @@ takes longer; its timing includes syntax validation and UTF-8 validation that th
 buffer overload does not perform. Both implementations are **O(n)** for these fixtures
 and allocate output proportional to the encoded or decoded result.
 
+## String building in a stack buffer
+
+Benchmark sources: [Rust string-building benchmark](../../benches/string_transport.rs) ·
+[C++ `string_transport` benchmark](../../benches/cpp-reference/string_transport_benchmark.cpp)
+
+Each iteration constructs a string, assigns `"0123456789!"`, appends
+`" 0123456789!"` five times, and destroys the string. The 71-character result fits the
+150-byte stack buffer of the borrowed case, so that case never moves to the heap. Both
+fixtures hide the string's state before filling it (`DoNotOptimize` and `black_box`),
+so the compiler cannot precompute the constant result.
+
+gd-rs has no `string_transport` type, so there is no exact Rust counterpart. The Rust
+fixture uses the equivalent idioms:
+
+- **Borrowed buffer:** C++ `gd::string_transport` over `std::array<std::byte, 150>`;
+  Rust a NUL-terminated writer over a `&mut [u8]` slice of `[u8; 150]`. The Rust writer
+  rejects text that does not fit instead of moving to the heap.
+- **Owned storage:** C++ `gd::string_transport` without a buffer, which allocates an
+  exact-size buffer, copies, and frees the old one on every append; Rust a direct port
+  of that strategy over `Box<[u8]>`.
+- **Standard string:** libc++ `std::string` and Rust `String`.
+
+Measured on 2026-10-18 and 2026-10-19 on an Apple M1 MacBook Air (`MacBookAir10,1`,
+8 cores), macOS 27.0.1, with GD `1bba194909d997891c05fe5a4ce1d3d3a888e0cf`, from the
+change that adds these benchmarks on top of `gd-rs` commit `40b3dce`. C++ uses Apple
+Clang 21.0.0 with libc++, the `release-native` preset (`-O3 -DNDEBUG -march=native`),
+and link-time optimization: the benchmark executable compiles `gd_string_transport.cpp`
+itself, with full LTO (`-flto`) by default or ThinLTO (`-flto=thin`) through
+`GD_STRING_TRANSPORT_LTO_FLAG`. Rust uses rustc 1.99.0, the release profile (thin LTO,
+one codegen unit), `-C target-cpu=native`, and no crate features. C++ values are means
+of ten Google Benchmark repetitions; Rust values are Criterion means. The processes
+were not pinned. The two C++ LTO modes were run alternately, twice each, while the load
+average was elevated by a preceding build; every value was within 2% of the quieter
+complete runs, and a second complete run was within 8% for every row.
+
+```sh
+./benches/run_string_transport.sh
+
+# ThinLTO variant of the C++ benchmark
+cmake -S benches/cpp-reference -B target/cpp-reference/release-native-thinlto \
+  --preset release-native -DGD_STRING_TRANSPORT_LTO_FLAG=-flto=thin
+cmake --build target/cpp-reference/release-native-thinlto \
+  --target gd_cpp_reference_string_transport
+target/cpp-reference/release-native-thinlto/gd_cpp_reference_string_transport \
+  --benchmark_repetitions=10 --benchmark_report_aggregates_only=true
+```
+
+| Case | C++ `-flto` | C++ `-flto=thin` | Rust | C++ `-flto`/Rust | C++ `-flto=thin`/Rust |
+|---|---:|---:|---:|---:|---:|
+| Borrowed 150-byte stack buffer | 19.4 ns | 19.5 ns | 4.86 ns | ×3.99 | ×4.01 |
+| Owned storage, exact-size allocation per append | 230 ns | 231 ns | 176 ns | ×1.31 | ×1.31 |
+| Standard library string (`std::string` / `String`) | 104 ns | 76.9 ns | 140 ns | ×0.74 | ×0.55 |
+
+The borrowed buffer is the fastest way to build this string in both languages. With
+link-time optimization, GD's `append` and `allocate` are inlined into the loop, so the
+remaining difference is the work inside each append. GD decodes and re-encodes its
+packed state word, which holds the borrowed flag, buffer size and length. It also writes
+the text through a `char*`, which C++ allows to alias the `string_transport` object
+itself, so the compiler reloads the pointer and state word after every copy. Rust's
+`&mut` excludes such aliasing: the length stays in a register, the 12-byte copy becomes
+two stores, and the length is stored once at the end. Without link-time optimization,
+each C++ append is additionally an out-of-line call and a library `memcpy` call.
+
+Both owned-storage variants perform six allocate, copy, and free cycles per
+iteration and are the slowest case in each language. For the standard strings,
+libc++ keeps the first 22 bytes inline and allocates twice (capacities 47 and 95),
+whereas `String` allocates or reallocates four times (11, 23, 46 and 92), which is why
+`std::string` is faster here. The LTO mode matters only for `std::string`: with full LTO
+its growth path calls the precompiled `basic_string::__grow_by_and_replace` in the
+libc++ shared library, while ThinLTO inlines the growth path from the libc++ headers
+into direct allocation and copy calls.
+
+The borrowed fixture does not reach the heap-spill path, which has a
+[one-byte over-read](../port/cpp-gd-issues.md#string-transport-heap-spill-reads-one-byte-past-the-borrowed-buffer).
+
 ## Compiled expressions
 
 Benchmark sources: [Rust compile and evaluate benchmarks](../../benches/expression.rs#L14-L50) ·

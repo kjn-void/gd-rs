@@ -9,7 +9,10 @@ Current port scope, design choices and crate selection live in
 [`porting-plan.md`](porting-plan.md).
 
 The analysis covers GD submodule `cb11cff90d05260a88d59a30c9da421cd4e19c34`
-and the current Rust worktree. C++ sources are in the `external/gd`
+and the current Rust worktree. The pinned submodule is now
+`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`, which only adds
+`gd_string_transport.{h,cpp}`; the `string_transport` finding below covers that
+revision. C++ sources are in the `external/gd`
 submodule. Tests and benchmarks are kept separate from product code in the reproducible
 counts in [`source-stats.md`](source-stats.md).
 
@@ -563,6 +566,44 @@ depending on the overload and allocation behind the view.
 Rust's `trim_ascii_control` returns a borrowed `&str`, accepts empty input and trims the
 C++ byte range `<= 0x20`. Unicode whitespace trimming remains `str::trim`.
 
+### String transport heap spill reads one byte past the borrowed buffer
+
+`gd::string_transport` borrows a caller buffer and moves to heap storage when text
+outgrows it. While borrowing, `size()` returns the whole buffer, including the byte
+reserved for the terminator, so at most `size() - 1` characters fit. When an operation
+needs more, `allocate` in
+[`gd_string_transport.cpp`](../../external/gd/source/gd_string_transport.cpp) allocates
+`uSize + 1` bytes and copies the old storage with
+`memcpy(piText_, m_piText, uCurrentSize + 1)`, where `uCurrentSize` is `size()`. That
+reads `size() + 1` bytes from a buffer of `size()` bytes: one byte past its end.
+
+Every operation that first grows a borrowed string through `allocate` reaches the read:
+`append`/`operator+=`, `assign`/`operator=`, and `insert`. AddressSanitizer reports a
+`READ of size 17` from a 16-byte buffer on each path, as a `stack-buffer-overflow` for a
+`std::array` and a `heap-buffer-overflow` ("0 bytes after 16-byte region") for a
+`std::vector`:
+
+```cpp
+std::array<std::byte, 16> arrayBuffer;
+gd::string_transport stringText(arrayBuffer);
+stringText = "0123456789";   // 10 characters + terminator fit
+stringText += "ABCDEFGHIJ";  // 20 characters: allocate() copies 17 bytes
+```
+
+The text remains correct: the destination holds `uSize + 1 >= size() + 1` bytes, and the
+operation then overwrites the copied extra byte with new text or the terminator. The
+defect is the read itself, which is undefined behavior. It can expose an adjacent stack
+or heap byte to the copy, fail sanitizer runs, and fault if the borrowed buffer ends at an
+unmapped page. Owned storage is unaffected because its `size()` equals `length()` and the
+terminator is inside the allocation.
+
+Copying `length() + 1` bytes, the text and its terminator, fixes all three paths;
+`insert` still receives the terminator its `memmove` relies on. With that change the
+same AddressSanitizer cases are clean and produce the expected text. The
+[string-transport benchmark](../high-level/performance.md#string-building-in-a-stack-buffer)
+does not reach this path: its 71-character result fits the 150-byte buffer. Rust slices
+are bounds-checked, so the matched Rust writer cannot copy past its borrowed buffer.
+
 ### UTF-8 traversal validates too little before pointer movement
 
 Several traversal methods choose a width solely from the lead-byte lookup table and then
@@ -775,6 +816,7 @@ may still panic, and incorrect validation or serialization can still compile.
 | URI decoding uses reserved vector capacity without increasing size | Container/buffer contract; portability; bounds/lifetime risk | ☑ | Raw output relies on storage beyond the range guaranteed by `vector::data`; the size mismatch alone does not establish UB on every implementation |
 | Multi-byte splitting compares beyond suffix bounds and appends whole suffixes | Bounds validation; memory-unsafe access; undefined behavior; algorithmic complexity | ☑ | Out-of-bounds reads plus **O(n²)** time/output on ordinary input |
 | Trim helpers dereference the exclusive end and mishandle empty views | Bounds validation; memory-unsafe access; undefined behavior | ☑ | One-past-end or invalid empty-range reads |
+| String-transport heap spill copies `size() + 1` bytes from the borrowed buffer | Bounds validation; memory-unsafe access; undefined behavior | ☑ | One-byte out-of-bounds read of the caller's buffer when text first outgrows it |
 | UTF-8 traversal advances from lead bytes without complete sequence validation | Encoding validation; bounds validation; memory-unsafe access; undefined behavior | ☑ | Out-of-bounds pointer movement, truncated processing, or acceptance of invalid UTF-8 |
 | UTF-8 validation rejects a multibyte character ending exactly at the supplied boundary | Invalid bounds validation; correctness | ☐ | Valid text is rejected depending on unrelated trailing storage |
 | C-string wrappers use a code-point count as a byte count | Invalid length validation; data loss | ☐ | Multibyte URI/JSON input is truncated or only partly processed |

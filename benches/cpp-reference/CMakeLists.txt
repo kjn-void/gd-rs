@@ -54,6 +54,29 @@ target_link_libraries(gd_cpp_reference_benchmarks
         benchmark::benchmark_main
 )
 
+# string_transport is measured with link-time optimization, matching the Rust release
+# profile's LTO. The executable compiles its own copy of the GD source, so gd::core and
+# the other reference benchmarks keep their non-LTO build. Set
+# GD_STRING_TRANSPORT_LTO_FLAG=-flto=thin to measure ThinLTO instead of full LTO.
+set(GD_STRING_TRANSPORT_LTO_FLAG "-flto" CACHE STRING
+    "Clang/GCC link-time optimization flag for gd_cpp_reference_string_transport")
+add_executable(gd_cpp_reference_string_transport
+    string_transport_benchmark.cpp
+    "${GD_SOURCE_DIR}/source/gd_string_transport.cpp"
+)
+target_compile_features(gd_cpp_reference_string_transport PRIVATE cxx_std_20)
+target_include_directories(gd_cpp_reference_string_transport PRIVATE "${GD_SOURCE_DIR}/source")
+if(MSVC)
+    target_compile_options(gd_cpp_reference_string_transport PRIVATE /GL)
+    target_link_options(gd_cpp_reference_string_transport PRIVATE /LTCG)
+else()
+    target_compile_options(gd_cpp_reference_string_transport
+        PRIVATE "${GD_STRING_TRANSPORT_LTO_FLAG}")
+    target_link_options(gd_cpp_reference_string_transport
+        PRIVATE "${GD_STRING_TRANSPORT_LTO_FLAG}")
+endif()
+target_link_libraries(gd_cpp_reference_string_transport PRIVATE benchmark::benchmark_main)
+
 # gd_table_simd.h currently contains one literal placeholder in pack_set_values.
 # Generate a benchmark-only corrected copy without modifying the C++ reference tree.
 set(GD_SIMD_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/gd-simd-generated")
