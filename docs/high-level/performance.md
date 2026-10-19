@@ -550,8 +550,8 @@ Each iteration constructs a string, assigns `"0123456789!"`, appends
 fixtures hide the string's state before filling it (`DoNotOptimize` and `black_box`),
 so the compiler cannot precompute the constant result.
 
-gd-rs has no `string_transport` type, so there is no exact Rust counterpart. The Rust
-fixture uses the equivalent idioms:
+These measurements predate the public [`StringTransport`](../api/string-transport.md)
+API. The Rust fixture measured the following standalone storage strategies:
 
 - **Borrowed buffer:** C++ `gd::string_transport` over `std::array<std::byte, 150>`;
   Rust a NUL-terminated writer over a `&mut [u8]` slice of `[u8; 150]`. The Rust writer

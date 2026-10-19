@@ -73,6 +73,24 @@ impl From<&str> for Value {
     }
 }
 
+impl From<&crate::StringTransport<'_>> for Value {
+    fn from(value: &crate::StringTransport<'_>) -> Self {
+        Self::from(value.as_str())
+    }
+}
+
+impl From<crate::StringTransport<'_>> for Value {
+    fn from(value: crate::StringTransport<'_>) -> Self {
+        Self::from(value.as_str())
+    }
+}
+
+impl<'a> From<&'a crate::StringTransport<'_>> for ValueRef<'a> {
+    fn from(value: &'a crate::StringTransport<'_>) -> Self {
+        Self::String(value.as_str())
+    }
+}
+
 impl<'a> From<&'a str> for ValueRef<'a> {
     fn from(value: &'a str) -> Self {
         Self::String(value)

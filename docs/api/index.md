@@ -19,6 +19,7 @@ facilities are listed in
 - [Table indexes and row ordering](indexes.md)
 - [JSON, URI, and CSV formatting and table import](formatting.md)
 - [UTF and text boundaries](text.md)
+- [String construction with a caller buffer](string-transport.md)
 - [Expressions and scripts](expressions.md)
 - [SQLite integration](sqlite.md)
 - [C++-only facilities and migration choices](cpp-only.md)

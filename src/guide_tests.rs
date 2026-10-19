@@ -23,6 +23,9 @@ mod formatting {}
 #[doc = include_str!("../docs/api/text.md")]
 mod text {}
 
+#[doc = include_str!("../docs/api/string-transport.md")]
+mod string_transport {}
+
 #[doc = include_str!("../docs/api/expressions.md")]
 mod expressions {}
 

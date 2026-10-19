@@ -24,6 +24,7 @@ mod format_import;
 mod guide_tests;
 #[cfg(feature = "sqlite")]
 mod sqlite;
+mod string_transport;
 mod table;
 mod text;
 mod value;
@@ -44,6 +45,7 @@ pub use format_import::{ImportError, table_from_csv, table_from_json};
 pub use sqlite::{
     SqliteConnection, SqliteDatabase, SqliteEngineError, SqliteError, SqliteStorageClass,
 };
+pub use string_transport::StringTransport;
 pub use table::debug as table_debug;
 pub use table::{
     Column, ColumnConversionError, ColumnConverter, ColumnElement, ColumnIndex, ColumnMapping,
