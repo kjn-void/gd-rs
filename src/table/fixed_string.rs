@@ -126,7 +126,29 @@ impl FixedStringData {
     pub(super) fn copy_rows(&self, rows: impl IntoIterator<Item = usize>, count: usize) -> Self {
         let mut result = Self::new(self.capacity, self.nullable, count);
         for row in rows {
-            result.push(self.view().get(row).expect("validated string row"));
+            let index = self.indices[row];
+            let offset = result.buffer.len();
+            if index.length != NULL_LENGTH && index.length > self.capacity / 2 {
+                // One slot read and one slot write replace zero-filling the
+                // whole slot plus copying the text separately. Unused suffixes
+                // need not form valid UTF-8; no view decodes them.
+                result
+                    .buffer
+                    .extend_from_slice(&self.buffer[index.offset..index.offset + self.capacity]);
+            } else {
+                let end = offset
+                    .checked_add(self.capacity)
+                    .expect("string buffer capacity overflow");
+                result.buffer.resize(end, 0);
+                if index.length != NULL_LENGTH {
+                    result.buffer[offset..offset + index.length]
+                        .copy_from_slice(&self.buffer[index.offset..index.offset + index.length]);
+                }
+            }
+            result.indices.push(StringIndex {
+                offset,
+                length: index.length,
+            });
         }
         result
     }

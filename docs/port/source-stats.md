@@ -1,9 +1,9 @@
 # Source size and complexity
 
 This is a snapshot of the `gd-rs` source tree published with the StringTransport
-addition and the `external/gd` submodule baseline, measured on 2026-10-19. Uncommitted
-benchmark experiments are excluded from this publication snapshot; GD is pinned to
-`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`. It measures
+addition and the fixed-string gather optimization, remeasured on 2026-10-20.
+Uncommitted benchmark experiments are excluded from this publication snapshot; GD is
+pinned to `1bba194909d997891c05fe5a4ce1d3d3a888e0cf`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include maintained
@@ -18,14 +18,14 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 35 | 9,710 | 341 | 868 | 2.55 |
-| Rust product + tests (`src`, `tests`) | 54 | 15,494 | 548 | 1,263 | 2.30 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 83 | 20,658 | 748 | 1,909 | 2.55 |
+| Rust product (`src`) | 35 | 9,729 | 341 | 871 | 2.55 |
+| Rust product + tests (`src`, `tests`) | 54 | 15,513 | 548 | 1,266 | 2.31 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 83 | 20,677 | 748 | 1,912 | 2.56 |
 | C++ product (`source`) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
 | C++ product + tests + maintained benchmarks | 170 | 68,815 | 8,942 | 20,879 | 2.33 |
 
-The Rust totals are **9,710 SLOC in `src`** and **20,658 SLOC including `tests`
+The Rust totals are **9,729 SLOC in `src`** and **20,677 SLOC including `tests`
 and `benches`**. The separate test tree adds 5,784 SLOC and benchmarks add 5,164
 SLOC, including the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
