@@ -341,7 +341,7 @@ pub struct InternedStringsMut<'a> {
     interner: &'a Arc<Interner>,
 }
 
-impl<'a> InternedStringsMut<'a> {
+impl InternedStringsMut<'_> {
     /// Returns the number of physical cells in this view.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -374,17 +374,6 @@ impl<'a> InternedStringsMut<'a> {
     #[must_use]
     pub fn cell_mut(&mut self, row: usize) -> Option<InternedStringCellMut<'_>> {
         let value = match &mut self.values {
-            StringSlotsMut::Required(values) => StringSlotMut::Required(values.get_mut(row)?),
-            StringSlotsMut::Nullable(values) => StringSlotMut::Nullable(values.get_mut(row)?),
-        };
-        Some(InternedStringCellMut {
-            value,
-            interner: self.interner,
-        })
-    }
-
-    pub(super) fn into_cell_mut(self, row: usize) -> Option<InternedStringCellMut<'a>> {
-        let value = match self.values {
             StringSlotsMut::Required(values) => StringSlotMut::Required(values.get_mut(row)?),
             StringSlotsMut::Nullable(values) => StringSlotMut::Nullable(values.get_mut(row)?),
         };

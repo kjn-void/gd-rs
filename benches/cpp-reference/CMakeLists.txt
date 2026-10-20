@@ -42,6 +42,7 @@ add_executable(gd_cpp_reference_benchmarks
     sqlite_to_table_benchmark.cpp
     table_copy_benchmark.cpp
     table_column_buffer_benchmark.cpp
+    table_dto_benchmark.cpp
     table_index_benchmark.cpp
     utf8_benchmark.cpp
     variant_benchmark.cpp

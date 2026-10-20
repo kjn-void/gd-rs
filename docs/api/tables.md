@@ -1025,10 +1025,12 @@ sidecar at identical row boundaries. The resulting `RowsMut` halves own disjoint
 neither a table lock nor unsafe aliasing. Callers that manage their own scoped threads
 can use `table.rows_mut().split_at(mid)` directly.
 
-Each `RowMut` assembles dynamic cell references for one row (inline for schemas of up
-to eight columns), so it is intended for genuinely row-oriented, heterogeneous work.
-For a uniform transform, `columns_io` and typed slices avoid that per-row dynamic
-dispatch and remain the preferred bulk-performance API.
+Each `RowMut` borrows its row's column storage and resolves a cell only when it is
+read or written, so creating a view does not depend on the column count. Every `get`
+and `set` still dispatches on the column type and validates written values, so row
+views suit genuinely row-oriented, heterogeneous work. For a uniform transform,
+`columns_io` and typed slices avoid that per-cell dispatch and remain the preferred
+bulk-performance API.
 
 The current API does not insert or remove columns after construction. Build a new
 schema and table when the data model changes.

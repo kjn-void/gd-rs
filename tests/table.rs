@@ -1046,7 +1046,6 @@ fn mutable_row_reads_and_replaces_fixed_and_extra_values() {
             actual: DataType::I64,
         })
     );
-    drop(row);
 
     assert_eq!(table.cell_named(0, "id"), Ok(ValueRef::U64(8)));
     assert_eq!(table.cell_named(0, "name"), Ok(ValueRef::String("Grace")));
@@ -1623,5 +1622,121 @@ proptest! {
         let mut expected: Vec<_> = (0..values.len()).collect();
         expected.sort_by_key(|position| values[*position]);
         prop_assert_eq!(order.positions(), expected);
+    }
+}
+
+fn every_type_row(seed: u8) -> Vec<Value> {
+    let n = i64::from(seed);
+    vec![
+        Value::Null,
+        Value::Bool(seed % 2 == 0),
+        Value::I8(i8::try_from(seed).unwrap()),
+        Value::I16(i16::from(seed) * 3),
+        Value::I32(i32::from(seed) * 5),
+        Value::I64(n * 7),
+        Value::U8(seed),
+        Value::U16(u16::from(seed) * 3),
+        Value::U32(u32::from(seed) * 5),
+        Value::U64(u64::from(seed) * 7),
+        Value::F32(f32::from(seed) / 2.0),
+        Value::F64(f64::from(seed) / 4.0),
+        Value::from(format!("text {seed}").as_str()),
+        Value::Bytes(vec![seed; 3].into_boxed_slice()),
+        Value::Uuid(uuid::Uuid::from_u128(u128::from(seed))),
+        Value::I64(n),
+    ]
+}
+
+fn every_type_table() -> Table {
+    let types = [
+        DataType::Null,
+        DataType::Bool,
+        DataType::I8,
+        DataType::I16,
+        DataType::I32,
+        DataType::I64,
+        DataType::U8,
+        DataType::U16,
+        DataType::U32,
+        DataType::U64,
+        DataType::F32,
+        DataType::F64,
+        DataType::String,
+        DataType::Bytes,
+        DataType::Uuid,
+    ];
+    let mut columns: Vec<ColumnSpec> = types
+        .iter()
+        .enumerate()
+        .map(|(position, &data_type)| {
+            ColumnSpec::new(format!("c{position}"), data_type).nullable(true)
+        })
+        .collect();
+    columns.push(ColumnSpec::new("required", DataType::I64));
+    let mut table = Table::new(Schema::new(columns).unwrap());
+    table.push_row_vec(every_type_row(1)).unwrap();
+    let mut nulls = vec![Value::Null; 15];
+    nulls.push(Value::I64(0));
+    table.push_row_vec(nulls).unwrap();
+    table.push_row_vec(every_type_row(3)).unwrap();
+    table
+}
+
+#[test]
+fn row_views_read_and_write_every_column_type() {
+    let expected = every_type_table();
+    let width = expected.column_count();
+
+    // Range-backed views, including after a split, read the same values as `cell`.
+    let mut table = every_type_table();
+    let (mut left, mut right) = table.rows_mut().split_at(1);
+    for (range, offset) in [(&mut left, 0), (&mut right, 1)] {
+        for relative in 0..range.len() {
+            let row = range.row_mut(relative).unwrap();
+            assert_eq!(row.position(), offset + relative);
+            assert_eq!(row.len(), width);
+            for column in 0..width {
+                assert_eq!(
+                    row.get(column),
+                    Some(expected.cell(offset + relative, column).unwrap())
+                );
+            }
+            assert_eq!(row.get(width), None);
+        }
+        assert!(range.row_mut(range.len()).is_none());
+    }
+
+    // Writes through range-backed and table-backed views reach the same storage.
+    table.rows_mut().for_each(|mut row| {
+        let replacement = every_type_row(9);
+        for (column, value) in replacement.into_iter().enumerate() {
+            row.set(column, value).unwrap();
+        }
+        assert_eq!(
+            row.set(width, Value::Null),
+            Err(TableError::ColumnOutOfBounds {
+                column: width,
+                column_count: width,
+            })
+        );
+    });
+    let mut row = table.row_mut(1).unwrap();
+    for column in 1..width - 1 {
+        row.set(column, Value::Null).unwrap();
+    }
+    assert_eq!(
+        row.set(width - 1, Value::Null),
+        Err(TableError::NullNotAllowed { column: width - 1 })
+    );
+
+    for (position, value) in every_type_row(9).iter().enumerate() {
+        assert_eq!(table.cell(0, position), Ok(value.as_ref()));
+        assert_eq!(table.cell(2, position), Ok(value.as_ref()));
+        let middle = if position == width - 1 {
+            value.as_ref()
+        } else {
+            ValueRef::Null
+        };
+        assert_eq!(table.cell(1, position), Ok(middle));
     }
 }

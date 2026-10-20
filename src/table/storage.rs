@@ -225,7 +225,7 @@ pub(super) enum ColumnData<T> {
     Nullable(Vec<Option<T>>),
 }
 
-enum CellValue<'a, T> {
+pub(super) enum CellValue<'a, T> {
     OutOfBounds,
     Null,
     Value(&'a T),

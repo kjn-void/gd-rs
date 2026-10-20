@@ -573,7 +573,8 @@ typed column slices remain preferable when the operation is homogeneous.
 
 A dynamic column scan yields `ValueRef`; a required fixed-width scan can instead walk
 its typed slice directly. Row iteration assembles a borrowing view across columns.
-`RowMut` similarly assembles disjoint mutable cell references for one row. `RowsMut`
+`RowMut` exclusively borrows the row's column storage and resolves a cell only when
+it is read or written, so creating a view costs the same for any column count. `RowsMut`
 can split all column slices and the open-schema sidecar at one common row boundary;
 its halves can therefore be sent to scoped threads without a table lock or unsafe
 aliasing. With the optional `rayon` feature, `par_for_each_row_mut` performs this

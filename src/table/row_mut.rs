@@ -3,12 +3,11 @@
 use std::fmt;
 
 use compact_str::CompactString;
-use smallvec::SmallVec;
 use uuid::Uuid;
 
 use crate::{Value, ValueRef};
 
-use super::storage::{ColumnData, ColumnStorage, ExtrasStorage, RowExtras};
+use super::storage::{CellValue, ColumnData, ColumnStorage, ExtrasStorage, RowExtras};
 use super::{
     FixedStringCellMut, FixedStringsMut, InternedStringCellMut, InternedStringsMut, Schema, Table,
     TableError, UnknownFields, prepare_cell,
@@ -33,6 +32,19 @@ impl<T> ColumnSliceMut<'_, T> {
         }
     }
 
+    fn get(&self, row: usize) -> CellValue<'_, T> {
+        match self {
+            Self::Required(values) => values
+                .get(row)
+                .map_or(CellValue::OutOfBounds, CellValue::Value),
+            Self::Nullable(values) => match values.get(row) {
+                None => CellValue::OutOfBounds,
+                Some(None) => CellValue::Null,
+                Some(Some(value)) => CellValue::Value(value),
+            },
+        }
+    }
+
     fn cell_mut(&mut self, row: usize) -> Option<CellSlotMut<'_, T>> {
         match self {
             Self::Required(values) => values.get_mut(row).map(CellSlotMut::Required),
@@ -48,13 +60,6 @@ impl<T> ColumnData<T> {
             Self::Nullable(values) => ColumnSliceMut::Nullable(values),
         }
     }
-
-    fn row_cell_mut(&mut self, row: usize) -> Option<CellSlotMut<'_, T>> {
-        match self {
-            Self::Required(values) => values.get_mut(row).map(CellSlotMut::Required),
-            Self::Nullable(values) => values.get_mut(row).map(CellSlotMut::Nullable),
-        }
-    }
 }
 
 enum CellSlotMut<'a, T> {
@@ -63,13 +68,6 @@ enum CellSlotMut<'a, T> {
 }
 
 impl<T> CellSlotMut<'_, T> {
-    fn get(&self) -> Option<&T> {
-        match self {
-            Self::Required(value) => Some(value),
-            Self::Nullable(value) => value.as_ref(),
-        }
-    }
-
     fn set(&mut self, value: Option<T>) -> Result<(), TableError> {
         match self {
             Self::Required(current) => {
@@ -110,39 +108,6 @@ enum CellMut<'a> {
 }
 
 impl CellMut<'_> {
-    fn as_ref(&self) -> ValueRef<'_> {
-        macro_rules! copied {
-            ($slot:expr, $variant:ident) => {
-                $slot
-                    .get()
-                    .map_or(ValueRef::Null, |value| ValueRef::$variant(*value))
-            };
-        }
-        match self {
-            Self::Null => ValueRef::Null,
-            Self::Bool(slot) => copied!(slot, Bool),
-            Self::I8(slot) => copied!(slot, I8),
-            Self::I16(slot) => copied!(slot, I16),
-            Self::I32(slot) => copied!(slot, I32),
-            Self::I64(slot) => copied!(slot, I64),
-            Self::U8(slot) => copied!(slot, U8),
-            Self::U16(slot) => copied!(slot, U16),
-            Self::U32(slot) => copied!(slot, U32),
-            Self::U64(slot) => copied!(slot, U64),
-            Self::F32(slot) => copied!(slot, F32),
-            Self::F64(slot) => copied!(slot, F64),
-            Self::FixedString(slot) => slot.get().map_or(ValueRef::Null, ValueRef::String),
-            Self::InternedString(slot) => slot.get().map_or(ValueRef::Null, ValueRef::String),
-            Self::String(slot) => slot
-                .get()
-                .map_or(ValueRef::Null, |value| ValueRef::String(value)),
-            Self::Bytes(slot) => slot
-                .get()
-                .map_or(ValueRef::Null, |value| ValueRef::Bytes(value)),
-            Self::Uuid(slot) => copied!(slot, Uuid),
-        }
-    }
-
     fn set_validated(&mut self, value: Value) -> Result<(), TableError> {
         macro_rules! set {
             ($slot:expr, $variant:ident) => {
@@ -259,6 +224,49 @@ impl ColumnRangeMut<'_> {
         }
     }
 
+    fn get(&self, row: usize) -> Option<ValueRef<'_>> {
+        macro_rules! copied {
+            ($values:expr, $variant:ident) => {
+                match $values.get(row) {
+                    CellValue::OutOfBounds => None,
+                    CellValue::Null => Some(ValueRef::Null),
+                    CellValue::Value(value) => Some(ValueRef::$variant(*value)),
+                }
+            };
+        }
+        match self {
+            Self::Null(len) => (row < *len).then_some(ValueRef::Null),
+            Self::Bool(values) => copied!(values, Bool),
+            Self::I8(values) => copied!(values, I8),
+            Self::I16(values) => copied!(values, I16),
+            Self::I32(values) => copied!(values, I32),
+            Self::I64(values) => copied!(values, I64),
+            Self::U8(values) => copied!(values, U8),
+            Self::U16(values) => copied!(values, U16),
+            Self::U32(values) => copied!(values, U32),
+            Self::U64(values) => copied!(values, U64),
+            Self::F32(values) => copied!(values, F32),
+            Self::F64(values) => copied!(values, F64),
+            Self::String(values) => match values.get(row) {
+                CellValue::OutOfBounds => None,
+                CellValue::Null => Some(ValueRef::Null),
+                CellValue::Value(value) => Some(ValueRef::String(value)),
+            },
+            Self::InternedString(values) => values
+                .get(row)
+                .map(|value| value.map_or(ValueRef::Null, ValueRef::String)),
+            Self::FixedString(values) => values
+                .get(row)
+                .map(|value| value.map_or(ValueRef::Null, ValueRef::String)),
+            Self::Bytes(values) => match values.get(row) {
+                CellValue::OutOfBounds => None,
+                CellValue::Null => Some(ValueRef::Null),
+                CellValue::Value(value) => Some(ValueRef::Bytes(value)),
+            },
+            Self::Uuid(values) => copied!(values, Uuid),
+        }
+    }
+
     fn cell_mut(&mut self, row: usize) -> Option<CellMut<'_>> {
         macro_rules! cell {
             ($values:expr, $variant:ident) => {
@@ -312,39 +320,6 @@ impl ColumnStorage {
             Self::FixedString(values) => ColumnRangeMut::FixedString(values.view_mut()),
             Self::Bytes(values) => range!(values, Bytes),
             Self::Uuid(values) => range!(values, Uuid),
-        }
-    }
-
-    fn row_cell_mut(&mut self, row: usize) -> Option<CellMut<'_>> {
-        macro_rules! cell {
-            ($values:expr, $variant:ident) => {
-                $values.row_cell_mut(row).map(CellMut::$variant)
-            };
-        }
-        match self {
-            Self::Null(len) => (row < *len).then_some(CellMut::Null),
-            Self::Bool(values) => cell!(values, Bool),
-            Self::I8(values) => cell!(values, I8),
-            Self::I16(values) => cell!(values, I16),
-            Self::I32(values) => cell!(values, I32),
-            Self::I64(values) => cell!(values, I64),
-            Self::U8(values) => cell!(values, U8),
-            Self::U16(values) => cell!(values, U16),
-            Self::U32(values) => cell!(values, U32),
-            Self::U64(values) => cell!(values, U64),
-            Self::F32(values) => cell!(values, F32),
-            Self::F64(values) => cell!(values, F64),
-            Self::String(values) => cell!(values, String),
-            Self::InternedString(values) => values
-                .view_mut()
-                .into_cell_mut(row)
-                .map(CellMut::InternedString),
-            Self::FixedString(values) => values
-                .view_mut()
-                .into_cell_mut(row)
-                .map(CellMut::FixedString),
-            Self::Bytes(values) => cell!(values, Bytes),
-            Self::Uuid(values) => cell!(values, Uuid),
         }
     }
 }
@@ -417,13 +392,87 @@ impl ExtrasStorage {
     }
 }
 
+/// Column storage that a [`RowMut`] reads and writes one row of on demand.
+///
+/// Resolving cells lazily keeps row-view construction independent of the column
+/// count; only the cells an operation touches are dispatched.
+trait RowCells {
+    fn column_count(&self) -> usize;
+    fn cell(&self, row: usize, column: usize) -> Option<ValueRef<'_>>;
+    fn set_cell_validated(
+        &mut self,
+        row: usize,
+        column: usize,
+        value: Value,
+    ) -> Result<(), TableError>;
+}
+
+impl RowCells for Vec<ColumnStorage> {
+    fn column_count(&self) -> usize {
+        self.len()
+    }
+
+    fn cell(&self, row: usize, column: usize) -> Option<ValueRef<'_>> {
+        self.as_slice().get(column)?.get(row)
+    }
+
+    fn set_cell_validated(
+        &mut self,
+        row: usize,
+        column: usize,
+        value: Value,
+    ) -> Result<(), TableError> {
+        let column_count = self.len();
+        self.as_mut_slice()
+            .get_mut(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count,
+            })?
+            .set_validated(row, value)
+    }
+}
+
+impl RowCells for Vec<ColumnRangeMut<'_>> {
+    fn column_count(&self) -> usize {
+        self.len()
+    }
+
+    fn cell(&self, row: usize, column: usize) -> Option<ValueRef<'_>> {
+        self.as_slice().get(column)?.get(row)
+    }
+
+    fn set_cell_validated(
+        &mut self,
+        row: usize,
+        column: usize,
+        value: Value,
+    ) -> Result<(), TableError> {
+        let column_count = self.len();
+        self.as_mut_slice()
+            .get_mut(column)
+            .ok_or(TableError::ColumnOutOfBounds {
+                column,
+                column_count,
+            })?
+            .cell_mut(row)
+            .ok_or(TableError::InternalInvariant {
+                detail: "row view position exceeded its column range",
+            })?
+            .set_validated(value)
+    }
+}
+
 /// A mutable borrowing view over one table row.
 ///
-/// The view owns disjoint mutable references to that row's cells. It can change
-/// values but cannot add or remove rows or fixed columns.
+/// The view exclusively borrows the row's column storage and resolves a cell
+/// only when it is read or written, so constructing a view does not depend on
+/// the column count. It can change values but cannot add or remove rows or fixed
+/// columns.
 pub struct RowMut<'a> {
     schema: &'a Schema,
-    cells: SmallVec<[CellMut<'a>; 8]>,
+    cells: &'a mut (dyn RowCells + 'a),
+    row: usize,
     extras: RowExtrasMut<'a>,
     position: usize,
     tombstoned: bool,
@@ -434,7 +483,7 @@ impl fmt::Debug for RowMut<'_> {
         formatter
             .debug_struct("RowMut")
             .field("position", &self.position)
-            .field("len", &self.cells.len())
+            .field("len", &self.cells.column_count())
             .field("tombstoned", &self.tombstoned)
             .finish_non_exhaustive()
     }
@@ -459,19 +508,19 @@ impl RowMut<'_> {
     /// Returns the number of fixed-schema cells.
     #[must_use]
     pub fn len(&self) -> usize {
-        self.cells.len()
+        self.cells.column_count()
     }
 
     /// Returns whether the fixed schema has no columns.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.cells.is_empty()
+        self.cells.column_count() == 0
     }
 
     /// Reads one fixed cell by column position.
     #[must_use]
     pub fn get(&self, column: usize) -> Option<ValueRef<'_>> {
-        self.cells.get(column).map(CellMut::as_ref)
+        self.cells.cell(self.row, column)
     }
 
     /// Reads one cell by primary name, alias, or stored row-local name.
@@ -495,16 +544,10 @@ impl RowMut<'_> {
             .column(column)
             .ok_or(TableError::ColumnOutOfBounds {
                 column,
-                column_count: self.cells.len(),
+                column_count: self.cells.column_count(),
             })?;
         prepare_cell(spec, &mut value, column)?;
-        let Some(cell) = self.cells.get_mut(column) else {
-            return Err(TableError::ColumnOutOfBounds {
-                column,
-                column_count: self.cells.len(),
-            });
-        };
-        cell.set_validated(value)
+        self.cells.set_cell_validated(self.row, column, value)
     }
 
     /// Replaces a fixed cell or stores an unknown name as a row-local value.
@@ -580,11 +623,6 @@ impl RowsMut<'_> {
         if row >= self.len {
             return None;
         }
-        let cells: Option<SmallVec<[CellMut<'_>; 8]>> = self
-            .columns
-            .iter_mut()
-            .map(|column| column.cell_mut(row))
-            .collect();
         let extras = self.extras.row_mut(row)?;
         let tombstoned = self
             .tombstones
@@ -593,7 +631,8 @@ impl RowsMut<'_> {
             .unwrap_or(false);
         Some(RowMut {
             schema: self.schema,
-            cells: cells?,
+            cells: &mut self.columns,
+            row,
             extras,
             position: self.start + row,
             tombstoned,
@@ -702,15 +741,11 @@ impl Table {
         if row >= self.row_count {
             return None;
         }
-        let cells: Option<SmallVec<[CellMut<'_>; 8]>> = self
-            .columns
-            .iter_mut()
-            .map(|column| column.row_cell_mut(row))
-            .collect();
         let extras = self.extras.row_cell_mut(row)?;
         Some(RowMut {
             schema: &self.schema,
-            cells: cells?,
+            cells: &mut self.columns,
+            row,
             extras,
             position: row,
             tombstoned: self.tombstones.is_tombstoned(row),
@@ -743,8 +778,8 @@ impl Table {
     ///
     /// `min_rows` is the splitting threshold: a range is split while it holds more
     /// than `min_rows` rows, so scheduled ranges never exceed that size. Use a
-    /// non-trivial threshold to amortize dynamic row-view construction and task
-    /// scheduling. Enable the crate's `rayon` feature to use this method.
+    /// non-trivial threshold to amortize range splitting and task scheduling. Enable
+    /// the crate's `rayon` feature to use this method.
     ///
     /// # Panics
     ///

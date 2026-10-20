@@ -56,6 +56,7 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 | `sqlite_to_table_benchmark.cpp` | `../sqlite_to_table.rs` |
 | `table_copy_benchmark.cpp` | `../table_copy.rs` |
 | `table_column_buffer_benchmark.cpp`, `table_index_benchmark.cpp` | `../table.rs` |
+| `table_dto_benchmark.cpp` | `../table_dto.rs` |
 | `utf8_benchmark.cpp` | `../text.rs` |
 | `variant_benchmark.cpp` | `../value.rs` |
 | `simd_comments_benchmark.cpp` | `../simd_comments.rs` |

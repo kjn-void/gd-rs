@@ -1,7 +1,8 @@
 # Source size and complexity
 
 This is a snapshot of the `gd-rs` source tree published with the StringTransport
-addition and the fixed-string gather optimization, remeasured on 2026-10-20.
+addition, the fixed-string gather optimization, lazily resolved `RowMut` views and the
+matched GD DTO row-sum benchmarks, remeasured on 2026-10-20.
 Uncommitted benchmark experiments are excluded from this publication snapshot; GD is
 pinned to `1bba194909d997891c05fe5a4ce1d3d3a888e0cf`. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
@@ -18,16 +19,16 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 35 | 9,729 | 341 | 871 | 2.55 |
-| Rust product + tests (`src`, `tests`) | 54 | 15,513 | 548 | 1,266 | 2.31 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 83 | 20,677 | 748 | 1,912 | 2.56 |
+| Rust product (`src`) | 35 | 9,697 | 337 | 859 | 2.55 |
+| Rust product + tests (`src`, `tests`) | 54 | 15,588 | 547 | 1,264 | 2.31 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 84 | 20,897 | 754 | 1,933 | 2.56 |
 | C++ product (`source`) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
-| C++ product + tests + maintained benchmarks | 170 | 68,815 | 8,942 | 20,879 | 2.33 |
+| C++ product + tests + maintained benchmarks | 171 | 68,957 | 8,950 | 20,904 | 2.34 |
 
-The Rust totals are **9,729 SLOC in `src`** and **20,677 SLOC including `tests`
-and `benches`**. The separate test tree adds 5,784 SLOC and benchmarks add 5,164
-SLOC, including the string-transport comparison, the lane-split float column sums, their summation-order tests and
+The Rust totals are **9,697 SLOC in `src`** and **20,897 SLOC including `tests`
+and `benches`**. The separate test tree adds 5,891 SLOC and benchmarks add 5,309
+SLOC, including the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
 owning immutable selections, shared mutable projections and their
@@ -40,7 +41,7 @@ and corresponding ownership and heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 3,951 SLOC, including the `string_transport` benchmark, the interned
+references add 4,093 SLOC, including the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string

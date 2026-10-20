@@ -438,6 +438,55 @@ path uses the standard stable **O(n log n)** slice sort and stores an **O(n)**
 permutation. These APIs do different post-sort work: C++ has physically reordered
 rows, while Rust consumers traverse the returned order.
 
+### Row-wise sum (GD DTO test)
+
+Benchmark sources: [Rust `TableDto`](../../benches/table_dto.rs#L19-L170) ·
+[C++ `TableDto`](../../benches/cpp-reference/table_dto_benchmark.cpp#L19-L164)
+
+This is the GD author's "[benchmark] table dto" test. The C++ file keeps the upstream
+table setup and loop bodies and replaces only `gd::benchmark::run_s` with Google
+Benchmark. Both sides build 10,000 rows of three nullable `u64` inputs plus a nullable
+`SUM` column, write each row's sum, return the grand total, and compare it with a
+precomputed checksum on every iteration. Setup is outside the timed region.
+
+The variants are not all expressible in both libraries:
+
+- `SumSpecial` uses GD's `(uint64_t)` conversion without a null check; gd-rs has no
+  unchecked conversion.
+- GD `Sum04`/`Sum05` cast `cell_get(row, 0)` to a struct, relying on the DTO row layout,
+  and `Sum05` writes the sum without updating null metadata. gd-rs stores columns
+  separately and has no safe row-memory cast. Its counterparts borrow three typed input
+  columns and one output column through `columns_io`: nullable for `Sum04`, and a
+  required (non-nullable) schema for `Sum05`, which matches `Sum05` reading raw values
+  without consulting nulls.
+
+**M3 Max release**, measured 2026-10-20: Apple M3 Max, macOS 27.0.1, Apple Clang
+21.0.0 with CMake `Release` (`-O3 -DNDEBUG`), rustc 1.99.1 with the crate's release
+profile (thin LTO, one codegen unit), default features, no native-CPU flags, single
+thread. gd-rs at `46d05a1` plus the lazy `RowMut` change; GD at `1bba194`. C++ medians
+are over five Google Benchmark repetitions of at least one second; Rust times are
+Criterion point estimates. A repeated run of both was within 3%.
+
+| Variant | C++ GD | gd-rs | GD/gd-rs |
+|---|---:|---:|---:|
+| `Sum01` row iterator, null check | 113.7 µs | 114.5 µs | ×0.99 |
+| `Sum02` indexed, null check | 112.0 µs | 89.1 µs | ×1.26 |
+| `Sum03` indexed, no null check | 108.2 µs | 97.2 µs | ×1.11 |
+| `SumSpecial` `(uint64_t)` cast | 70.3 µs | no counterpart | — |
+| `Sum04` struct cast / typed nullable columns | 42.0 µs | 7.17 µs | ×5.86 |
+| `Sum05` struct cast, direct write / typed required columns | 9.43 µs | 2.84 µs | ×3.32 |
+
+GD's unchecked `SumSpecial` is 1.27× faster than gd-rs's fastest checked per-cell
+form (`Sum02`). With the nullable schema, gd-rs's typed columns take 7.17 µs, 1.32×
+slower than GD's raw `Sum05`: nullable columns store `Option<u64>` (16 bytes per value),
+whereas the GD row stores 8-byte values with separate null flags.
+
+`Sum01` previously built a row view containing every cell before each closure call.
+Resolving cells lazily reduced that variant from 387.8 µs to 167.7 µs (×2.31) when the
+same Criterion file was built against gd-rs `46d05a1` with and without the change,
+using Cargo's default release profile; the other variants were unchanged.
+No Core Ultra results are recorded for this workload.
+
 ## Binary operations
 
 Benchmark sources: [Rust binary benchmarks](../../benches/binary.rs#L8-L61) ·

@@ -54,6 +54,10 @@ name = "table"
 harness = false
 
 [[bench]]
+name = "table_dto"
+harness = false
+
+[[bench]]
 name = "table_copy"
 harness = false
 required-features = ["rayon"]

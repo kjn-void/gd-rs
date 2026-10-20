@@ -243,7 +243,7 @@ pub struct FixedStringsMut<'a> {
     base: usize,
 }
 
-impl<'a> FixedStringsMut<'a> {
+impl FixedStringsMut<'_> {
     /// Returns the number of cells in this view.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -277,15 +277,6 @@ impl<'a> FixedStringsMut<'a> {
     /// Borrows one slot for mutation without permitting invalid UTF-8.
     #[must_use]
     pub fn cell_mut(&mut self, row: usize) -> Option<FixedStringCellMut<'_>> {
-        let index = self.indices.get_mut(row)?;
-        let begin = index.offset - self.base;
-        Some(FixedStringCellMut {
-            length: &mut index.length,
-            slot: &mut self.buffer[begin..begin + self.capacity],
-            nullable: self.nullable,
-        })
-    }
-    pub(super) fn into_cell_mut(self, row: usize) -> Option<FixedStringCellMut<'a>> {
         let index = self.indices.get_mut(row)?;
         let begin = index.offset - self.base;
         Some(FixedStringCellMut {
