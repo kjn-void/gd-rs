@@ -282,11 +282,19 @@ columns.
 ## Null storage
 
 Required columns use dense `Vec<T>` storage because the schema and atomic row
-validation guarantee that every committed row contains a value. Nullable columns use
-`Vec<Option<T>>`; for example, `Option<i64>` occupies 16 bytes on the current target.
-A separate validity bitmap could reduce nullable-column memory, but would add another
-allocation and more indexing logic. The public API exposes dense required values as a
-slice, not the internal storage enum, so nullable representation can still change.
+validation guarantee that every committed row contains a value.
+
+Nullable fixed-width numeric columns (`i8` through `u64`, `f32`, `f64`) store a dense
+`Vec<T>` of values and a parallel `Vec<bool>` with one validity byte per row. A null
+row's value slot holds an unspecified placeholder. `Option<i64>` would occupy 16 bytes
+per row; the split layout uses 9, and keeps the values contiguous so bulk loops can be
+vectorized. Validity bytes rather than bits keep every row independently addressable, so
+`RowsMut` and parallel column partitions can still split at any row.
+
+Other nullable columns keep `Vec<Option<T>>`. `Option<bool>`, `Option<CompactString>`,
+and `Option<Box<[u8]>>` use spare bit patterns, so a separate validity vector would
+add memory rather than save it; `Option<Uuid>` costs one byte more than a UUID, the
+same as a validity byte.
 
 ## Tombstoned rows
 
@@ -332,16 +340,19 @@ returns the required column as `&[T]`. It supports Boolean, fixed-width integer,
 floating-point, and UUID columns. A wrong type returns `ColumnSliceError::TypeMismatch`;
 a nullable column returns `ColumnSliceError::Nullable`.
 
-`Column::as_nullable_slice::<T>` exposes nullable storage as `&[Option<T>]` for the
-same fixed-width types. It checks type and nullability once, leaving only ordinary
-typed indexing and optional-value handling inside the loop. A required column
+`Column::as_nullable_slice::<T>` borrows nullable storage for the same element types.
+For fixed-width numbers it returns `NullableValues<T>`, whose `values()` and
+`validity()` borrow the two dense slices, `value(row)` reads one row as `Option<T>`, and
+`iter()` yields `Option<T>` in row order. For `bool`, UUIDs, and `CompactString` it
+returns `&[Option<T>]`. The element type selects the view at compile time, so typed loops
+contain no layout dispatch. It checks type and nullability once. A required column
 returns `ColumnSliceError::Required`; a wrong element type returns `TypeMismatch`.
 The schema controls which interface applies even when a nullable column contains no
-nulls. This does not change storage: required columns use `Vec<T>`, nullable columns
-use `Vec<Option<T>>`.
+nulls.
 
 Mutable output views offer `as_nullable_mut_slice::<T>` for bulk transforms that can
-retain, insert, or remove nulls:
+retain, insert, or remove nulls. For numbers it returns `NullableValuesMut<T>`, whose
+`into_parts()` borrows the values and validity bytes mutably:
 
 ```rust
 use gd::{ColumnSpec, DataType, Schema, Table, Value};
@@ -353,8 +364,13 @@ let mut table = Table::new(schema);
 table.push_row([Value::I64(25)])?;
 table.push_row([Value::Null])?;
 let (_, [amounts]) = table.columns_io([], [0])?;
-for amount in amounts.as_nullable_mut_slice::<i64>()? {
-    *amount = amount.map(|value| value * 2);
+let (values, valid) = amounts
+    .as_nullable_mut_slice::<i64>()?
+    .into_parts();
+for (value, &valid) in values.iter_mut().zip(valid.iter()) {
+    if valid {
+        *value *= 2;
+    }
 }
 assert_eq!(table.column(0).unwrap().as_nullable_slice::<i64>()?, &[Some(50), None]);
 # Ok::<(), Box<dyn std::error::Error>>(())

@@ -52,10 +52,10 @@ pub use table::{
     ColumnMut, ColumnSelectionError, ColumnSliceError, ColumnSpec, CompositeIndex,
     ConcurrentTableBuilder, FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut,
     IndexKeyRef, InternedStringCellMut, InternedStringError, InternedStrings, InternedStringsMut,
-    NullOrder, Row, RowCompaction, RowMut, RowOrder, RowsMut, Schema, SelectedRow,
-    SharedProjectionError, SharedRecordTable, SharedTableProjection, SharedTableSelection,
-    SortDirection, Table, TableError, TableProjectionReadGuard, TableProjectionWriteGuard,
-    TableSelection, UnknownFields,
+    NullOrder, NullableValues, NullableValuesMut, Row, RowCompaction, RowMut, RowOrder, RowsMut,
+    Schema, SelectedRow, SharedProjectionError, SharedRecordTable, SharedTableProjection,
+    SharedTableSelection, SortDirection, Table, TableError, TableProjectionReadGuard,
+    TableProjectionWriteGuard, TableSelection, UnknownFields,
 };
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,

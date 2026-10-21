@@ -236,7 +236,9 @@ Sources: [Rust application](../../benches/order_workflow/workload.rs),
 
 On the measured M3 Max, one million order lines give these median times across
 three process rounds with five samples each. Speedup multipliers divide GD elapsed
-time by gd-rs elapsed time, using the unrounded medians.
+time by gd-rs elapsed time, using the unrounded medians. These gd-rs figures predate
+the change to [split value/validity storage for nullable numeric
+columns](#nullable-numeric-storage); that section measures its effect on one host.
 
 | Stage | Workers | gd-rs (SoA) ms | GD (AoS) ms | GD (AoSoA) ms | gd-rs speedup vs AoS | gd-rs speedup vs AoSoA |
 |---|---:|---:|---:|---:|---:|---:|
@@ -260,10 +262,57 @@ import and preparation remain sequential. Stage medians come from separate
 invocations and should not be added to predict a complete-run median.
 
 Whole-process peak RSS for `complete` is 591.9/601.6 MiB for gd-rs at one/eight
-workers, 521.6/536.2 MiB for GD AoS, and 518.2/536.8 MiB for GD AoSoA. The stripped
+workers, 521.6/536.2 MiB for GD AoS, and 518.2/536.8 MiB for GD AoSoA, measured before
+the nullable storage change. On the M6 that change reduced gd-rs's `complete` peak by
+42%, to 469/476 MiB. The stripped
 standalone executables occupy 2,384,304, 1,325,104, and 1,324,960 bytes respectively;
 these include the benchmark driver and dependencies, not just table code.
 The full tables also cover 10,000 and 100,000 lines and every worker count.
+
+## Nullable numeric storage
+
+Sources: [Rust application](../../benches/order_workflow/workload.rs),
+[storage](../../src/table/storage.rs),
+[comparison script](../../benches/order_workflow/compare_revisions.sh), and
+[raw measurements](measurements/nullable-storage-m6.json).
+
+Nullable `i64` columns now store a dense `Vec<i64>` plus one validity byte per row
+instead of `Vec<Option<i64>>`, which takes 16 bytes per row. Every numeric column in
+this workflow is nullable. The workflow application is otherwise unchanged; it reads
+rows through `NullableValues::value` and updates amounts through the split
+values and validity.
+
+The comparison ran on an otherwise idle Apple M6 (12 cores, macOS 27.0.1, rustc
+1.99.1) with the runner's build flags. Both builds first verified every output cell
+against the SQL oracle at one and eight workers. Each line is the per-invocation
+median of five samples at one million lines; the two rounds alternated the builds,
+and ranges span both rounds. A later validation session with the checked-in script
+reproduced the peak RSS exactly and the same direction for `prepare` and the parallel
+variant batch, but the host was busier then and its timings varied by up to 25%
+between rounds, so the table uses the quieter session; both are in the raw data.
+
+| Stage | Workers | `Vec<Option<i64>>` ms | Values + validity ms | Time | Peak RSS before → after |
+|---|---:|---:|---:|---|---|
+| Prepare | 1 | 90.4–94.7 | 103.5–106.0 | 12–14% slower | 476 → 297 MiB (−38%) |
+| Eight variants | 1 | 26.7–26.8 | 28.8–29.5 | 8–10% slower | 657 → 412 MiB (−37%) |
+| Eight variants | 8 | 8.26–8.31 | 7.72–7.76 | 7% faster | 662 → 412 MiB (−38%) |
+| Complete | 1 | 210.6–213.7 | 217.9–225.5 | 3–6% slower | 814 → 469 MiB (−42%) |
+| Complete | 8 | 196.3–196.4 | 202.6–204.5 | 3–4% slower | 817 → 476 MiB (−42%) |
+
+The memory reduction comes from halving each nullable `i64` cell. The single-worker
+slowdown comes from row-at-a-time work that now touches two vectors per cell:
+appending a row writes a value and a validity byte, a scattered lookup reads two cache
+lines, and gathering rows copies both vectors. Measured separately on the same host
+with ten nullable `i64` columns and one million rows, `push_row` took 25% longer,
+scattered reads 14% longer, and `copy_rows` 15% longer. Sequential reads were 19%
+faster, and filtering on a value 5% faster. The parallel variant batch is
+bandwidth-bound and benefits from the smaller columns.
+
+Bulk numeric work gains the most. In the repository microbenchmarks on the same host,
+the one-million-row nullable `sum_f64` fell from 176 µs to 116 µs and `sum_f32` from
+157 µs to 59 µs: values are contiguous, and a null is masked with a bitwise AND
+instead of unpacking an `Option`. The `TableDto` per-cell variants (`Sum01`–`Sum03`)
+were 5–9% slower and the typed-column variants unchanged within noise.
 
 ## Rust column access and import
 
@@ -279,18 +328,20 @@ contain 1.25 million rows in total; there is no fresh staging-vector allocation
 for each row. Owned text and binary payloads move into their destination columns.
 
 The application binds numeric columns once using
-`Column::as_nullable_slice::<i64>`. Join-result materialization, validation,
-clean-row selection, and variant predicates then read typed `Option<i64>` values
-by physical row position.
+`Column::as_nullable_slice::<i64>`, which returns `NullableValues<i64>`. Join-result
+materialization, validation, clean-row selection, and variant predicates then read
+`value(row)` as `Option<i64>` by physical row position.
 It copies selected columns into owned results and updates each result's amount
-column through `ColumnMut::as_nullable_mut_slice::<i64>`, retaining checked
+column through the values and validity bytes from
+`ColumnMut::as_nullable_mut_slice::<i64>().into_parts()`, retaining checked
 multiply/add arithmetic. `select_rows` continues to skip tombstoned rows.
 
 Type and nullability checks happen when borrowing the columns. Nullable schemas
 remain nullable, including clean and variant tables with fully populated values.
-Storage remains `Vec<Option<i64>>`; the change does not introduce packed validity
-bitmaps or explicit SIMD intrinsics. Strings still use owned compact-string
-storage. No new dependency or global allocator is required.
+Nullable `i64` columns store a dense `Vec<i64>` plus one validity byte per row (9
+bytes per row instead of 16 for `Option<i64>`). There are no packed validity bitmaps
+or explicit SIMD intrinsics. Strings still use owned compact-string storage. No new
+dependency or global allocator is required.
 
 ## GD SIMD variant
 
@@ -518,8 +569,9 @@ Rust's compact strings do not represent all long-string/blob workloads.
 
 All three implementations successfully express the requested workflow and produce
 identical results. GD's runtime schemas, nullable cells, cursor adapter, and
-`harvest` are useful building blocks. Its packed rows use less space per nullable
-integer than Rust's `Option<i64>` columns. The C++ application uses GD's published
+`harvest` are useful building blocks. Its packed rows store a nullable integer in 8
+bytes plus a shared null bitmap, slightly less than Rust's 8-byte value plus validity
+byte. The C++ application uses GD's published
 APIs. Concurrent readers with separately owned outputs produced correct results in
 all three implementations under the application protocol described below.
 

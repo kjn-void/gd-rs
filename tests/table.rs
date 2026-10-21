@@ -737,8 +737,20 @@ fn required_fixed_width_columns_expose_typed_slices() {
 
 #[test]
 fn nullable_fixed_width_columns_expose_typed_slices() {
+    // Option-backed types borrow `&mut [Option<T>]`; numeric types borrow `NullableValuesMut`.
+    macro_rules! write_rows {
+        (option, $values:ident, $value:ident) => {
+            $values[0] = None;
+            $values[1] = Some($value);
+        };
+        (numeric, $values:ident, $value:ident) => {
+            assert!($values.set(0, None));
+            assert!($values.set(1, Some($value)));
+            assert!(!$values.set(2, None));
+        };
+    }
     macro_rules! check {
-        ($type:ty, $variant:ident, $value:expr) => {{
+        ($kind:ident, $type:ty, $variant:ident, $value:expr) => {{
             let value: $type = $value;
             let schema =
                 Schema::new([ColumnSpec::new("value", DataType::$variant).nullable(true)]).unwrap();
@@ -760,29 +772,30 @@ fn nullable_fixed_width_columns_expose_typed_slices() {
                     .column(0)
                     .unwrap()
                     .as_nullable_slice::<$type>()
-                    .unwrap(),
-                &[Some(value), None],
+                    .unwrap()
+                    .to_vec(),
+                vec![Some(value), None],
             );
             let (_, [column]) = table.columns_io([], [0]).unwrap();
-            let values = column.as_nullable_mut_slice::<$type>().unwrap();
-            values[0] = None;
-            values[1] = Some(value);
+            #[allow(unused_mut)]
+            let mut values = column.as_nullable_mut_slice::<$type>().unwrap();
+            write_rows!($kind, values, value);
             assert_eq!(table.cell(0, 0), Ok(ValueRef::Null));
             assert_eq!(table.cell(1, 0), Ok(ValueRef::$variant(value)));
         }};
     }
-    check!(bool, Bool, true);
-    check!(i8, I8, -8);
-    check!(i16, I16, -16);
-    check!(i32, I32, -32);
-    check!(i64, I64, -64);
-    check!(u8, U8, 8);
-    check!(u16, U16, 16);
-    check!(u32, U32, 32);
-    check!(u64, U64, 64);
-    check!(f32, F32, 1.25);
-    check!(f64, F64, 2.5);
-    check!(uuid::Uuid, Uuid, uuid::Uuid::from_u128(42));
+    check!(option, bool, Bool, true);
+    check!(numeric, i8, I8, -8);
+    check!(numeric, i16, I16, -16);
+    check!(numeric, i32, I32, -32);
+    check!(numeric, i64, I64, -64);
+    check!(numeric, u8, U8, 8);
+    check!(numeric, u16, U16, 16);
+    check!(numeric, u32, U32, 32);
+    check!(numeric, u64, U64, 64);
+    check!(numeric, f32, F32, 1.25);
+    check!(numeric, f64, F64, 2.5);
+    check!(option, uuid::Uuid, Uuid, uuid::Uuid::from_u128(42));
 }
 
 #[test]
@@ -852,9 +865,9 @@ fn nullable_bulk_transform_preserves_nulls_and_tombstones() {
     table.tombstone_row(2).unwrap();
     let ([amounts], [results]) = table.columns_io([0], [1]).unwrap();
     let amounts = amounts.as_nullable_slice::<i64>().unwrap();
-    let results = results.as_nullable_mut_slice::<i64>().unwrap();
-    for (amount, result) in amounts.iter().zip(results) {
-        *result = amount.map(|value| value * 2);
+    let mut results = results.as_nullable_mut_slice::<i64>().unwrap();
+    for (row, amount) in amounts.iter().enumerate() {
+        assert!(results.set(row, amount.map(|value| value * 2)));
     }
     assert_eq!(
         table.column(1).unwrap().as_nullable_slice::<i64>().unwrap(),
@@ -1739,4 +1752,69 @@ fn row_views_read_and_write_every_column_type() {
         };
         assert_eq!(table.cell(1, position), Ok(middle));
     }
+}
+
+#[test]
+fn nullable_numeric_views_expose_values_and_validity() {
+    let schema = Schema::new([
+        ColumnSpec::new("f64", DataType::F64).nullable(true),
+        ColumnSpec::new("f32", DataType::F32).nullable(true),
+        ColumnSpec::new("text", DataType::String).nullable(true),
+    ])
+    .unwrap();
+    let mut table = Table::new(schema);
+    // More than one 16-lane chunk, so both the vector body and the tail run.
+    for row in 0..37_u16 {
+        let value = (row % 3 != 0).then_some(f64::from(row));
+        table
+            .push_row([
+                value.map_or(Value::Null, Value::F64),
+                (row % 3 != 0)
+                    .then_some(f32::from(row))
+                    .map_or(Value::Null, Value::F32),
+                Value::Null,
+            ])
+            .unwrap();
+    }
+    let expected: f64 = (0..37_u16).filter(|row| row % 3 != 0).map(f64::from).sum();
+
+    // Null slots can hold any placeholder, including NaN; sums must ignore it.
+    let (_, [f64s, f32s]) = table.columns_io([], [0, 1]).unwrap();
+    let (values, valid) = f64s.as_nullable_mut_slice::<f64>().unwrap().into_parts();
+    for (value, &valid) in values.iter_mut().zip(valid.iter()) {
+        if !valid {
+            *value = f64::NAN;
+        }
+    }
+    let (values, valid) = f32s.as_nullable_mut_slice::<f32>().unwrap().into_parts();
+    for (value, &valid) in values.iter_mut().zip(valid.iter()) {
+        if !valid {
+            *value = f32::NAN;
+        }
+    }
+    assert_eq!(table.column(0).unwrap().sum_f64().unwrap(), expected);
+    let expected_f32: f32 = (0..37_u16).filter(|row| row % 3 != 0).map(f32::from).sum();
+    assert_eq!(table.column(1).unwrap().sum_f32().unwrap(), expected_f32);
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::Null));
+    assert_eq!(table.cell(1, 0), Ok(ValueRef::F64(1.0)));
+
+    // Flipping validity through the view exposes the stored value.
+    let (_, [f64s]) = table.columns_io([], [0]).unwrap();
+    let (values, valid) = f64s.as_nullable_mut_slice::<f64>().unwrap().into_parts();
+    values[0] = 0.5;
+    valid[0] = true;
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::F64(0.5)));
+    let view = table.column(0).unwrap().as_nullable_slice::<f64>().unwrap();
+    assert_eq!(view.len(), 37);
+    assert_eq!(view.value(0), Some(0.5));
+    assert_eq!(view.value(3), None);
+    assert_eq!(view.get(37), None);
+
+    // Option-backed element types keep one `Option` per row.
+    let text: &[Option<compact_str::CompactString>] = table
+        .column(2)
+        .unwrap()
+        .as_nullable_slice::<compact_str::CompactString>()
+        .unwrap();
+    assert!(text.iter().all(Option::is_none));
 }

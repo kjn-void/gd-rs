@@ -167,8 +167,8 @@ pub fn prepare(input: &Inputs, sorted: bool) -> Prepared {
     for (line, order) in line_orders {
         let customer = order.and_then(|i| order_customers[i].1);
 
-        let l = |column: usize| lines[column][line];
-        let o = |column: usize| order.and_then(|i| orders[column][i]);
+        let l = |column: usize| lines[column].value(line);
+        let o = |column: usize| order.and_then(|i| orders[column].value(i));
 
         let name = customer.map_or(ValueRef::Null, |i| names.get(i).unwrap());
         let quantity = l(2);
@@ -182,7 +182,8 @@ pub fn prepare(input: &Inputs, sorted: bool) -> Prepared {
         let mut errors = i64::from(order.is_none());
         errors |= i64::from(order.is_some() && customer.is_none()) * 2;
         errors |= i64::from(customer.is_some() && name.as_str().unwrap_or("").is_empty()) * 4;
-        errors |= i64::from(customer.is_some() && customer.and_then(|i| active[i]) == Some(0)) * 8;
+        errors |=
+            i64::from(customer.is_some() && customer.and_then(|i| active.value(i)) == Some(0)) * 8;
         errors |= i64::from(!quantity_ok) * 16;
         errors |= i64::from(!price_ok) * 32;
         errors |= i64::from(order.is_some() && o(2).is_none()) * 64;
@@ -203,7 +204,7 @@ pub fn prepare(input: &Inputs, sorted: bool) -> Prepared {
                 value(l(1)),
                 value(o(1)),
                 name.to_owned(),
-                value(customer.and_then(|i| regions[i])),
+                value(customer.and_then(|i| regions.value(i))),
                 value(o(2)),
                 value(o(3)),
                 value(l(2)),
@@ -222,7 +223,7 @@ pub fn prepare(input: &Inputs, sorted: bool) -> Prepared {
         .as_nullable_slice::<i64>()
         .unwrap();
     let clean = audit
-        .filter_rows(|row| errors[row.position()] == Some(0))
+        .filter_rows(|row| errors.value(row.position()) == Some(0))
         .unwrap();
 
     Prepared { audit, clean }
@@ -245,14 +246,14 @@ pub fn variant(clean: &Table, p: &Parameters) -> Table {
     let rows = clean.select_rows(|row| {
         let i = row.position();
 
-        (region == -1 || regions[i].unwrap() == region)
+        (region == -1 || regions.value(i).unwrap() == region)
             && {
-                let day = days[i].unwrap();
+                let day = days.value(i).unwrap();
 
                 day >= from_day && day < to_day
             }
-            && (status == -1 || statuses[i].unwrap() == status)
-            && gross[i].unwrap() >= minimum
+            && (status == -1 || statuses.value(i).unwrap() == status)
+            && gross.value(i).unwrap() >= minimum
     });
 
     // Project six columns and copy selected rows into an independent result.
@@ -261,16 +262,15 @@ pub fn variant(clean: &Table, p: &Parameters) -> Table {
 
     // Replace this result's gross cents with discounted cents, rounded half up.
     // Mutating the typed output slice leaves clean and the other variants intact.
-    for amount in amounts.as_nullable_mut_slice::<i64>().unwrap() {
-        let net = amount
-            .unwrap()
+    let (amounts, valid) = amounts.as_nullable_mut_slice::<i64>().unwrap().into_parts();
+    for (amount, &valid) in amounts.iter_mut().zip(valid.iter()) {
+        assert!(valid, "clean amounts are non-null");
+        *amount = amount
             .checked_mul(10_000 - discount_bp)
             .unwrap()
             .checked_add(5_000)
             .unwrap()
             / 10_000;
-
-        *amount = Some(net);
     }
 
     result

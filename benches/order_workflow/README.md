@@ -39,9 +39,9 @@ reverse that order. Each implementation occupies every execution position once
 per group; prefer a multiple of three rounds for published measurements.
 
 The Rust application binds nullable numeric columns once through
-`Column::as_nullable_slice::<i64>`, uses row positions for predicates and
-join-result materialization, and updates copied amounts through
-`ColumnMut::as_nullable_mut_slice::<i64>`.
+`Column::as_nullable_slice::<i64>` (a `NullableValues<i64>` of dense values and
+validity bytes), uses row positions for predicates and join-result materialization,
+and updates copied amounts through `ColumnMut::as_nullable_mut_slice::<i64>`.
 These operations preserve the nullable schemas and checked arithmetic.
 `query_table_with_schema` reuses one row staging buffer per imported query.
 The [current results](../../docs/high-level/order-workflow-results.md) describe

@@ -43,7 +43,7 @@ view across growth, copying `gd::table::table`, or copying an
 | Type mismatch | Runtime `TableError` or `ColumnSliceError` | Template/raw access trusts the caller; wrong type can be UB |
 | Row initialization | Exact width and all cells validated before insertion | Some overloads accept partial rows and leave omitted payload uninitialized |
 | Alignment | Per-type `Vec<T>` storage supplies `T` alignment | Packed rows align fields to four bytes, including eight-byte values |
-| Null state | `Option<T>` per nullable column | Fixed 32/64-bit masks; unchecked shift count |
+| Null state | Per nullable column: a validity byte per row for numbers, `Option<T>` otherwise | Fixed 32/64-bit masks; unchecked shift count |
 | View lifetime | Encoded in Rust lifetimes | Raw pointers and non-owning views can outlive or be invalidated by storage |
 | Schema ownership | Private, immutable, shared by `Arc` | Public/mutable metadata and manual, non-atomic reference counting |
 | Copying | Derived deep value copy plus safe `Arc` clone | `gd::table::table` omits a reference-count increment in its normal copy path; `arguments::table` also `memcpy`s row-extras handles without adding references |
@@ -94,9 +94,10 @@ assert!(matches!(error, ColumnSliceError::TypeMismatch { .. }));
 [`Column::as_slice`](../../src/table/views.rs) returns a typed error when
 `T` does not match the schema and returns only correctly aligned storage when it
 does match. Nullable columns use
-[`as_nullable_slice`](../../src/table/views.rs) with the same type check and
-explicit `Option<T>` values. The mutable counterpart exposes only correctly typed
-optional values after checking schema nullability.
+[`as_nullable_slice`](../../src/table/views.rs) with the same type check. Numeric
+columns return dense values with a validity byte per row and read rows as
+`Option<T>`; other types return explicit `Option<T>` values. The mutable counterpart
+exposes only correctly typed values and validity after checking schema nullability.
 
 C++ makes the requested C++ type an unchecked promise by the caller:
 
@@ -167,7 +168,8 @@ has the analogous failure at column 64. Debug assertions check the row and the
 presence of *a* null flag, but not the column against the mask width.
 
 Rust has no global bitmap-width contract. Nullability belongs to each schema
-column and nullable storage uses `Option<T>`:
+column; nullable numeric storage keeps one validity byte per row and other nullable
+storage uses `Option<T>`:
 
 ```rust
 let result = table.set_cell(0, 32, Value::Null);

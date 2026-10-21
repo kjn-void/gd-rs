@@ -99,19 +99,36 @@ fn sum03_indexed_no_null_check(table: &mut Table) -> u64 {
     total
 }
 
+/// Borrows a nullable `u64` column's dense values and validity bytes.
+fn split(column: gd::Column<'_>) -> (&[u64], &[bool]) {
+    let values = column
+        .as_nullable_slice::<u64>()
+        .expect("input is a nullable u64 column");
+    (values.values(), values.validity())
+}
+
 /// Safe counterpart of `Sum04`/`Sum05` for the nullable schema used by GD.
 fn sum04_typed_nullable_columns(table: &mut Table) -> u64 {
     let ([c1, c2, c3], [sum]) = table
         .columns_io([0, 1, 2], [3])
         .expect("distinct benchmark columns");
-    let c1 = c1.as_nullable_slice::<u64>().expect("C1 is u64");
-    let c2 = c2.as_nullable_slice::<u64>().expect("C2 is u64");
-    let c3 = c3.as_nullable_slice::<u64>().expect("C3 is u64");
-    let sum = sum.as_nullable_mut_slice::<u64>().expect("SUM is u64");
+    let ((c1, v1), (c2, v2), (c3, v3)) = (split(c1), split(c2), split(c3));
+    let (sum, sum_valid) = sum
+        .as_nullable_mut_slice::<u64>()
+        .expect("SUM is a nullable u64 column")
+        .into_parts();
+    let inputs = c1
+        .iter()
+        .zip(v1)
+        .zip(c2.iter().zip(v2))
+        .zip(c3.iter().zip(v3));
     let mut total = 0;
-    for (((out, a), b), c) in sum.iter_mut().zip(c1).zip(c2).zip(c3) {
-        let row_sum = a.unwrap_or(0) + b.unwrap_or(0) + c.unwrap_or(0);
-        *out = Some(row_sum);
+    for ((out, out_valid), (((&a, &a_valid), (&b, &b_valid)), (&c, &c_valid))) in
+        sum.iter_mut().zip(sum_valid.iter_mut()).zip(inputs)
+    {
+        let row_sum = a * u64::from(a_valid) + b * u64::from(b_valid) + c * u64::from(c_valid);
+        *out = row_sum;
+        *out_valid = true;
         total += row_sum;
     }
     total

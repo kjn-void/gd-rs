@@ -604,7 +604,9 @@ copy cell payloads.
 ### Typed bulk column operations
 
 Fixed-width columns can be checked once and borrowed as ordinary typed slices:
-required columns expose `&[T]`, and nullable columns expose `&[Option<T>]`.
+required columns expose `&[T]`. Nullable numeric columns expose `NullableValues<T>`
+(dense values plus one validity byte per row); nullable `bool` and `Uuid` columns
+expose `&[Option<T>]`.
 The supported element types are `bool`, the fixed-width integer and
 floating-point primitives, and `Uuid`:
 
@@ -653,13 +655,24 @@ type and nullability checks once. It returns `ColumnSliceError::TypeMismatch` fo
 wrong `T` and `ColumnSliceError::Nullable` when a column can contain nulls.
 
 Use `Column::as_nullable_slice::<T>` for nullable storage, including columns whose
-current values are all populated. It returns `&[Option<T>]` without allocating or
-converting cells through `ValueRef`; `None` represents null. A required column
+current values are all populated. The view depends on `T` and is chosen at compile
+time:
+
+- For fixed-width integers and floats it returns `NullableValues<T>`. `values()` and
+  `validity()` borrow the dense values and per-row validity bytes; a null row's value
+  is an unspecified placeholder. `value(row)` reads one row as `Option<T>`, `iter()`
+  yields `Option<T>` in row order, and `get(row)` also reports out-of-bounds rows.
+- For `bool`, `Uuid`, and `CompactString` it returns `&[Option<T>]`, where `None`
+  represents null; these `Option` types cost no more than a separate validity byte.
+
+Neither form allocates or converts cells through `ValueRef`. A required column
 returns `ColumnSliceError::Required`, and a wrong type returns `TypeMismatch`.
 These checks depend on the schema, not on the observed values.
 
 Nullable columns support the same checked bulk mutation through
-`ColumnMut::as_nullable_mut_slice::<T>`:
+`ColumnMut::as_nullable_mut_slice::<T>`. For numbers it returns
+`NullableValuesMut<T>`: `set(row, value)` replaces one row, and `into_parts()` borrows
+the values and validity bytes mutably for a bulk loop:
 
 ```rust
 use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};
@@ -677,8 +690,14 @@ assert_eq!(
 );
 
 let (_, [amounts]) = table.columns_io([], [0]).unwrap();
-for amount in amounts.as_nullable_mut_slice::<i64>().unwrap() {
-    *amount = amount.map(|value| value * 2);
+let (values, valid) = amounts
+    .as_nullable_mut_slice::<i64>()
+    .unwrap()
+    .into_parts();
+for (value, &valid) in values.iter_mut().zip(valid.iter()) {
+    if valid {
+        *value *= 2;
+    }
 }
 assert_eq!(table.cell(0, 0), Ok(ValueRef::I64(50)));
 assert_eq!(table.cell(1, 0), Ok(ValueRef::Null));
@@ -1077,16 +1096,18 @@ for this stable, selected output.
 ## Storage model
 
 Each logical column has a matching storage variant. Required columns use dense storage
-such as `Vec<i64>` or `Vec<CompactString>`; nullable columns currently use
-`Vec<Option<i64>>` or `Vec<Option<CompactString>>`. The C++ table uses a packed
+such as `Vec<i64>` or `Vec<CompactString>`; nullable numeric columns use a `Vec<i64>`
+of values plus a `Vec<bool>` of validity bytes, and other nullable columns use
+`Vec<Option<T>>` such as `Vec<Option<CompactString>>`. The C++ table uses a packed
 row-major buffer. Required numeric
 columns expose `&[T]` for direct bulk scans, while dynamic `ValueRef` iteration remains
 available for code that does not know the type statically.
 
-Ordinary nullable columns use `Option<T>` rather than a separate bitmap.
-`as_slice` and `as_mut_slice` require non-nullable storage; `as_nullable_slice` and
-`as_nullable_mut_slice` expose the nullable `Option<T>` layout directly. Changing that
-layout would therefore need to account for these public slice contracts.
+Nullable fixed-width numeric columns store dense values plus a parallel vector of
+validity bytes; other nullable columns use `Option<T>`, which needs no extra space for
+`bool`, strings, and bytes. `as_slice` and `as_mut_slice` require non-nullable
+storage; `as_nullable_slice` and `as_nullable_mut_slice` expose each nullable layout
+directly.
 Fixed-capacity strings instead encode null with a reserved descriptor length and
 use the dedicated fixed-string views.
 

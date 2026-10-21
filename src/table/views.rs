@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{DataType, ValueRef};
 
 use super::float_sum;
-use super::storage::{ColumnData, ColumnStorage};
+use super::storage::{ColumnData, ColumnStorage, NumericData};
 use super::{
     ColumnSpec, FixedStrings, FixedStringsMut, InternedStrings, InternedStringsMut, Table,
 };
@@ -48,137 +48,7 @@ pub enum ColumnSliceError {
 }
 
 mod column_element_private {
-    use super::{ColumnData, ColumnMut, ColumnStorage, DataType};
-    use compact_str::CompactString;
-    use uuid::Uuid;
-
-    pub trait Sealed: Sized {
-        const DATA_TYPE: DataType;
-
-        fn required_values(column: super::Column<'_>) -> Result<&[Self], super::ColumnSliceError>;
-
-        fn required_values_mut(
-            column: ColumnMut<'_>,
-        ) -> Result<&mut [Self], super::ColumnSliceError>;
-
-        fn nullable_values(
-            column: super::Column<'_>,
-        ) -> Result<&[Option<Self>], super::ColumnSliceError>;
-
-        fn nullable_values_mut(
-            column: ColumnMut<'_>,
-        ) -> Result<&mut [Option<Self>], super::ColumnSliceError>;
-    }
-
-    macro_rules! impl_column_element {
-        ($type:ty, $data_type:ident, $storage:ident) => {
-            impl Sealed for $type {
-                const DATA_TYPE: DataType = DataType::$data_type;
-
-                fn required_values(
-                    column: super::Column<'_>,
-                ) -> Result<&[Self], super::ColumnSliceError> {
-                    match column.storage {
-                        ColumnStorage::$storage(ColumnData::Required(values)) => Ok(values),
-                        ColumnStorage::$storage(ColumnData::Nullable(_)) => {
-                            Err(super::ColumnSliceError::Nullable {
-                                data_type: column.spec.data_type(),
-                            })
-                        }
-                        ColumnStorage::FixedString(_) | ColumnStorage::InternedString(_)
-                            if Self::DATA_TYPE == DataType::String =>
-                        {
-                            Err(super::ColumnSliceError::FixedStringBuffer)
-                        }
-                        _ => Err(super::ColumnSliceError::TypeMismatch {
-                            expected: Self::DATA_TYPE,
-                            actual: column.spec.data_type(),
-                        }),
-                    }
-                }
-
-                fn required_values_mut(
-                    column: ColumnMut<'_>,
-                ) -> Result<&mut [Self], super::ColumnSliceError> {
-                    match column.storage {
-                        ColumnStorage::$storage(ColumnData::Required(values)) => Ok(values),
-                        ColumnStorage::$storage(ColumnData::Nullable(_)) => {
-                            Err(super::ColumnSliceError::Nullable {
-                                data_type: column.spec.data_type(),
-                            })
-                        }
-                        ColumnStorage::FixedString(_) | ColumnStorage::InternedString(_)
-                            if Self::DATA_TYPE == DataType::String =>
-                        {
-                            Err(super::ColumnSliceError::FixedStringBuffer)
-                        }
-                        _ => Err(super::ColumnSliceError::TypeMismatch {
-                            expected: Self::DATA_TYPE,
-                            actual: column.spec.data_type(),
-                        }),
-                    }
-                }
-
-                fn nullable_values(
-                    column: super::Column<'_>,
-                ) -> Result<&[Option<Self>], super::ColumnSliceError> {
-                    match column.storage {
-                        ColumnStorage::$storage(ColumnData::Nullable(values)) => Ok(values),
-                        ColumnStorage::$storage(ColumnData::Required(_)) => {
-                            Err(super::ColumnSliceError::Required {
-                                data_type: column.spec.data_type(),
-                            })
-                        }
-                        ColumnStorage::FixedString(_) | ColumnStorage::InternedString(_)
-                            if Self::DATA_TYPE == DataType::String =>
-                        {
-                            Err(super::ColumnSliceError::FixedStringBuffer)
-                        }
-                        _ => Err(super::ColumnSliceError::TypeMismatch {
-                            expected: Self::DATA_TYPE,
-                            actual: column.spec.data_type(),
-                        }),
-                    }
-                }
-
-                fn nullable_values_mut(
-                    column: ColumnMut<'_>,
-                ) -> Result<&mut [Option<Self>], super::ColumnSliceError> {
-                    match column.storage {
-                        ColumnStorage::$storage(ColumnData::Nullable(values)) => Ok(values),
-                        ColumnStorage::$storage(ColumnData::Required(_)) => {
-                            Err(super::ColumnSliceError::Required {
-                                data_type: column.spec.data_type(),
-                            })
-                        }
-                        ColumnStorage::FixedString(_) | ColumnStorage::InternedString(_)
-                            if Self::DATA_TYPE == DataType::String =>
-                        {
-                            Err(super::ColumnSliceError::FixedStringBuffer)
-                        }
-                        _ => Err(super::ColumnSliceError::TypeMismatch {
-                            expected: Self::DATA_TYPE,
-                            actual: column.spec.data_type(),
-                        }),
-                    }
-                }
-            }
-        };
-    }
-
-    impl_column_element!(CompactString, String, String);
-    impl_column_element!(bool, Bool, Bool);
-    impl_column_element!(i8, I8, I8);
-    impl_column_element!(i16, I16, I16);
-    impl_column_element!(i32, I32, I32);
-    impl_column_element!(i64, I64, I64);
-    impl_column_element!(u8, U8, U8);
-    impl_column_element!(u16, U16, U16);
-    impl_column_element!(u32, U32, U32);
-    impl_column_element!(u64, U64, U64);
-    impl_column_element!(f32, F32, F32);
-    impl_column_element!(f64, F64, F64);
-    impl_column_element!(Uuid, Uuid, Uuid);
+    pub trait Sealed {}
 }
 
 /// A Rust storage element that can borrow a table column as a typed slice.
@@ -186,21 +56,391 @@ mod column_element_private {
 /// This trait is sealed. It is implemented for `bool`, the fixed-width integer
 /// and floating-point primitives, [`Uuid`], and [`CompactString`] for ordinary
 /// string storage. Fixed and interned strings use their dedicated string views instead.
-pub trait ColumnElement: column_element_private::Sealed {}
+///
+/// Nullable storage depends on the element type. Fixed-width numbers keep dense values
+/// with one validity byte per row and borrow as [`NullableValues`]; `bool`, `Uuid`, and
+/// `CompactString` keep one `Option` per row and borrow as `&[Option<T>]`.
+pub trait ColumnElement: column_element_private::Sealed + Sized {
+    /// The view returned by [`Column::as_nullable_slice`].
+    type Nullable<'a>: Copy
+    where
+        Self: 'a;
 
-impl ColumnElement for CompactString {}
-impl ColumnElement for bool {}
-impl ColumnElement for i8 {}
-impl ColumnElement for i16 {}
-impl ColumnElement for i32 {}
-impl ColumnElement for i64 {}
-impl ColumnElement for u8 {}
-impl ColumnElement for u16 {}
-impl ColumnElement for u32 {}
-impl ColumnElement for u64 {}
-impl ColumnElement for f32 {}
-impl ColumnElement for f64 {}
-impl ColumnElement for Uuid {}
+    /// The view returned by [`ColumnMut::as_nullable_mut_slice`].
+    type NullableMut<'a>
+    where
+        Self: 'a;
+
+    #[doc(hidden)]
+    const DATA_TYPE: DataType;
+
+    #[doc(hidden)]
+    fn required_values(column: Column<'_>) -> Result<&[Self], ColumnSliceError>;
+
+    #[doc(hidden)]
+    fn required_values_mut(column: ColumnMut<'_>) -> Result<&mut [Self], ColumnSliceError>;
+
+    #[doc(hidden)]
+    fn nullable_values(column: Column<'_>) -> Result<Self::Nullable<'_>, ColumnSliceError>;
+
+    #[doc(hidden)]
+    fn nullable_values_mut(
+        column: ColumnMut<'_>,
+    ) -> Result<Self::NullableMut<'_>, ColumnSliceError>;
+}
+
+macro_rules! impl_column_element {
+    (option, $type:ty, $data_type:ident, $storage:ident) => {
+        impl_column_element!(
+            @impl $type, $data_type, $storage,
+            [&'a [Option<$type>]], [&'a mut [Option<$type>]]
+        );
+    };
+    (numeric, $type:ty, $data_type:ident, $storage:ident) => {
+        impl_column_element!(
+            @impl $type, $data_type, $storage,
+            [NullableValues<'a, $type>], [NullableValuesMut<'a, $type>]
+        );
+    };
+    (@impl $type:ty, $data_type:ident, $storage:ident, [$($nullable:tt)*], [$($nullable_mut:tt)*]) => {
+        impl column_element_private::Sealed for $type {}
+
+        impl ColumnElement for $type {
+            type Nullable<'a> = $($nullable)*;
+            type NullableMut<'a> = $($nullable_mut)*;
+
+            const DATA_TYPE: DataType = DataType::$data_type;
+
+            fn required_values(column: Column<'_>) -> Result<&[Self], ColumnSliceError> {
+                match column.storage {
+                    ColumnStorage::$storage(data) => {
+                        data.required_slice().ok_or(ColumnSliceError::Nullable {
+                            data_type: column.spec.data_type(),
+                        })
+                    }
+                    other => Err(mismatch(other, Self::DATA_TYPE, column.spec)),
+                }
+            }
+
+            fn required_values_mut(
+                column: ColumnMut<'_>,
+            ) -> Result<&mut [Self], ColumnSliceError> {
+                let spec = column.spec;
+                match column.storage {
+                    ColumnStorage::$storage(data) => {
+                        data.required_slice_mut().ok_or(ColumnSliceError::Nullable {
+                            data_type: spec.data_type(),
+                        })
+                    }
+                    other => Err(mismatch(other, Self::DATA_TYPE, spec)),
+                }
+            }
+
+            fn nullable_values(
+                column: Column<'_>,
+            ) -> Result<Self::Nullable<'_>, ColumnSliceError> {
+                match column.storage {
+                    ColumnStorage::$storage(data) => {
+                        data.nullable_slice().ok_or(ColumnSliceError::Required {
+                            data_type: column.spec.data_type(),
+                        })
+                    }
+                    other => Err(mismatch(other, Self::DATA_TYPE, column.spec)),
+                }
+            }
+
+            fn nullable_values_mut(
+                column: ColumnMut<'_>,
+            ) -> Result<Self::NullableMut<'_>, ColumnSliceError> {
+                let spec = column.spec;
+                match column.storage {
+                    ColumnStorage::$storage(data) => {
+                        data.nullable_slice_mut().ok_or(ColumnSliceError::Required {
+                            data_type: spec.data_type(),
+                        })
+                    }
+                    other => Err(mismatch(other, Self::DATA_TYPE, spec)),
+                }
+            }
+        }
+    };
+}
+
+impl_column_element!(option, CompactString, String, String);
+impl_column_element!(option, bool, Bool, Bool);
+impl_column_element!(numeric, i8, I8, I8);
+impl_column_element!(numeric, i16, I16, I16);
+impl_column_element!(numeric, i32, I32, I32);
+impl_column_element!(numeric, i64, I64, I64);
+impl_column_element!(numeric, u8, U8, U8);
+impl_column_element!(numeric, u16, U16, U16);
+impl_column_element!(numeric, u32, U32, U32);
+impl_column_element!(numeric, u64, U64, U64);
+impl_column_element!(numeric, f32, F32, F32);
+impl_column_element!(numeric, f64, F64, F64);
+impl_column_element!(option, Uuid, Uuid, Uuid);
+
+/// Builds the error for a typed slice request against a column of another kind.
+fn mismatch(storage: &ColumnStorage, expected: DataType, spec: &ColumnSpec) -> ColumnSliceError {
+    match storage {
+        ColumnStorage::FixedString(_) | ColumnStorage::InternedString(_)
+            if expected == DataType::String =>
+        {
+            ColumnSliceError::FixedStringBuffer
+        }
+        _ => ColumnSliceError::TypeMismatch {
+            expected,
+            actual: spec.data_type(),
+        },
+    }
+}
+
+impl<T> ColumnData<T> {
+    fn required_slice(&self) -> Option<&[T]> {
+        match self {
+            Self::Required(values) => Some(values),
+            Self::Nullable(_) => None,
+        }
+    }
+
+    fn required_slice_mut(&mut self) -> Option<&mut [T]> {
+        match self {
+            Self::Required(values) => Some(values),
+            Self::Nullable(_) => None,
+        }
+    }
+
+    fn nullable_slice(&self) -> Option<&[Option<T>]> {
+        match self {
+            Self::Required(_) => None,
+            Self::Nullable(values) => Some(values),
+        }
+    }
+
+    fn nullable_slice_mut(&mut self) -> Option<&mut [Option<T>]> {
+        match self {
+            Self::Required(_) => None,
+            Self::Nullable(values) => Some(values),
+        }
+    }
+}
+
+impl<T> NumericData<T> {
+    fn required_slice(&self) -> Option<&[T]> {
+        match self {
+            Self::Required(values) => Some(values),
+            Self::Nullable(_) => None,
+        }
+    }
+
+    fn required_slice_mut(&mut self) -> Option<&mut [T]> {
+        match self {
+            Self::Required(values) => Some(values),
+            Self::Nullable(_) => None,
+        }
+    }
+
+    fn nullable_slice(&self) -> Option<NullableValues<'_, T>> {
+        match self {
+            Self::Required(_) => None,
+            Self::Nullable(numbers) => Some(NullableValues {
+                values: &numbers.values,
+                valid: &numbers.valid,
+            }),
+        }
+    }
+
+    fn nullable_slice_mut(&mut self) -> Option<NullableValuesMut<'_, T>> {
+        match self {
+            Self::Required(_) => None,
+            Self::Nullable(numbers) => Some(NullableValuesMut {
+                values: &mut numbers.values,
+                valid: &mut numbers.valid,
+            }),
+        }
+    }
+}
+
+/// A borrowed nullable fixed-width numeric column.
+///
+/// The column stores dense values and one validity byte per physical row,
+/// including tombstoned rows. [`Self::values`] and [`Self::validity`] borrow
+/// both slices directly for branch-free or vectorized loops. A value is
+/// meaningful only where the corresponding validity byte is `true`; null rows
+/// hold an unspecified placeholder.
+pub struct NullableValues<'a, T> {
+    values: &'a [T],
+    valid: &'a [bool],
+}
+
+impl<T> Clone for NullableValues<'_, T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for NullableValues<'_, T> {}
+
+impl<T: Copy + fmt::Debug> fmt::Debug for NullableValues<'_, T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_list().entries(self.iter()).finish()
+    }
+}
+
+impl<'a, T: Copy> NullableValues<'a, T> {
+    /// Returns the number of physical rows.
+    #[must_use]
+    pub fn len(self) -> usize {
+        self.valid.len()
+    }
+
+    /// Returns whether the column has no rows.
+    #[must_use]
+    pub fn is_empty(self) -> bool {
+        self.valid.is_empty()
+    }
+
+    /// Borrows the dense values. Entries for null rows are placeholders.
+    #[must_use]
+    pub const fn values(self) -> &'a [T] {
+        self.values
+    }
+
+    /// Borrows the per-row validity bytes; `false` marks a null row.
+    #[must_use]
+    pub const fn validity(self) -> &'a [bool] {
+        self.valid
+    }
+
+    /// Returns `None` for an out-of-bounds row, `Some(None)` for null, and
+    /// `Some(Some(value))` otherwise.
+    #[must_use]
+    pub fn get(self, row: usize) -> Option<Option<T>> {
+        let valid = *self.valid.get(row)?;
+        Some(valid.then(|| self.values[row]))
+    }
+
+    /// Copies one row's value, returning `None` for null.
+    ///
+    /// This is the nullable counterpart of indexing a `&[T]`.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `row` is out of bounds.
+    #[must_use]
+    #[inline]
+    pub fn value(self, row: usize) -> Option<T> {
+        let value = self.values[row];
+        self.valid[row].then_some(value)
+    }
+
+    /// Iterates over every row in order, yielding `None` for null rows.
+    pub fn iter(self) -> impl ExactSizeIterator<Item = Option<T>> + DoubleEndedIterator + 'a {
+        self.values
+            .iter()
+            .zip(self.valid)
+            .map(|(&value, &valid)| valid.then_some(value))
+    }
+
+    /// Copies every row into a vector of options.
+    #[must_use]
+    pub fn to_vec(self) -> Vec<Option<T>> {
+        self.iter().collect()
+    }
+}
+
+impl<T: Copy + PartialEq> PartialEq for NullableValues<'_, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().eq(other.iter())
+    }
+}
+
+impl<T: Copy + PartialEq> PartialEq<[Option<T>]> for NullableValues<'_, T> {
+    fn eq(&self, other: &[Option<T>]) -> bool {
+        self.len() == other.len() && self.iter().eq(other.iter().copied())
+    }
+}
+
+impl<T: Copy + PartialEq, const N: usize> PartialEq<[Option<T>; N]> for NullableValues<'_, T> {
+    fn eq(&self, other: &[Option<T>; N]) -> bool {
+        *self == other[..]
+    }
+}
+
+impl<T: Copy + PartialEq, const N: usize> PartialEq<&[Option<T>; N]> for NullableValues<'_, T> {
+    fn eq(&self, other: &&[Option<T>; N]) -> bool {
+        *self == other[..]
+    }
+}
+
+/// A mutable nullable fixed-width numeric column.
+///
+/// See [`NullableValues`] for the layout. [`Self::into_parts`] borrows the
+/// values and validity mutably for bulk transforms: setting a validity byte to
+/// `true` makes the stored value visible, and `false` makes the row null.
+pub struct NullableValuesMut<'a, T> {
+    values: &'a mut [T],
+    valid: &'a mut [bool],
+}
+
+impl<T: Copy + fmt::Debug> fmt::Debug for NullableValuesMut<'_, T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_values().fmt(formatter)
+    }
+}
+
+impl<T: Copy + PartialEq> PartialEq for NullableValuesMut<'_, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_values() == other.as_values()
+    }
+}
+
+impl<'a, T: Copy> NullableValuesMut<'a, T> {
+    /// Reborrows this column immutably.
+    #[must_use]
+    pub fn as_values(&self) -> NullableValues<'_, T> {
+        NullableValues {
+            values: self.values,
+            valid: self.valid,
+        }
+    }
+
+    /// Returns the number of physical rows.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.valid.len()
+    }
+
+    /// Returns whether the column has no rows.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.valid.is_empty()
+    }
+
+    /// Reads one row; see [`NullableValues::get`].
+    #[must_use]
+    pub fn get(&self, row: usize) -> Option<Option<T>> {
+        self.as_values().get(row)
+    }
+
+    /// Replaces one row, returning `false` without a change when `row` is out of bounds.
+    pub fn set(&mut self, row: usize, value: Option<T>) -> bool {
+        let Some(valid) = self.valid.get_mut(row) else {
+            return false;
+        };
+        *valid = value.is_some();
+        if let Some(value) = value {
+            self.values[row] = value;
+        }
+        true
+    }
+
+    /// Splits the view into its dense values and per-row validity bytes.
+    #[must_use]
+    pub fn into_parts(self) -> (&'a mut [T], &'a mut [bool]) {
+        (self.values, self.valid)
+    }
+}
 
 /// A borrowing view over one typed column.
 #[derive(Clone, Copy)]
@@ -278,7 +518,7 @@ impl<'a> Column<'a> {
     /// Returns [`ColumnSliceError::FixedStringBuffer`] when requesting string
     /// descriptors from fixed or interned string storage.
     pub fn as_slice<T: ColumnElement>(self) -> Result<&'a [T], ColumnSliceError> {
-        <T as column_element_private::Sealed>::required_values(self)
+        T::required_values(self)
     }
 
     /// Borrows a nullable column as a contiguous slice of typed storage options.
@@ -307,8 +547,8 @@ impl<'a> Column<'a> {
     /// schema type, or [`ColumnSliceError::Required`] for a required column.
     /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed
     /// or interned string storage requested as `CompactString` descriptors.
-    pub fn as_nullable_slice<T: ColumnElement>(self) -> Result<&'a [Option<T>], ColumnSliceError> {
-        <T as column_element_private::Sealed>::nullable_values(self)
+    pub fn as_nullable_slice<T: ColumnElement>(self) -> Result<T::Nullable<'a>, ColumnSliceError> {
+        T::nullable_values(self)
     }
 
     /// Sums a required or nullable `F64` column using 16 independent accumulators.
@@ -346,8 +586,12 @@ impl<'a> Column<'a> {
     /// [`DataType::F64`].
     pub fn sum_f64(self) -> Result<f64, ColumnSliceError> {
         match self.storage {
-            ColumnStorage::F64(ColumnData::Required(values)) => Ok(float_sum::sum_required(values)),
-            ColumnStorage::F64(ColumnData::Nullable(values)) => Ok(float_sum::sum_nullable(values)),
+            ColumnStorage::F64(NumericData::Required(values)) => {
+                Ok(float_sum::sum_required(values))
+            }
+            ColumnStorage::F64(NumericData::Nullable(numbers)) => {
+                Ok(float_sum::sum_nullable_f64(&numbers.values, &numbers.valid))
+            }
             _ => Err(ColumnSliceError::TypeMismatch {
                 expected: DataType::F64,
                 actual: self.spec.data_type(),
@@ -368,8 +612,12 @@ impl<'a> Column<'a> {
     /// [`DataType::F32`].
     pub fn sum_f32(self) -> Result<f32, ColumnSliceError> {
         match self.storage {
-            ColumnStorage::F32(ColumnData::Required(values)) => Ok(float_sum::sum_required(values)),
-            ColumnStorage::F32(ColumnData::Nullable(values)) => Ok(float_sum::sum_nullable(values)),
+            ColumnStorage::F32(NumericData::Required(values)) => {
+                Ok(float_sum::sum_required(values))
+            }
+            ColumnStorage::F32(NumericData::Nullable(numbers)) => {
+                Ok(float_sum::sum_nullable_f32(&numbers.values, &numbers.valid))
+            }
             _ => Err(ColumnSliceError::TypeMismatch {
                 expected: DataType::F32,
                 actual: self.spec.data_type(),
@@ -413,6 +661,27 @@ impl<'a> Column<'a> {
             };
         }
 
+        macro_rules! numeric {
+            ($values:expr, $variant:ident) => {
+                match $values {
+                    NumericData::Required(values) => {
+                        for value in values {
+                            operation(ValueRef::$variant(*value));
+                        }
+                    }
+                    NumericData::Nullable(numbers) => {
+                        for (value, &valid) in numbers.values.iter().zip(&numbers.valid) {
+                            operation(if valid {
+                                ValueRef::$variant(*value)
+                            } else {
+                                ValueRef::Null
+                            });
+                        }
+                    }
+                }
+            };
+        }
+
         macro_rules! borrowed {
             ($values:expr, $variant:ident, $borrow:expr) => {
                 match $values {
@@ -439,16 +708,16 @@ impl<'a> Column<'a> {
                 }
             }
             ColumnStorage::Bool(values) => copied!(values, Bool),
-            ColumnStorage::I8(values) => copied!(values, I8),
-            ColumnStorage::I16(values) => copied!(values, I16),
-            ColumnStorage::I32(values) => copied!(values, I32),
-            ColumnStorage::I64(values) => copied!(values, I64),
-            ColumnStorage::U8(values) => copied!(values, U8),
-            ColumnStorage::U16(values) => copied!(values, U16),
-            ColumnStorage::U32(values) => copied!(values, U32),
-            ColumnStorage::U64(values) => copied!(values, U64),
-            ColumnStorage::F32(values) => copied!(values, F32),
-            ColumnStorage::F64(values) => copied!(values, F64),
+            ColumnStorage::I8(values) => numeric!(values, I8),
+            ColumnStorage::I16(values) => numeric!(values, I16),
+            ColumnStorage::I32(values) => numeric!(values, I32),
+            ColumnStorage::I64(values) => numeric!(values, I64),
+            ColumnStorage::U8(values) => numeric!(values, U8),
+            ColumnStorage::U16(values) => numeric!(values, U16),
+            ColumnStorage::U32(values) => numeric!(values, U32),
+            ColumnStorage::U64(values) => numeric!(values, U64),
+            ColumnStorage::F32(values) => numeric!(values, F32),
+            ColumnStorage::F64(values) => numeric!(values, F64),
             ColumnStorage::FixedString(values) => {
                 for value in values.view().iter() {
                     operation(value.map_or(ValueRef::Null, ValueRef::String));
@@ -537,7 +806,7 @@ impl<'a> ColumnMut<'a> {
     /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed
     /// or interned string storage requested as `CompactString` descriptors.
     pub fn as_mut_slice<T: ColumnElement>(self) -> Result<&'a mut [T], ColumnSliceError> {
-        <T as column_element_private::Sealed>::required_values_mut(self)
+        T::required_values_mut(self)
     }
 
     /// Borrows a nullable column as a mutable slice of typed storage options.
@@ -556,8 +825,13 @@ impl<'a> ColumnMut<'a> {
     /// table.push_row([Value::I64(25)])?;
     /// table.push_row([Value::Null])?;
     /// let (_, [amounts]) = table.columns_io([], [0])?;
-    /// for amount in amounts.as_nullable_mut_slice::<i64>()? {
-    ///     *amount = amount.map(|value| value * 2);
+    /// let (values, valid) = amounts
+    ///     .as_nullable_mut_slice::<i64>()?
+    ///     .into_parts();
+    /// for (value, &valid) in values.iter_mut().zip(valid.iter()) {
+    ///     if valid {
+    ///         *value *= 2;
+    ///     }
     /// }
     /// assert_eq!(table.cell(0, 0)?, ValueRef::I64(50));
     /// assert_eq!(table.cell(1, 0)?, ValueRef::Null);
@@ -572,8 +846,8 @@ impl<'a> ColumnMut<'a> {
     /// or interned string storage requested as `CompactString` descriptors.
     pub fn as_nullable_mut_slice<T: ColumnElement>(
         self,
-    ) -> Result<&'a mut [Option<T>], ColumnSliceError> {
-        <T as column_element_private::Sealed>::nullable_values_mut(self)
+    ) -> Result<T::NullableMut<'a>, ColumnSliceError> {
+        T::nullable_values_mut(self)
     }
 }
 

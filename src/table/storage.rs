@@ -349,6 +349,214 @@ fn retain_live<T>(values: &mut Vec<T>, tombstoned: &[bool]) {
     values.retain(|_| !flags.next().copied().unwrap_or(false));
 }
 
+/// Fixed-width numeric column storage.
+///
+/// Nullable numeric columns keep values and validity in two parallel vectors instead
+/// of `Vec<Option<T>>`. For `i64`, `u64`, and `f64` this stores 9 bytes per row
+/// instead of 16, and the values stay a dense `&[T]` for vectorized loops. A null
+/// row's value slot holds an unspecified placeholder: `T::default()` when pushed,
+/// or the previous value when a cell is set to null. Equality compares only valid
+/// values.
+#[derive(Clone, Debug)]
+pub(super) enum NumericData<T> {
+    Required(Vec<T>),
+    Nullable(NullableNumbers<T>),
+}
+
+/// Parallel value and validity vectors of one nullable numeric column.
+#[derive(Clone, Debug)]
+pub(super) struct NullableNumbers<T> {
+    pub(super) values: Vec<T>,
+    pub(super) valid: Vec<bool>,
+}
+
+impl<T: Copy + PartialEq> PartialEq for NullableNumbers<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.valid == other.valid
+            && self
+                .values
+                .iter()
+                .zip(&other.values)
+                .zip(&self.valid)
+                .all(|((left, right), &valid)| !valid || left == right)
+    }
+}
+
+impl<T: Copy + PartialEq> PartialEq for NumericData<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Required(left), Self::Required(right)) => left == right,
+            (Self::Nullable(left), Self::Nullable(right)) => left == right,
+            _ => false,
+        }
+    }
+}
+
+impl<T: Copy + Default> NumericData<T> {
+    #[inline]
+    pub(super) fn with_capacity(nullable: bool, capacity: usize) -> Self {
+        if nullable {
+            Self::Nullable(NullableNumbers {
+                values: Vec::with_capacity(capacity),
+                valid: Vec::with_capacity(capacity),
+            })
+        } else {
+            Self::Required(Vec::with_capacity(capacity))
+        }
+    }
+
+    #[inline]
+    pub(super) fn len(&self) -> usize {
+        match self {
+            Self::Required(values) => values.len(),
+            Self::Nullable(numbers) => numbers.values.len(),
+        }
+    }
+
+    #[inline]
+    fn get(&self, row: usize) -> CellValue<'_, T> {
+        match self {
+            Self::Required(values) => values
+                .get(row)
+                .map_or(CellValue::OutOfBounds, CellValue::Value),
+            Self::Nullable(numbers) => match numbers.valid.get(row) {
+                // `values` and `valid` always have equal lengths.
+                Some(true) => numbers
+                    .values
+                    .get(row)
+                    .map_or(CellValue::OutOfBounds, CellValue::Value),
+                Some(false) => CellValue::Null,
+                None => CellValue::OutOfBounds,
+            },
+        }
+    }
+
+    #[inline]
+    pub(super) fn value(&self, row: usize) -> Result<Option<&T>, TableError> {
+        match self.get(row) {
+            CellValue::OutOfBounds => Err(TableError::RowOutOfBounds {
+                row,
+                row_count: self.len(),
+            }),
+            CellValue::Null => Ok(None),
+            CellValue::Value(value) => Ok(Some(value)),
+        }
+    }
+
+    #[inline]
+    fn push(&mut self, value: Option<T>) -> Result<(), TableError> {
+        match self {
+            Self::Required(values) => {
+                let Some(value) = value else {
+                    return Err(TableError::InternalInvariant {
+                        detail: "null was pushed into a required column",
+                    });
+                };
+                values.push(value);
+            }
+            Self::Nullable(numbers) => {
+                numbers.valid.push(value.is_some());
+                numbers.values.push(value.unwrap_or_default());
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub(super) fn set(&mut self, row: usize, value: Option<T>) -> Result<(), TableError> {
+        let row_count = self.len();
+        match self {
+            Self::Required(values) => {
+                let slot = values
+                    .get_mut(row)
+                    .ok_or(TableError::RowOutOfBounds { row, row_count })?;
+                let Some(value) = value else {
+                    return Err(TableError::InternalInvariant {
+                        detail: "null was assigned to a required column",
+                    });
+                };
+                *slot = value;
+            }
+            Self::Nullable(numbers) => {
+                let Some(valid) = numbers.valid.get_mut(row) else {
+                    return Err(TableError::RowOutOfBounds { row, row_count });
+                };
+                *valid = value.is_some();
+                // A null only clears validity; equality ignores invalid slots.
+                if let (Some(value), Some(slot)) = (value, numbers.values.get_mut(row)) {
+                    *slot = value;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub(super) fn pop(&mut self) {
+        match self {
+            Self::Required(values) => drop(values.pop()),
+            Self::Nullable(numbers) => {
+                numbers.values.pop();
+                numbers.valid.pop();
+            }
+        }
+    }
+
+    fn retain_live(&mut self, tombstoned: &[bool]) {
+        match self {
+            Self::Required(values) => retain_live(values, tombstoned),
+            Self::Nullable(numbers) => {
+                retain_live(&mut numbers.values, tombstoned);
+                retain_live(&mut numbers.valid, tombstoned);
+            }
+        }
+    }
+
+    fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
+        match self {
+            Self::Required(values) => Self::Required(values[range].to_vec()),
+            Self::Nullable(numbers) => Self::Nullable(NullableNumbers {
+                values: numbers.values[range.clone()].to_vec(),
+                valid: numbers.valid[range].to_vec(),
+            }),
+        }
+    }
+
+    fn copy_rows(&self, selected_rows: &[usize]) -> Self {
+        match self {
+            Self::Required(values) => {
+                Self::Required(selected_rows.iter().map(|&row| values[row]).collect())
+            }
+            Self::Nullable(numbers) => Self::Nullable(NullableNumbers {
+                values: selected_rows
+                    .iter()
+                    .map(|&row| numbers.values[row])
+                    .collect(),
+                valid: selected_rows
+                    .iter()
+                    .map(|&row| numbers.valid[row])
+                    .collect(),
+            }),
+        }
+    }
+
+    fn append(&mut self, other: Self) -> Result<(), TableError> {
+        match (self, other) {
+            (Self::Required(left), Self::Required(right)) => left.extend(right),
+            (Self::Nullable(left), Self::Nullable(right)) => {
+                left.values.extend(right.values);
+                left.valid.extend(right.valid);
+            }
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "append nullability differs",
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
 impl<T: Clone> ColumnData<T> {
     fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
         match self {
@@ -379,16 +587,16 @@ impl<T: Clone> ColumnData<T> {
 pub(super) enum ColumnStorage {
     Null(usize),
     Bool(ColumnData<bool>),
-    I8(ColumnData<i8>),
-    I16(ColumnData<i16>),
-    I32(ColumnData<i32>),
-    I64(ColumnData<i64>),
-    U8(ColumnData<u8>),
-    U16(ColumnData<u16>),
-    U32(ColumnData<u32>),
-    U64(ColumnData<u64>),
-    F32(ColumnData<f32>),
-    F64(ColumnData<f64>),
+    I8(NumericData<i8>),
+    I16(NumericData<i16>),
+    I32(NumericData<i32>),
+    I64(NumericData<i64>),
+    U8(NumericData<u8>),
+    U16(NumericData<u16>),
+    U32(NumericData<u32>),
+    U64(NumericData<u64>),
+    F32(NumericData<f32>),
+    F64(NumericData<f64>),
     String(ColumnData<CompactString>),
     InternedString(InternedStringData),
     FixedString(FixedStringData),
@@ -402,16 +610,16 @@ impl ColumnStorage {
         match data_type {
             DataType::Null => Self::Null(0),
             DataType::Bool => Self::Bool(ColumnData::with_capacity(nullable, capacity)),
-            DataType::I8 => Self::I8(ColumnData::with_capacity(nullable, capacity)),
-            DataType::I16 => Self::I16(ColumnData::with_capacity(nullable, capacity)),
-            DataType::I32 => Self::I32(ColumnData::with_capacity(nullable, capacity)),
-            DataType::I64 => Self::I64(ColumnData::with_capacity(nullable, capacity)),
-            DataType::U8 => Self::U8(ColumnData::with_capacity(nullable, capacity)),
-            DataType::U16 => Self::U16(ColumnData::with_capacity(nullable, capacity)),
-            DataType::U32 => Self::U32(ColumnData::with_capacity(nullable, capacity)),
-            DataType::U64 => Self::U64(ColumnData::with_capacity(nullable, capacity)),
-            DataType::F32 => Self::F32(ColumnData::with_capacity(nullable, capacity)),
-            DataType::F64 => Self::F64(ColumnData::with_capacity(nullable, capacity)),
+            DataType::I8 => Self::I8(NumericData::with_capacity(nullable, capacity)),
+            DataType::I16 => Self::I16(NumericData::with_capacity(nullable, capacity)),
+            DataType::I32 => Self::I32(NumericData::with_capacity(nullable, capacity)),
+            DataType::I64 => Self::I64(NumericData::with_capacity(nullable, capacity)),
+            DataType::U8 => Self::U8(NumericData::with_capacity(nullable, capacity)),
+            DataType::U16 => Self::U16(NumericData::with_capacity(nullable, capacity)),
+            DataType::U32 => Self::U32(NumericData::with_capacity(nullable, capacity)),
+            DataType::U64 => Self::U64(NumericData::with_capacity(nullable, capacity)),
+            DataType::F32 => Self::F32(NumericData::with_capacity(nullable, capacity)),
+            DataType::F64 => Self::F64(NumericData::with_capacity(nullable, capacity)),
             DataType::String => Self::String(ColumnData::with_capacity(nullable, capacity)),
             DataType::Bytes => Self::Bytes(ColumnData::with_capacity(nullable, capacity)),
             DataType::Uuid => Self::Uuid(ColumnData::with_capacity(nullable, capacity)),
@@ -741,16 +949,16 @@ impl ColumnStorage {
         match (self, other) {
             (Self::Null(left), Self::Null(right)) => *left += right,
             (Self::Bool(left), Self::Bool(right)) => append!(left, right),
-            (Self::I8(left), Self::I8(right)) => append!(left, right),
-            (Self::I16(left), Self::I16(right)) => append!(left, right),
-            (Self::I32(left), Self::I32(right)) => append!(left, right),
-            (Self::I64(left), Self::I64(right)) => append!(left, right),
-            (Self::U8(left), Self::U8(right)) => append!(left, right),
-            (Self::U16(left), Self::U16(right)) => append!(left, right),
-            (Self::U32(left), Self::U32(right)) => append!(left, right),
-            (Self::U64(left), Self::U64(right)) => append!(left, right),
-            (Self::F32(left), Self::F32(right)) => append!(left, right),
-            (Self::F64(left), Self::F64(right)) => append!(left, right),
+            (Self::I8(left), Self::I8(right)) => left.append(right)?,
+            (Self::I16(left), Self::I16(right)) => left.append(right)?,
+            (Self::I32(left), Self::I32(right)) => left.append(right)?,
+            (Self::I64(left), Self::I64(right)) => left.append(right)?,
+            (Self::U8(left), Self::U8(right)) => left.append(right)?,
+            (Self::U16(left), Self::U16(right)) => left.append(right)?,
+            (Self::U32(left), Self::U32(right)) => left.append(right)?,
+            (Self::U64(left), Self::U64(right)) => left.append(right)?,
+            (Self::F32(left), Self::F32(right)) => left.append(right)?,
+            (Self::F64(left), Self::F64(right)) => left.append(right)?,
             (Self::String(left), Self::String(right)) => append!(left, right),
             (Self::FixedString(left), Self::FixedString(right)) => left.append(right),
             (Self::InternedString(left), Self::InternedString(right)) => left.append(right)?,

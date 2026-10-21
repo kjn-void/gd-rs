@@ -40,7 +40,9 @@ pub use shared_projection::{
 };
 pub use shared_record::SharedRecordTable;
 pub use shared_selection::SharedTableSelection;
-pub use views::{Column, ColumnElement, ColumnMut, ColumnSliceError, Row};
+pub use views::{
+    Column, ColumnElement, ColumnMut, ColumnSliceError, NullableValues, NullableValuesMut, Row,
+};
 
 use compact_str::CompactString;
 use std::cmp::Ordering;
@@ -1355,6 +1357,7 @@ mod tests {
         ColumnData, ColumnSpec, ColumnStorage, DataType, ExtrasStorage, Schema, Table, TableError,
         UnknownFields, Value, ValueRef,
     };
+    use crate::table::storage::NumericData;
 
     #[test]
     #[cfg(feature = "sqlite")]
@@ -1387,11 +1390,12 @@ mod tests {
     fn column_storage_follows_schema_nullability() {
         assert!(matches!(
             ColumnStorage::new(DataType::I64, false, 8),
-            ColumnStorage::I64(ColumnData::Required(values)) if values.capacity() >= 8
+            ColumnStorage::I64(NumericData::Required(values)) if values.capacity() >= 8
         ));
         assert!(matches!(
             ColumnStorage::new(DataType::I64, true, 8),
-            ColumnStorage::I64(ColumnData::Nullable(values)) if values.capacity() >= 8
+            ColumnStorage::I64(NumericData::Nullable(numbers))
+                if numbers.values.capacity() >= 8 && numbers.valid.capacity() >= 8
         ));
         assert!(matches!(
             ColumnStorage::new(DataType::String, false, 8),

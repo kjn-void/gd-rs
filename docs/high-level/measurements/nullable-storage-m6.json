@@ -1,0 +1,413 @@
+{
+  "metadata": {
+    "purpose": "Same-host before/after comparison of split value/validity storage for nullable numeric columns",
+    "measured": "2026-10-21",
+    "host": "Apple M6 (192.168.0.5, M6.local), 12 cores, macOS 27.0.1, idle apart from system services",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "base_revision": "61103a1 (Vec<Option<T>> nullable storage)",
+    "change": "this commit (values Vec<T> plus Vec<bool> validity for nullable fixed-width numeric columns)",
+    "workflow_build": "cargo build --release --example order_workflow --features rayon with RUSTFLAGS='-C target-cpu=native' CFLAGS='-march=native', identical for both trees",
+    "workflow_fixture": "fixture.py --rows 1000000; both trees verified every output cell against the SQL oracle (verify stage, 1 and 8 workers) before timing",
+    "workflow_command": "/usr/bin/time -l order_workflow FIXTURE WORKERS STAGE 5 native; two rounds, alternating base then change, cases prepare/1, variants/1, variants/8, complete/1, complete/8",
+    "microbenchmark_command": "cargo bench --bench table_dto --bench float_sum -- --output-format bencher (Criterion, repository release profile, no target-cpu flag); base measured in two rounds, change in one",
+    "notes": "Values are per-invocation medians of 5 samples in ms and whole-process peak RSS in MiB; microbenchmarks are Criterion point estimates in ns",
+    "script": "The table session used an unchecked script with the same build flags, verification, stages, rounds and RSS capture. benches/order_workflow/compare_revisions.sh then reproduced the comparison as a validation session (validation_session below)."
+  },
+  "workflow_1m_lines": [
+    {
+      "tree": "base",
+      "round": 1,
+      "stage": "prepare",
+      "workers": 1,
+      "median_ms_of_5_samples": 90.43,
+      "peak_rss_mib": 476.1
+    },
+    {
+      "tree": "base",
+      "round": 1,
+      "stage": "variants",
+      "workers": 1,
+      "median_ms_of_5_samples": 26.77,
+      "peak_rss_mib": 657.0
+    },
+    {
+      "tree": "base",
+      "round": 1,
+      "stage": "variants",
+      "workers": 8,
+      "median_ms_of_5_samples": 8.31,
+      "peak_rss_mib": 662.7
+    },
+    {
+      "tree": "base",
+      "round": 1,
+      "stage": "complete",
+      "workers": 1,
+      "median_ms_of_5_samples": 213.67,
+      "peak_rss_mib": 813.6
+    },
+    {
+      "tree": "base",
+      "round": 1,
+      "stage": "complete",
+      "workers": 8,
+      "median_ms_of_5_samples": 196.4,
+      "peak_rss_mib": 817.3
+    },
+    {
+      "tree": "base",
+      "round": 2,
+      "stage": "prepare",
+      "workers": 1,
+      "median_ms_of_5_samples": 94.68,
+      "peak_rss_mib": 476.0
+    },
+    {
+      "tree": "base",
+      "round": 2,
+      "stage": "variants",
+      "workers": 1,
+      "median_ms_of_5_samples": 26.74,
+      "peak_rss_mib": 657.0
+    },
+    {
+      "tree": "base",
+      "round": 2,
+      "stage": "variants",
+      "workers": 8,
+      "median_ms_of_5_samples": 8.26,
+      "peak_rss_mib": 661.3
+    },
+    {
+      "tree": "base",
+      "round": 2,
+      "stage": "complete",
+      "workers": 1,
+      "median_ms_of_5_samples": 210.59,
+      "peak_rss_mib": 813.7
+    },
+    {
+      "tree": "base",
+      "round": 2,
+      "stage": "complete",
+      "workers": 8,
+      "median_ms_of_5_samples": 196.34,
+      "peak_rss_mib": 817.1
+    },
+    {
+      "tree": "byte_validity",
+      "round": 1,
+      "stage": "prepare",
+      "workers": 1,
+      "median_ms_of_5_samples": 103.49,
+      "peak_rss_mib": 296.6
+    },
+    {
+      "tree": "byte_validity",
+      "round": 1,
+      "stage": "variants",
+      "workers": 1,
+      "median_ms_of_5_samples": 29.54,
+      "peak_rss_mib": 411.6
+    },
+    {
+      "tree": "byte_validity",
+      "round": 1,
+      "stage": "variants",
+      "workers": 8,
+      "median_ms_of_5_samples": 7.76,
+      "peak_rss_mib": 410.3
+    },
+    {
+      "tree": "byte_validity",
+      "round": 1,
+      "stage": "complete",
+      "workers": 1,
+      "median_ms_of_5_samples": 225.46,
+      "peak_rss_mib": 469.4
+    },
+    {
+      "tree": "byte_validity",
+      "round": 1,
+      "stage": "complete",
+      "workers": 8,
+      "median_ms_of_5_samples": 204.5,
+      "peak_rss_mib": 475.2
+    },
+    {
+      "tree": "byte_validity",
+      "round": 2,
+      "stage": "prepare",
+      "workers": 1,
+      "median_ms_of_5_samples": 105.99,
+      "peak_rss_mib": 296.7
+    },
+    {
+      "tree": "byte_validity",
+      "round": 2,
+      "stage": "variants",
+      "workers": 1,
+      "median_ms_of_5_samples": 28.82,
+      "peak_rss_mib": 411.7
+    },
+    {
+      "tree": "byte_validity",
+      "round": 2,
+      "stage": "variants",
+      "workers": 8,
+      "median_ms_of_5_samples": 7.72,
+      "peak_rss_mib": 414.6
+    },
+    {
+      "tree": "byte_validity",
+      "round": 2,
+      "stage": "complete",
+      "workers": 1,
+      "median_ms_of_5_samples": 217.88,
+      "peak_rss_mib": 469.4
+    },
+    {
+      "tree": "byte_validity",
+      "round": 2,
+      "stage": "complete",
+      "workers": 8,
+      "median_ms_of_5_samples": 202.55,
+      "peak_rss_mib": 476.7
+    }
+  ],
+  "microbenchmarks_ns": {
+    "base": {
+      "Table/FloatSum/1000000/F64/nullable-sum_f64": [
+        176315,
+        176264
+      ],
+      "Table/FloatSum/1000000/F32/nullable-sum_f32": [
+        158412,
+        156958
+      ],
+      "Table/FloatSum/1000000/F64/nullable-iter-flatten-sum": [
+        1045467,
+        1045822
+      ],
+      "Table/FloatSum/1000000/F64/required-sum_f64": [
+        67741,
+        67512
+      ],
+      "TableDto/Sum01_RowIterator": [
+        77573,
+        80457
+      ],
+      "TableDto/Sum02_IndexedNullCheck": [
+        65836,
+        65791
+      ],
+      "TableDto/Sum03_IndexedNoNullCheck": [
+        70675,
+        72729
+      ],
+      "TableDto/Sum04_TypedNullableColumns": [
+        5716,
+        6072
+      ],
+      "TableDto/Sum05_TypedRequiredColumns": [
+        2344,
+        2375
+      ]
+    },
+    "change": {
+      "Table/FloatSum/1000000/F64/nullable-sum_f64": [
+        116153
+      ],
+      "Table/FloatSum/1000000/F32/nullable-sum_f32": [
+        59083
+      ],
+      "Table/FloatSum/1000000/F64/nullable-iter-flatten-sum": [
+        1045410
+      ],
+      "Table/FloatSum/1000000/F64/required-sum_f64": [
+        68667
+      ],
+      "TableDto/Sum01_RowIterator": [
+        84649
+      ],
+      "TableDto/Sum02_IndexedNullCheck": [
+        72560
+      ],
+      "TableDto/Sum03_IndexedNoNullCheck": [
+        78435
+      ],
+      "TableDto/Sum04_TypedNullableColumns": [
+        6304
+      ],
+      "TableDto/Sum05_TypedRequiredColumns": [
+        2502
+      ]
+    }
+  },
+  "validation_session": {
+    "command": "benches/order_workflow/compare_revisions.sh nullable-base nullable-bytes /tmp/gd-nullable.E3HW/revisions",
+    "note": "Both trees verified against the SQL oracle. Peak RSS matched the table session exactly. The host was busier than during the table session (base complete/8 took 245.6-295.8 ms versus 196.3-196.4 ms), so timing ranges are wider; the 8-worker variant batch was faster with the change in both rounds and prepare slower.",
+    "workflow_1m_lines": [
+      {
+        "tree": "base",
+        "round": 1,
+        "stage": "prepare",
+        "workers": 1,
+        "median_ms_of_5_samples": 87.89,
+        "peak_rss_mib": 476.1
+      },
+      {
+        "tree": "base",
+        "round": 1,
+        "stage": "variants",
+        "workers": 1,
+        "median_ms_of_5_samples": 28.69,
+        "peak_rss_mib": 657.0
+      },
+      {
+        "tree": "base",
+        "round": 1,
+        "stage": "variants",
+        "workers": 8,
+        "median_ms_of_5_samples": 9.49,
+        "peak_rss_mib": 663.7
+      },
+      {
+        "tree": "base",
+        "round": 1,
+        "stage": "complete",
+        "workers": 1,
+        "median_ms_of_5_samples": 230.26,
+        "peak_rss_mib": 813.7
+      },
+      {
+        "tree": "base",
+        "round": 1,
+        "stage": "complete",
+        "workers": 8,
+        "median_ms_of_5_samples": 245.6,
+        "peak_rss_mib": 823.1
+      },
+      {
+        "tree": "byte_validity",
+        "round": 1,
+        "stage": "prepare",
+        "workers": 1,
+        "median_ms_of_5_samples": 119.21,
+        "peak_rss_mib": 296.7
+      },
+      {
+        "tree": "byte_validity",
+        "round": 1,
+        "stage": "variants",
+        "workers": 1,
+        "median_ms_of_5_samples": 32.92,
+        "peak_rss_mib": 411.7
+      },
+      {
+        "tree": "byte_validity",
+        "round": 1,
+        "stage": "variants",
+        "workers": 8,
+        "median_ms_of_5_samples": 8.48,
+        "peak_rss_mib": 413.5
+      },
+      {
+        "tree": "byte_validity",
+        "round": 1,
+        "stage": "complete",
+        "workers": 1,
+        "median_ms_of_5_samples": 256.17,
+        "peak_rss_mib": 469.3
+      },
+      {
+        "tree": "byte_validity",
+        "round": 1,
+        "stage": "complete",
+        "workers": 8,
+        "median_ms_of_5_samples": 245.86,
+        "peak_rss_mib": 476.8
+      },
+      {
+        "tree": "base",
+        "round": 2,
+        "stage": "prepare",
+        "workers": 1,
+        "median_ms_of_5_samples": 108.7,
+        "peak_rss_mib": 476.1
+      },
+      {
+        "tree": "base",
+        "round": 2,
+        "stage": "variants",
+        "workers": 1,
+        "median_ms_of_5_samples": 37.35,
+        "peak_rss_mib": 657.0
+      },
+      {
+        "tree": "base",
+        "round": 2,
+        "stage": "variants",
+        "workers": 8,
+        "median_ms_of_5_samples": 12.13,
+        "peak_rss_mib": 660.4
+      },
+      {
+        "tree": "base",
+        "round": 2,
+        "stage": "complete",
+        "workers": 1,
+        "median_ms_of_5_samples": 210.56,
+        "peak_rss_mib": 813.7
+      },
+      {
+        "tree": "base",
+        "round": 2,
+        "stage": "complete",
+        "workers": 8,
+        "median_ms_of_5_samples": 295.76,
+        "peak_rss_mib": 828.3
+      },
+      {
+        "tree": "byte_validity",
+        "round": 2,
+        "stage": "prepare",
+        "workers": 1,
+        "median_ms_of_5_samples": 121.59,
+        "peak_rss_mib": 296.6
+      },
+      {
+        "tree": "byte_validity",
+        "round": 2,
+        "stage": "variants",
+        "workers": 1,
+        "median_ms_of_5_samples": 41.18,
+        "peak_rss_mib": 411.6
+      },
+      {
+        "tree": "byte_validity",
+        "round": 2,
+        "stage": "variants",
+        "workers": 8,
+        "median_ms_of_5_samples": 9.83,
+        "peak_rss_mib": 414.7
+      },
+      {
+        "tree": "byte_validity",
+        "round": 2,
+        "stage": "complete",
+        "workers": 1,
+        "median_ms_of_5_samples": 274.72,
+        "peak_rss_mib": 469.3
+      },
+      {
+        "tree": "byte_validity",
+        "round": 2,
+        "stage": "complete",
+        "workers": 8,
+        "median_ms_of_5_samples": 288.26,
+        "peak_rss_mib": 477.7
+      }
+    ]
+  }
+}

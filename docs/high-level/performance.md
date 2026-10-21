@@ -478,8 +478,18 @@ Criterion point estimates. A repeated run of both was within 3%.
 
 GD's unchecked `SumSpecial` is 1.27× faster than gd-rs's fastest checked per-cell
 form (`Sum02`). With the nullable schema, gd-rs's typed columns take 7.17 µs, 1.32×
-slower than GD's raw `Sum05`: nullable columns store `Option<u64>` (16 bytes per value),
-whereas the GD row stores 8-byte values with separate null flags.
+slower than GD's raw `Sum05`. At the time of this measurement, nullable columns stored
+`Option<u64>` (16 bytes per value), whereas the GD row stores 8-byte values with
+separate null flags.
+
+Nullable numeric columns now store dense values plus one validity byte per row, and the
+typed variant reads them through `NullableValues::values` and `validity`. The gd-rs
+figures above predate that change. Measured before and after it on an Apple M6
+([raw data](measurements/nullable-storage-m6.json)), `Sum01`–`Sum03` were 5–9% slower,
+because each per-cell access reads two vectors, while `Sum04` and `Sum05` were unchanged
+within noise: these 10,000-row columns stay in cache either way, so the smaller layout
+does not pay off here. See [nullable numeric storage](order-workflow.md#nullable-numeric-storage)
+for the effect on a one-million-row workflow.
 
 `Sum01` previously built a row view containing every cell before each closure call.
 Resolving cells lazily reduced that variant from 387.8 µs to 167.7 µs (×2.31) when the

@@ -271,10 +271,11 @@ Explicit `std::simd` reduces the M3 nullable time by ×2.63, but it is still ×4
 slower than the required SIMD path because every vector first has to be assembled from
 scalar `Option` values. On the Core Ultra, that packing cost is worse than rustc's
 scalar conditional-move loop: explicit SIMD is ×1.31 slower than stable for the
-nullable vector. This is also why `Vec<Option<T>>` is a poor long-term layout for
-SIMD-oriented nullable primitive columns. A dense `Vec<T>` plus a separate validity
-bitmap would retain contiguous payload loads and make null handling an independent
-mask operation.
+nullable vector. This is also why `Vec<Option<T>>` is a poor layout for
+SIMD-oriented nullable primitive columns. Nullable numeric table columns therefore
+now store a dense `Vec<T>` plus one validity byte per row, which retains contiguous
+payload loads and makes null handling an independent mask operation. This fixture
+still measures standalone `Vec<Option<u32>>` vectors, not table storage.
 
 There is no C++ counterpart for this result: it isolates Rust's nullable storage and
 code generation rather than comparing the GD table APIs.
@@ -320,8 +321,11 @@ Criterion means from ten flat samples, measured on 2026-10-17 on an Apple M1 (ma
 The sequential sums run at about one element per floating-point addition latency
 whatever the element width, so `f32` gains nothing from being narrower. With 16
 independent chains the required sums reach the speed of the vectorized integer sum,
-and `f32` processes twice as many elements per vector as `f64`. Nullable columns gain
-less because each `Option<T>` must be unpacked before it can be added.
+and `f32` processes twice as many elements per vector as `f64`. These nullable
+figures were measured with the earlier `Vec<Option<T>>` storage, where each `Option<T>`
+had to be unpacked before it could be added. Nullable float columns now store dense
+values plus validity bytes and mask nulls with a bitwise AND; on an Apple M6 this made
+the one-million-row nullable `sum_f64` 1.68× and `sum_f32` 2.70× faster.
 
 #### Price calculation: aligned AoS versus typed SoA
 
@@ -689,10 +693,10 @@ primitive columns.
 
 `Column::as_slice::<T>` exposes dense required columns without exposing the storage
 enum itself. Borrowing ties the slice lifetime to the table and prevents mutation while
-it is in use. Nullable columns use `Column::as_nullable_slice::<T>` to expose
-`&[Option<T>]`, with matching mutable access through
-`ColumnMut::as_nullable_mut_slice::<T>`. The dense numeric kernels measured here use
-required columns; their figures do not measure nullable option handling.
+it is in use. Nullable numeric columns use `Column::as_nullable_slice::<T>` to expose
+`NullableValues<T>` (dense values plus validity bytes), with matching mutable access
+through `ColumnMut::as_nullable_mut_slice::<T>`. The dense numeric kernels measured
+here use required columns; their figures do not measure nullable handling.
 
 The same price-calculation kernel is also measured across RISC-V, AArch64, and
 x86-64 with several single-core cache regimes. See the complete

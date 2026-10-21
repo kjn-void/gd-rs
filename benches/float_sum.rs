@@ -3,7 +3,7 @@
 use std::{hint::black_box, time::Duration};
 
 use criterion::{Criterion, SamplingMode, Throughput, criterion_group, criterion_main};
-use gd::{ColumnSpec, DataType, Schema, Table, Value};
+use gd::{ColumnSpec, DataType, NullableValues, Schema, Table, Value};
 
 const ROWS: usize = 1_000_000;
 const NULL_INTERVAL: usize = 10;
@@ -37,7 +37,7 @@ fn sequential_f64(values: &[f64]) -> f64 {
 }
 
 #[inline(never)]
-fn sequential_nullable_f64(values: &[Option<f64>]) -> f64 {
+fn sequential_nullable_f64(values: NullableValues<'_, f64>) -> f64 {
     values.iter().flatten().sum()
 }
 
@@ -47,7 +47,7 @@ fn sequential_f32(values: &[f32]) -> f32 {
 }
 
 #[inline(never)]
-fn sequential_nullable_f32(values: &[Option<f32>]) -> f32 {
+fn sequential_nullable_f32(values: NullableValues<'_, f32>) -> f32 {
     values.iter().flatten().sum()
 }
 

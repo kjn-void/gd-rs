@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{Value, ValueRef};
 
-use super::storage::{CellValue, ColumnData, ColumnStorage, ExtrasStorage, RowExtras};
+use super::storage::{CellValue, ColumnData, ColumnStorage, ExtrasStorage, NumericData, RowExtras};
 use super::{
     FixedStringCellMut, FixedStringsMut, InternedStringCellMut, InternedStringsMut, Schema, Table,
     TableError, UnknownFields, prepare_cell,
@@ -16,6 +16,11 @@ use super::{
 enum ColumnSliceMut<'a, T> {
     Required(&'a mut [T]),
     Nullable(&'a mut [Option<T>]),
+    /// Nullable numeric storage: parallel values and per-row validity bytes.
+    Split {
+        values: &'a mut [T],
+        valid: &'a mut [bool],
+    },
 }
 
 impl<T> ColumnSliceMut<'_, T> {
@@ -28,6 +33,20 @@ impl<T> ColumnSliceMut<'_, T> {
             Self::Nullable(values) => {
                 let (left, right) = values.split_at_mut(mid);
                 (Self::Nullable(left), Self::Nullable(right))
+            }
+            Self::Split { values, valid } => {
+                let (left_values, right_values) = values.split_at_mut(mid);
+                let (left_valid, right_valid) = valid.split_at_mut(mid);
+                (
+                    Self::Split {
+                        values: left_values,
+                        valid: left_valid,
+                    },
+                    Self::Split {
+                        values: right_values,
+                        valid: right_valid,
+                    },
+                )
             }
         }
     }
@@ -42,6 +61,11 @@ impl<T> ColumnSliceMut<'_, T> {
                 Some(None) => CellValue::Null,
                 Some(Some(value)) => CellValue::Value(value),
             },
+            Self::Split { values, valid } => match (values.get(row), valid.get(row)) {
+                (Some(value), Some(true)) => CellValue::Value(value),
+                (Some(_), Some(false)) => CellValue::Null,
+                _ => CellValue::OutOfBounds,
+            },
         }
     }
 
@@ -49,6 +73,10 @@ impl<T> ColumnSliceMut<'_, T> {
         match self {
             Self::Required(values) => values.get_mut(row).map(CellSlotMut::Required),
             Self::Nullable(values) => values.get_mut(row).map(CellSlotMut::Nullable),
+            Self::Split { values, valid } => Some(CellSlotMut::Split {
+                value: values.get_mut(row)?,
+                valid: valid.get_mut(row)?,
+            }),
         }
     }
 }
@@ -62,9 +90,25 @@ impl<T> ColumnData<T> {
     }
 }
 
+impl<T> NumericData<T> {
+    fn row_slice_mut(&mut self) -> ColumnSliceMut<'_, T> {
+        match self {
+            Self::Required(values) => ColumnSliceMut::Required(values),
+            Self::Nullable(numbers) => ColumnSliceMut::Split {
+                values: &mut numbers.values,
+                valid: &mut numbers.valid,
+            },
+        }
+    }
+}
+
 enum CellSlotMut<'a, T> {
     Required(&'a mut T),
     Nullable(&'a mut Option<T>),
+    Split {
+        value: &'a mut T,
+        valid: &'a mut bool,
+    },
 }
 
 impl<T> CellSlotMut<'_, T> {
@@ -81,6 +125,14 @@ impl<T> CellSlotMut<'_, T> {
             }
             Self::Nullable(current) => {
                 **current = value;
+                Ok(())
+            }
+            Self::Split { value: slot, valid } => {
+                // A null keeps the previous slot contents; only validity is observable.
+                **valid = value.is_some();
+                if let Some(value) = value {
+                    **slot = value;
+                }
                 Ok(())
             }
         }
