@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "measured": "2026-10-21",
+    "host": "Apple M6 (M6.local), 12 cores, macOS 27.0.1, otherwise idle, run under caffeinate -dimsu",
+    "cxx": "Apple clang version 21.0.0 (clang-2100.3.34.2)",
+    "gd_release": "CMake preset release: CMAKE_BUILD_TYPE=Release (-O3 -DNDEBUG); GD is a static library, no link-time optimization",
+    "gd_release_flto": "Same, plus CMAKE_C_FLAGS=-flto, CMAKE_CXX_FLAGS=-flto and CMAKE_EXE_LINKER_FLAGS=-flto, so GD, Google Benchmark and the benchmark are all compiled for full LTO",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13); repository release profile (thin LTO, one codegen unit), default features, no target-cpu flag",
+    "gd_rs_revision": "28a509b",
+    "gd_revision": "1bba194",
+    "gd_command": "gd_cpp_reference_benchmarks --benchmark_filter=^TableDto/ --benchmark_repetitions=5 --benchmark_report_aggregates_only=true --benchmark_min_time=1s",
+    "rust_command": "cargo bench --bench table_dto -- --noplot --output-format bencher",
+    "order": "Two rounds; each runs GD release, GD release -flto, then gd-rs",
+    "codegen": "Disassembly of the -flto executable: cell_get is inlined in every variant and the Sum05 timed loop contains no calls (scalar, no vector instructions); Sum04 and SumSpecial still call table_column_buffer::cell_set once per row. In the release build cell_get is an out-of-line call in every variant."
+  },
+  "rounds": [
+    {
+      "gd_release_median_ns": {
+        "Sum01_RowIterator": 81111,
+        "Sum02_IndexedNullCheck": 81469,
+        "Sum03_IndexedNoNullCheck": 78997,
+        "SumSpecial_CastNoNullCheck": 52626,
+        "Sum04_StructThreeValues": 26377,
+        "Sum05_StructFourValues": 6786
+      },
+      "gd_release_flto_median_ns": {
+        "Sum01_RowIterator": 73506,
+        "Sum02_IndexedNullCheck": 73986,
+        "Sum03_IndexedNoNullCheck": 74683,
+        "SumSpecial_CastNoNullCheck": 38497,
+        "Sum04_StructThreeValues": 26480,
+        "Sum05_StructFourValues": 3061
+      },
+      "gd_rs_point_estimate_ns": {
+        "Sum01_RowIterator": 83641,
+        "Sum02_IndexedNullCheck": 70152,
+        "Sum03_IndexedNoNullCheck": 73853,
+        "Sum04_TypedNullableColumns": 6065,
+        "Sum05_TypedRequiredColumns": 2405
+      }
+    },
+    {
+      "gd_release_median_ns": {
+        "Sum01_RowIterator": 81046,
+        "Sum02_IndexedNullCheck": 81069,
+        "Sum03_IndexedNoNullCheck": 78923,
+        "SumSpecial_CastNoNullCheck": 52626,
+        "Sum04_StructThreeValues": 26375,
+        "Sum05_StructFourValues": 6788
+      },
+      "gd_release_flto_median_ns": {
+        "Sum01_RowIterator": 72608,
+        "Sum02_IndexedNullCheck": 72512,
+        "Sum03_IndexedNoNullCheck": 73042,
+        "SumSpecial_CastNoNullCheck": 39456,
+        "Sum04_StructThreeValues": 26325,
+        "Sum05_StructFourValues": 3070
+      },
+      "gd_rs_point_estimate_ns": {
+        "Sum01_RowIterator": 83754,
+        "Sum02_IndexedNullCheck": 70601,
+        "Sum03_IndexedNoNullCheck": 76461,
+        "Sum04_TypedNullableColumns": 6041,
+        "Sum05_TypedRequiredColumns": 2434
+      }
+    }
+  ]
+}

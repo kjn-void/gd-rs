@@ -440,7 +440,7 @@ rows, while Rust consumers traverse the returned order.
 
 ### Row-wise sum (GD DTO test)
 
-Benchmark sources: [Rust `TableDto`](../../benches/table_dto.rs#L19-L170) ·
+Benchmark sources: [Rust `TableDto`](../../benches/table_dto.rs#L19-L187) ·
 [C++ `TableDto`](../../benches/cpp-reference/table_dto_benchmark.cpp#L19-L164)
 
 This is the GD author's "[benchmark] table dto" test. The C++ file keeps the upstream
@@ -460,36 +460,50 @@ The variants are not all expressible in both libraries:
   required (non-nullable) schema for `Sum05`, which matches `Sum05` reading raw values
   without consulting nulls.
 
-**M3 Max release**, measured 2026-10-20: Apple M3 Max, macOS 27.0.1, Apple Clang
-21.0.0 with CMake `Release` (`-O3 -DNDEBUG`), rustc 1.99.1 with the crate's release
-profile (thin LTO, one codegen unit), default features, no native-CPU flags, single
-thread. gd-rs at `46d05a1` plus the lazy `RowMut` change; GD at `1bba194`. C++ medians
-are over five Google Benchmark repetitions of at least one second; Rust times are
-Criterion point estimates. A repeated run of both was within 3%.
+**M6 release**, measured 2026-10-21 ([raw data](measurements/table-dto-m6.json)): an
+otherwise idle Apple M6 (12 cores, macOS 27.0.1) held awake with `caffeinate -dimsu`,
+Apple Clang 21.0.0 with CMake `Release` (`-O3 -DNDEBUG`), rustc 1.99.1 with the crate's
+release profile (thin LTO, one codegen unit), default features, no native-CPU flags,
+single thread. gd-rs at `28a509b`; GD at `1bba194`. GD is built twice: as the reference
+build does, with GD linked as a static library without link-time optimization, and with
+`-flto` added to the C, C++ and linker flags so GD's functions can be inlined into the
+benchmark. C++ values are medians over five Google Benchmark repetitions of at least one
+second; Rust values are Criterion point estimates. Each of two rounds ran all three
+builds; ranges span both rounds and speedups use their mean.
 
-| Variant | C++ GD | gd-rs | GD/gd-rs |
-|---|---:|---:|---:|
-| `Sum01` row iterator, null check | 113.7 µs | 114.5 µs | ×0.99 |
-| `Sum02` indexed, null check | 112.0 µs | 89.1 µs | ×1.26 |
-| `Sum03` indexed, no null check | 108.2 µs | 97.2 µs | ×1.11 |
-| `SumSpecial` `(uint64_t)` cast | 70.3 µs | no counterpart | — |
-| `Sum04` struct cast / typed nullable columns | 42.0 µs | 7.17 µs | ×5.86 |
-| `Sum05` struct cast, direct write / typed required columns | 9.43 µs | 2.84 µs | ×3.32 |
+| Variant | GD | GD `-flto` | gd-rs | GD/gd-rs | GD `-flto`/gd-rs |
+|---|---:|---:|---:|---:|---:|
+| `Sum01` row iterator, null check | 81.0–81.1 µs | 72.6–73.5 µs | 83.6–83.8 µs | ×0.97 | ×0.87 |
+| `Sum02` indexed, null check | 81.1–81.5 µs | 72.5–74.0 µs | 70.2–70.6 µs | ×1.15 | ×1.04 |
+| `Sum03` indexed, no null check | 78.9–79.0 µs | 73.0–74.7 µs | 73.9–76.5 µs | ×1.05 | ×0.98 |
+| `SumSpecial` `(uint64_t)` cast | 52.6 µs | 38.5–39.5 µs | no counterpart | — | — |
+| `Sum04` struct cast / typed nullable columns | 26.4 µs | 26.3–26.5 µs | 6.04–6.07 µs | ×4.36 | ×4.36 |
+| `Sum05` struct cast, direct write / typed required columns | 6.79 µs | 3.06–3.07 µs | 2.40–2.43 µs | ×2.81 | ×1.27 |
 
-GD's unchecked `SumSpecial` is 1.27× faster than gd-rs's fastest checked per-cell
-form (`Sum02`). With the nullable schema, gd-rs's typed columns take 7.17 µs, 1.32×
-slower than GD's raw `Sum05`. At the time of this measurement, nullable columns stored
-`Option<u64>` (16 bytes per value), whereas the GD row stores 8-byte values with
-separate null flags.
+Without link-time optimization, GD's `cell_get` and `cell_set` are out-of-line calls
+from its static library, made once or twice per row. With `-flto`, `cell_get` is inlined
+in every variant: the `Sum05` timed loop then contains no calls and runs 2.2× faster,
+and the per-cell variants gain 6–10%. `Sum04` and `SumSpecial` still call `cell_set` once
+per row; it wraps the value in a `variant_view`, dispatches on the column type, copies
+the bytes and updates the null bitmap, so `Sum04` is unchanged. GD's loops stay scalar
+under either build, because the packed row layout interleaves the columns.
 
-Nullable numeric columns now store dense values plus one validity byte per row, and the
-typed variant reads them through `NullableValues::values` and `validity`. The gd-rs
-figures above predate that change. Measured before and after it on an Apple M6
-([raw data](measurements/nullable-storage-m6.json)), `Sum01`–`Sum03` were 5–9% slower,
-because each per-cell access reads two vectors, while `Sum04` and `Sum05` were unchanged
-within noise: these 10,000-row columns stay in cache either way, so the smaller layout
-does not pay off here. See [nullable numeric storage](order-workflow.md#nullable-numeric-storage)
-for the effect on a one-million-row workflow.
+gd-rs checks types and nullability once per call, then loops over plain column slices
+without calls. Its required-column `Sum05` loop is vectorized (128-bit loads and
+`add.2d`, eight rows per iteration); its nullable `Sum04` loop is a 13-instruction scalar
+loop that multiplies each value by its validity byte. GD's unchecked `SumSpecial` is
+1.34× faster than gd-rs's fastest checked per-cell form (`Sum02`) without LTO, and 1.80×
+faster with it. gd-rs's nullable typed `Sum04` (6.05 µs) is 1.12× faster than GD's raw
+`Sum05` without LTO and 1.97× slower than it with LTO; GD's `Sum05` reads and writes the
+packed row without consulting null flags.
+
+Nullable numeric columns previously stored `Option<u64>` (16 bytes per value). Measured
+before and after the change to dense values plus validity bytes on the same M6
+([raw data](measurements/nullable-storage-m6.json)), `Sum01`–`Sum03` became 5–9%
+slower, because each per-cell access reads two vectors, while `Sum04` and `Sum05` were
+unchanged within noise: these 10,000-row columns stay in cache either way. See
+[nullable numeric storage](order-workflow.md#nullable-numeric-storage) for the effect on
+a one-million-row workflow.
 
 `Sum01` previously built a row view containing every cell before each closure call.
 Resolving cells lazily reduced that variant from 387.8 µs to 167.7 µs (×2.31) when the

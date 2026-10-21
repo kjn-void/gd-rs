@@ -232,41 +232,41 @@ Timing includes allocation, copying, index construction in
 Sources: [Rust application](../../benches/order_workflow/workload.rs),
 [C++ application](../../benches/cpp-reference/order_workflow/workload.hpp),
 [GD AoSoA adapter](../../benches/cpp-reference/order_workflow/simd_table.hpp), and
-[raw measurements](measurements/order-workflow-m3max.json).
+[raw measurements](measurements/order-workflow-m6.json).
 
-On the measured M3 Max, one million order lines give these median times across
-three process rounds with five samples each. Speedup multipliers divide GD elapsed
-time by gd-rs elapsed time, using the unrounded medians. These gd-rs figures predate
-the change to [split value/validity storage for nullable numeric
-columns](#nullable-numeric-storage); that section measures its effect on one host.
+On an otherwise idle Apple M6 (12 cores, macOS 27.0.1), one million order lines give
+these median times across three process rounds with five samples each, measured at
+gd-rs `28a509b`. Speedup multipliers divide GD elapsed time by gd-rs elapsed time,
+using the unrounded medians.
 
 | Stage | Workers | gd-rs (SoA) ms | GD (AoS) ms | GD (AoSoA) ms | gd-rs speedup vs AoS | gd-rs speedup vs AoSoA |
 |---|---:|---:|---:|---:|---:|---:|
-| Import | 1 | 126.3 | 212.1 | 196.5 | 1.68× | 1.56× |
-| Prepare, native index | 1 | 177.7 | 321.7 | 278.3 | 1.81× | 1.57× |
-| Eight variants | 1 | 46.3 | 185.1 | 176.4 | 3.99× | 3.81× |
-| Eight variants | 8 | 13.8 | 77.2 | 67.4 | 5.58× | 4.88× |
-| Complete | 1 | 354.3 | 721.9 | 655.3 | 2.04× | 1.85× |
-| Complete | 8 | 326.5 | 619.1 | 540.0 | 1.90× | 1.65× |
+| Import | 1 | 80.2 | 128.5 | 124.6 | 1.60× | 1.55× |
+| Prepare, native index | 1 | 97.8 | 161.3 | 159.0 | 1.65× | 1.63× |
+| Eight variants | 1 | 27.0 | 105.6 | 96.2 | 3.91× | 3.57× |
+| Eight variants | 8 | 7.4 | 41.9 | 35.1 | 5.64× | 4.72× |
+| Complete | 1 | 207.1 | 395.4 | 382.7 | 1.91× | 1.85× |
+| Complete | 8 | 188.3 | 332.7 | 321.7 | 1.77× | 1.71× |
 
-For this full workflow, GD AoS takes 2.04× the elapsed time of gd-rs, and GD AoSoA takes
-1.85× at one worker; the ratios at eight workers are 1.90× and 1.65×.
-GD AoSoA takes 9–13% less elapsed time than GD AoS for `complete`.
-Rust's one-worker sorted-index diagnostic takes 195.8 ms for `prepare`, versus
-177.7 ms with its native hash index. These are observations for this fixture and
+For this full workflow, GD AoS takes 1.91× the elapsed time of gd-rs, and GD AoSoA takes
+1.85× at one worker; the ratios at eight workers are 1.77× and 1.71×.
+GD AoSoA takes 3–4% less elapsed time than GD AoS for `complete`.
+Rust's one-worker sorted-index diagnostic takes 106.7 ms for `prepare`, versus
+97.8 ms with its native hash index. These are observations for this fixture and
 software stack, not general library rankings.
 
 Only the variant batch runs concurrently. Moving from one to eight workers makes
-that Rust stage 3.35× faster, while the complete pipeline is 1.09× faster because
+that Rust stage 3.63× faster, while the complete pipeline is 1.10× faster because
 import and preparation remain sequential. Stage medians come from separate
 invocations and should not be added to predict a complete-run median.
 
-Whole-process peak RSS for `complete` is 591.9/601.6 MiB for gd-rs at one/eight
-workers, 521.6/536.2 MiB for GD AoS, and 518.2/536.8 MiB for GD AoSoA, measured before
-the nullable storage change. On the M6 that change reduced gd-rs's `complete` peak by
-42%, to 469/476 MiB. The stripped
-standalone executables occupy 2,384,304, 1,325,104, and 1,324,960 bytes respectively;
-these include the benchmark driver and dependencies, not just table code.
+Whole-process peak RSS for `complete` is 469/479 MiB for gd-rs at one/eight workers,
+567/589 MiB for GD AoS, and 551/574 MiB for GD AoSoA. gd-rs's nullable `i64` columns
+store dense values plus one validity byte per row; before that change its `complete`
+peak was 42% higher than now, above both GD layouts (see [nullable numeric
+storage](#nullable-numeric-storage)). The stripped standalone executables occupy
+2,401,872, 1,325,104, and 1,324,960 bytes respectively; these include the benchmark
+driver and dependencies, not just table code.
 The full tables also cover 10,000 and 100,000 lines and every worker count.
 
 ## Nullable numeric storage
@@ -398,7 +398,10 @@ the workload also includes strings, indexing, allocation, copying, and SQLite.
 
 ### Storage layout versus SIMD instructions
 
-**This workflow's packed filter is scalar in the measured M3 Max build.** The
+**This workflow's packed filter is scalar in the inspected M3 Max build.** The
+inspection below used the M3 Max executable from the earlier measurements
+([raw data](measurements/order-workflow-m3max.json)); the M6 build uses the same Apple
+Clang version and flags. The
 class name identifies GD's SIMD-oriented table; it does not establish that the
 filter executes hardware SIMD comparisons. The layout is **AoSoA** (an array of
 eight-row blocks, each containing column arrays), rather than one full-length SoA
@@ -757,7 +760,7 @@ python3 benches/order_workflow/check_safety.py --implementation cpp_simd
 ```
 
 See [runner documentation](../../benches/order_workflow/README.md) for individual
-checks and smaller runs. The [recorded raw measurements](measurements/order-workflow-m3max.json)
+checks and smaller runs. The [recorded raw measurements](measurements/order-workflow-m6.json)
 retain all samples, commands, versions, flags, source fingerprints, verification
 counts/digests, failure checks, memory readings, and linked libraries.
 
@@ -769,6 +772,10 @@ Timing invocations check background CPU usage before and during warmup and sampl
 An invocation with an observed unrelated process above 60% of one
 CPU is excluded and repeated; the raw data retain excluded samples, observations,
 and the controller source. Accepted timings alone enter the published tables.
+The published M6 run executed entirely under `caffeinate -dimsu`. Earlier M6 runs
+without these sleep assertions had isolated 25–48 s stalls, which the CPU guard
+cannot detect, and were discarded; the published run has no sample above three times
+its invocation median.
 Tables, output allocations, index construction in `prepare`, and destruction are
 timed. Fixture creation, correctness checks, database connection opening, parameter
 loading, and thread-pool creation are excluded. Repeated `variants` runs reuse the

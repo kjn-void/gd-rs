@@ -109,7 +109,7 @@ def main(path):
         v = next(v for v in data['verification'] if v['rows'] == rows)
         print(f'- {rows:,} input lines → variant counts `{v["counts"]}`.')
     print('\nEnvironment details follow. The [raw measurement JSON]'
-          '(measurements/order-workflow-m3max.json) additionally records every source hash, '
+          '(measurements/order-workflow-m6.json) additionally records every source hash, '
           'command, runtime library, rejection diagnostic, and process-load snapshot.\n')
     print('```text')
     metadata_keys = ['utc', 'platform', 'cpu', 'cpu_topology', 'logical_cpus', 'rustc', 'cxx',
