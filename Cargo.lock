@@ -361,6 +361,7 @@ dependencies = [
  "compact_str",
  "criterion",
  "csv",
+ "german-str",
  "hex-simd",
  "itoa",
  "memchr",
@@ -376,6 +377,15 @@ dependencies = [
  "smallvec",
  "thiserror",
  "uuid",
+]
+
+[[package]]
+name = "german-str"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c910f6bb849e5de42eb1412e3f6f0d900ed586fa7bdb1e08d69af5a961730a6f"
+dependencies = [
+ "ointers",
 ]
 
 [[package]]
@@ -496,6 +506,12 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "ointers"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "669f91a4f4754537768e2017deb44c3e46e687c5e04f802edb5ae672ef663c95"
 
 [[package]]
 name = "once_cell"

@@ -7,6 +7,8 @@ mod concurrent;
 pub mod debug;
 mod fixed_string;
 mod float_sum;
+#[cfg(feature = "german-strings")]
+mod german_string;
 mod index;
 mod interned_string;
 mod ordering;
@@ -26,6 +28,8 @@ pub use compaction::RowCompaction;
 pub use composite::CompositeIndex;
 pub use concurrent::ConcurrentTableBuilder;
 pub use fixed_string::{FixedStringCellMut, FixedStringError, FixedStrings, FixedStringsMut};
+#[cfg(feature = "german-strings")]
+pub use german_string::{GermanStringError, GermanStrings, GermanStringsMut};
 pub use index::{ColumnIndex, IndexKeyRef};
 pub use interned_string::{
     InternedStringCellMut, InternedStringError, InternedStrings, InternedStringsMut,
@@ -55,6 +59,12 @@ use thiserror::Error;
 use tombstones::Tombstones;
 
 use crate::{Arguments, DataType, Value, ValueRef};
+
+/// Number of live rows sampled to estimate an index's distinct-key cardinality.
+const INDEX_SAMPLE_ROWS: usize = 4_096;
+
+/// Tables at or below this size reserve their row count as before.
+const INDEX_SMALL_TABLE_ROWS: usize = 16_384;
 
 /// A table schema, storage, or access error.
 #[derive(Clone, Debug, Error, PartialEq)]
@@ -103,6 +113,15 @@ pub enum TableError {
         column: usize,
         /// Maximum UTF-8 byte length.
         capacity: usize,
+        /// Supplied UTF-8 byte length.
+        actual: usize,
+    },
+    /// A UTF-8 value exceeds the German/Umbra layout's 32-bit byte length.
+    #[cfg(feature = "german-strings")]
+    #[error("column {column} string uses {actual} bytes, exceeding the German string layout limit")]
+    GermanStringTooLong {
+        /// Positional column index.
+        column: usize,
         /// Supplied UTF-8 byte length.
         actual: usize,
     },
@@ -211,7 +230,8 @@ pub enum ColumnSelectionError {
 /// columns use `Option<T>`. Fixed-capacity string columns instead keep offsets
 /// and lengths into a byte buffer, with a reserved length for null cells.
 /// Opt-in interned strings hold shared immutable `Arc<str>` payloads; ordinary
-/// strings retain their `CompactString` storage.
+/// strings retain their `CompactString` storage. The optional `german-strings`
+/// feature adds 16-byte German/Umbra descriptors with inline prefixes.
 /// Schemas that reject unknown fields do not allocate per-row extras storage.
 /// The immutable schema is shared through
 /// [`Arc`], so tables with the same layout do not duplicate schema metadata.
@@ -246,27 +266,7 @@ impl Table {
         let schema = schema.into();
         let columns = schema
             .iter()
-            .map(|column| {
-                if column.is_interned_string() {
-                    ColumnStorage::InternedString(interned_string::InternedStringData::new(
-                        column.is_nullable(),
-                        capacity,
-                    ))
-                } else {
-                    match column.fixed_string_capacity() {
-                        Some(bytes) => {
-                            ColumnStorage::FixedString(fixed_string::FixedStringData::new(
-                                bytes,
-                                column.is_nullable(),
-                                capacity,
-                            ))
-                        }
-                        None => {
-                            ColumnStorage::new(column.data_type(), column.is_nullable(), capacity)
-                        }
-                    }
-                }
-            })
+            .map(|column| ColumnStorage::for_spec(column, capacity))
             .collect();
         let extras = ExtrasStorage::with_capacity(schema.unknown_fields(), capacity);
         Self {
@@ -716,31 +716,29 @@ impl Table {
         self.push_validated_row(values)
     }
 
-    /// Appends one runtime-width row with owned row-local extras.
-    ///
-    /// Validation matches [`Table::push_row_with_extras`]; no column changes when
-    /// any value or extra is rejected.
-    pub(crate) fn push_row_vec_with_extras(
-        &mut self,
-        mut values: Vec<Value>,
-        extras: Vec<(CompactString, Value)>,
-    ) -> Result<usize, TableError> {
-        prepare_row(self.schema(), &mut values)?;
-        if extras.is_empty() {
-            return self.push_validated_row(values);
-        }
-        let extras = collect_extras(self.schema(), extras)?;
-        let row = self.push_validated_row(values)?;
-        self.extras.set(row, extras)?;
-        Ok(row)
-    }
-
-    // SQLite keeps one staging allocation for the entire query. Validate the
-    // complete row before draining it, preserving the ordinary append contract.
-    #[cfg(feature = "sqlite")]
+    // CSV, JSON, and SQLite keep one staging allocation for the entire import.
+    // Validate the complete row before draining it, preserving the ordinary
+    // append contract.
     pub(crate) fn push_row_buffer(&mut self, values: &mut Vec<Value>) -> Result<usize, TableError> {
         prepare_row(self.schema(), values)?;
         self.push_validated_row(values.drain(..))
+    }
+
+    pub(crate) fn push_row_buffer_with_extras(
+        &mut self,
+        values: &mut Vec<Value>,
+        extras: &mut Vec<(CompactString, Value)>,
+    ) -> Result<usize, TableError> {
+        if extras.is_empty() {
+            return self.push_row_buffer(values);
+        }
+        prepare_row(self.schema(), values)?;
+        let extras = collect_extras(self.schema(), extras.drain(..))?;
+        let row = self.push_validated_row(values.drain(..))?;
+        if !extras.is_empty() {
+            self.extras.set(row, extras)?;
+        }
+        Ok(row)
     }
 
     fn push_validated_row(
@@ -1291,6 +1289,15 @@ fn validate_cell(spec: &ColumnSpec, value: &Value, column: usize) -> Result<(), 
             });
         }
     }
+    #[cfg(feature = "german-strings")]
+    if let (true, Value::String(text)) = (spec.is_german_string(), value) {
+        if text.len() > u32::MAX as usize {
+            return Err(TableError::GermanStringTooLong {
+                column,
+                actual: text.len(),
+            });
+        }
+    }
     Ok(())
 }
 
@@ -1360,7 +1367,6 @@ mod tests {
     use crate::table::storage::NumericData;
 
     #[test]
-    #[cfg(feature = "sqlite")]
     fn reused_row_buffer_retains_capacity_and_rejects_complete_invalid_rows() {
         let schema = Schema::new([
             ColumnSpec::new("id", DataType::I64),

@@ -1,6 +1,6 @@
 //! Borrowing composite hash indexes with fixed-width tuple keys.
 
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use smallvec::SmallVec;
 
 use super::{IndexKeyRef, Row, Table, TableError};
@@ -57,7 +57,7 @@ impl<'a, const N: usize> CompositeIndex<'a, N> {
         let mut index = Self {
             table,
             columns,
-            by_key: AHashMap::with_capacity(table.live_row_count()),
+            by_key: AHashMap::with_capacity(estimated_capacity(table, columns)),
             matches: Vec::new(),
             null_rows: Vec::new(),
             tombstoned_rows: Vec::new(),
@@ -124,6 +124,30 @@ fn row_key<const N: usize>(row: Row<'_>, columns: [usize; N]) -> Option<[IndexKe
         *slot = IndexKeyRef::from_value(row.get(column)?)?;
     }
     Some(key)
+}
+
+/// Estimates how many distinct composite keys the table is likely to produce.
+fn estimated_capacity<const N: usize>(table: &Table, columns: [usize; N]) -> usize {
+    let rows = table.live_row_count();
+    if rows <= super::INDEX_SMALL_TABLE_ROWS {
+        return rows;
+    }
+    let mut sample = AHashSet::with_capacity(super::INDEX_SAMPLE_ROWS);
+    let mut sampled = 0;
+    for row in table.live_rows() {
+        if sampled == super::INDEX_SAMPLE_ROWS {
+            break;
+        }
+        sampled += 1;
+        if let Some(key) = row_key(row, columns) {
+            sample.insert(key);
+        }
+    }
+    if sample.len().saturating_mul(2) >= sampled {
+        rows
+    } else {
+        sample.len().saturating_mul(4).clamp(16, rows)
+    }
 }
 
 impl Table {

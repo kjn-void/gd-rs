@@ -11,6 +11,7 @@ report](../high-level/order-workflow.md), not every C++ observation below.
 |---|---|---|---|
 | Dynamic values | manually tagged owned/view layouts | `Value` and `ValueRef<'a>` sum types | implemented |
 | Text ownership | allocation flag and pointer conventions | `CompactString` / borrowed `&str` | implemented |
+| German string columns | no German/Umbra 16-byte cell layout | opt-in `ColumnSpec::german_string` with inline prefixes, prefix-first ordering, and `german_strings` views | implemented via `german-strings` (64-bit only); GD lacks it |
 | Arguments | packed ordered buffer; duplicate/unnamed entries | ordered `Vec<Argument>`; duplicates and unnamed preserved | implemented |
 | Argument index lifetime | offsets and string views can become stale after mutation | immutable borrow prevents mutation | implemented |
 | Table layout | packed row-major fixed buffer plus references | typed vectors per column | implemented |

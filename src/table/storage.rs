@@ -2,11 +2,14 @@
 
 use ahash::AHashMap;
 use compact_str::CompactString;
+#[cfg(feature = "german-strings")]
+use german_str::GermanStr;
 use smallvec::SmallVec;
 use uuid::Uuid;
 
 use crate::{DataType, Value, ValueRef};
 
+use super::ColumnSpec;
 use super::TableError;
 use super::UnknownFields;
 use super::fixed_string::FixedStringData;
@@ -249,8 +252,14 @@ impl<T> ColumnData<T> {
         }
     }
 
+    #[cfg(feature = "german-strings")]
     #[inline]
-    fn get(&self, row: usize) -> CellValue<'_, T> {
+    pub(super) fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
+    pub(super) fn get(&self, row: usize) -> CellValue<'_, T> {
         match self {
             Self::Required(values) => values
                 .get(row)
@@ -540,6 +549,22 @@ impl<T: Copy + Default> NumericData<T> {
         }
     }
 
+    fn append_from(&mut self, other: &Self) -> Result<(), TableError> {
+        match (self, other) {
+            (Self::Required(left), Self::Required(right)) => left.extend_from_slice(right),
+            (Self::Nullable(left), Self::Nullable(right)) => {
+                left.values.extend_from_slice(&right.values);
+                left.valid.extend_from_slice(&right.valid);
+            }
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "append nullability differs",
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn append(&mut self, other: Self) -> Result<(), TableError> {
         match (self, other) {
             (Self::Required(left), Self::Required(right)) => left.extend(right),
@@ -558,6 +583,19 @@ impl<T: Copy + Default> NumericData<T> {
 }
 
 impl<T: Clone> ColumnData<T> {
+    fn append_from(&mut self, other: &Self) -> Result<(), TableError> {
+        match (self, other) {
+            (Self::Required(left), Self::Required(right)) => left.extend_from_slice(right),
+            (Self::Nullable(left), Self::Nullable(right)) => left.extend_from_slice(right),
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "append nullability differs",
+                });
+            }
+        }
+        Ok(())
+    }
+
     fn copy_range(&self, range: std::ops::Range<usize>) -> Self {
         match self {
             Self::Required(values) => Self::Required(values[range].to_vec()),
@@ -599,6 +637,8 @@ pub(super) enum ColumnStorage {
     F64(NumericData<f64>),
     String(ColumnData<CompactString>),
     InternedString(InternedStringData),
+    #[cfg(feature = "german-strings")]
+    GermanString(ColumnData<GermanStr>),
     FixedString(FixedStringData),
     Bytes(ColumnData<Box<[u8]>>),
     Uuid(ColumnData<Uuid>),
@@ -627,6 +667,21 @@ impl ColumnStorage {
     }
 
     #[inline]
+    pub(super) fn for_spec(spec: &ColumnSpec, capacity: usize) -> Self {
+        #[cfg(feature = "german-strings")]
+        if spec.is_german_string() {
+            return Self::GermanString(ColumnData::with_capacity(spec.is_nullable(), capacity));
+        }
+        if spec.is_interned_string() {
+            Self::InternedString(InternedStringData::new(spec.is_nullable(), capacity))
+        } else if let Some(bytes) = spec.fixed_string_capacity() {
+            Self::FixedString(FixedStringData::new(bytes, spec.is_nullable(), capacity))
+        } else {
+            Self::new(spec.data_type(), spec.is_nullable(), capacity)
+        }
+    }
+
+    #[inline]
     pub(super) fn len(&self) -> usize {
         match self {
             Self::Null(len) => *len,
@@ -643,6 +698,8 @@ impl ColumnStorage {
             Self::F64(values) => values.len(),
             Self::String(values) => values.len(),
             Self::InternedString(values) => values.len(),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => values.len(),
             Self::FixedString(values) => values.len(),
             Self::Bytes(values) => values.len(),
             Self::Uuid(values) => values.len(),
@@ -685,6 +742,12 @@ impl ColumnStorage {
                 CellValue::OutOfBounds => None,
                 CellValue::Null => Some(ValueRef::Null),
                 CellValue::Value(value) => Some(ValueRef::String(value)),
+            },
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => match values.get(row) {
+                CellValue::OutOfBounds => None,
+                CellValue::Null => Some(ValueRef::Null),
+                CellValue::Value(value) => Some(ValueRef::String(value.as_str())),
             },
             Self::Bytes(values) => match values.get(row) {
                 CellValue::OutOfBounds => None,
@@ -732,6 +795,23 @@ impl ColumnStorage {
             Self::F32(values) => push!(values, value, F32),
             Self::F64(values) => push!(values, value, F64),
             Self::String(values) => push!(values, value, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => {
+                let value = match &value {
+                    Value::Null => None,
+                    Value::String(text) => Some(GermanStr::new(text.as_str()).map_err(|_| {
+                        TableError::InternalInvariant {
+                            detail: "validated German string exceeded layout limit",
+                        }
+                    })?),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "German string input type differs",
+                        });
+                    }
+                };
+                values.push(value)
+            }
             Self::InternedString(values) => values.push(match &value {
                 Value::Null => None,
                 Value::String(text) => Some(text.as_str()),
@@ -797,6 +877,23 @@ impl ColumnStorage {
             Self::F32(values) => set!(values, value, F32),
             Self::F64(values) => set!(values, value, F64),
             Self::String(values) => set!(values, value, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => {
+                let value = match &value {
+                    Value::Null => None,
+                    Value::String(text) => Some(GermanStr::new(text.as_str()).map_err(|_| {
+                        TableError::InternalInvariant {
+                            detail: "validated German string exceeded layout limit",
+                        }
+                    })?),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "German string input type differs",
+                        });
+                    }
+                };
+                values.set(row, value)
+            }
             Self::InternedString(values) => values
                 .view_mut()
                 .set(
@@ -853,6 +950,8 @@ impl ColumnStorage {
             Self::F64(values) => values.pop(),
             Self::String(values) => values.pop(),
             Self::InternedString(values) => values.pop(),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => values.pop(),
             Self::FixedString(values) => values.pop(),
             Self::Bytes(values) => values.pop(),
             Self::Uuid(values) => values.pop(),
@@ -875,6 +974,8 @@ impl ColumnStorage {
             Self::F64(values) => values.retain_live(tombstoned),
             Self::String(values) => values.retain_live(tombstoned),
             Self::InternedString(values) => values.retain_live(tombstoned),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => values.retain_live(tombstoned),
             Self::FixedString(values) => values.retain_live(tombstoned),
             Self::Bytes(values) => values.retain_live(tombstoned),
             Self::Uuid(values) => values.retain_live(tombstoned),
@@ -886,6 +987,10 @@ impl ColumnStorage {
             (Self::Null(_), Self::Null(_)) => true,
             (Self::FixedString(left), Self::FixedString(right)) => left.can_append(right),
             (Self::InternedString(left), Self::InternedString(right)) => left.can_append(right),
+            #[cfg(feature = "german-strings")]
+            (Self::GermanString(left), Self::GermanString(right)) => {
+                std::mem::discriminant(left) == std::mem::discriminant(right)
+            }
             (Self::Bool(left), Self::Bool(right)) => {
                 std::mem::discriminant(left) == std::mem::discriminant(right)
             }
@@ -960,10 +1065,44 @@ impl ColumnStorage {
             (Self::F32(left), Self::F32(right)) => left.append(right)?,
             (Self::F64(left), Self::F64(right)) => left.append(right)?,
             (Self::String(left), Self::String(right)) => append!(left, right),
+            #[cfg(feature = "german-strings")]
+            (Self::GermanString(left), Self::GermanString(right)) => append!(left, right),
             (Self::FixedString(left), Self::FixedString(right)) => left.append(right),
             (Self::InternedString(left), Self::InternedString(right)) => left.append(right)?,
             (Self::Bytes(left), Self::Bytes(right)) => append!(left, right),
             (Self::Uuid(left), Self::Uuid(right)) => append!(left, right),
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "append column types differ",
+                });
+            }
+        }
+        Ok(())
+    }
+
+    pub(super) fn append_from(&mut self, other: &Self) -> Result<(), TableError> {
+        match (self, other) {
+            (Self::Null(left), Self::Null(right)) => *left += *right,
+            (Self::Bool(left), Self::Bool(right)) => left.append_from(right)?,
+            (Self::I8(left), Self::I8(right)) => left.append_from(right)?,
+            (Self::I16(left), Self::I16(right)) => left.append_from(right)?,
+            (Self::I32(left), Self::I32(right)) => left.append_from(right)?,
+            (Self::I64(left), Self::I64(right)) => left.append_from(right)?,
+            (Self::U8(left), Self::U8(right)) => left.append_from(right)?,
+            (Self::U16(left), Self::U16(right)) => left.append_from(right)?,
+            (Self::U32(left), Self::U32(right)) => left.append_from(right)?,
+            (Self::U64(left), Self::U64(right)) => left.append_from(right)?,
+            (Self::F32(left), Self::F32(right)) => left.append_from(right)?,
+            (Self::F64(left), Self::F64(right)) => left.append_from(right)?,
+            (Self::String(left), Self::String(right)) => left.append_from(right)?,
+            #[cfg(feature = "german-strings")]
+            (Self::GermanString(left), Self::GermanString(right)) => left.append_from(right)?,
+            (Self::FixedString(left), Self::FixedString(right)) => left.append_from(right),
+            (Self::InternedString(left), Self::InternedString(right)) => {
+                left.append_from(right)?;
+            }
+            (Self::Bytes(left), Self::Bytes(right)) => left.append_from(right)?,
+            (Self::Uuid(left), Self::Uuid(right)) => left.append_from(right)?,
             _ => {
                 return Err(TableError::InternalInvariant {
                     detail: "append column types differ",
@@ -993,6 +1132,8 @@ impl ColumnStorage {
             Self::F32(values) => copy!(values, F32),
             Self::F64(values) => copy!(values, F64),
             Self::String(values) => copy!(values, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => copy!(values, GermanString),
             Self::InternedString(values) => Self::InternedString(values.copy_range(range)),
             Self::FixedString(values) => {
                 Self::FixedString(values.copy_rows(range.clone(), range.len()))
@@ -1022,6 +1163,8 @@ impl ColumnStorage {
             Self::F32(values) => copy!(values, F32),
             Self::F64(values) => copy!(values, F64),
             Self::String(values) => copy!(values, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => copy!(values, GermanString),
             Self::InternedString(values) => Self::InternedString(values.copy_rows(selected_rows)),
             Self::FixedString(values) => Self::FixedString(
                 values.copy_rows(selected_rows.iter().copied(), selected_rows.len()),

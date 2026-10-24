@@ -131,11 +131,15 @@ impl fmt::Display for Location {
 /// ```
 pub fn table_from_json(schema: impl Into<Arc<Schema>>, json: &str) -> Result<Table, ImportError> {
     let mut table = Table::new(schema);
+    let schema_len = table.schema().len();
     let mut failure = None;
     let mut deserializer = serde_json::Deserializer::from_str(json);
     let parsed = RowsSeed {
         table: &mut table,
         failure: &mut failure,
+        values: vec![Value::Null; schema_len],
+        seen: vec![false; schema_len],
+        extras: Vec::new(),
     }
     .deserialize(&mut deserializer);
     if let Some(failure) = failure {
@@ -199,18 +203,20 @@ pub fn table_from_csv(
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(false)
         .from_reader(csv.as_bytes());
-    let mut records = reader.records();
+    let mut record = csv::StringRecord::new();
     let layout = if headers {
-        match records.next() {
-            Some(header) => csv_header_layout(&schema, &header?)?,
-            None => return Ok(table),
+        if !reader.read_record(&mut record)? {
+            return Ok(table);
         }
+        csv_header_layout(&schema, &record)?
     } else {
         (0..schema.len()).map(CsvTarget::Column).collect()
     };
 
-    for (row, record) in records.enumerate() {
-        let record = record?;
+    let mut values = Vec::with_capacity(schema.len());
+    let mut extras = Vec::new();
+    let mut row = 0;
+    while reader.read_record(&mut record)? {
         if record.len() != layout.len() {
             return Err(ImportError::Row {
                 row,
@@ -220,10 +226,9 @@ pub fn table_from_csv(
                 },
             });
         }
-        let mut values: Vec<Value> = std::iter::repeat_with(|| Value::Null)
-            .take(schema.len())
-            .collect();
-        let mut extras = Vec::new();
+        values.clear();
+        values.resize(schema.len(), Value::Null);
+        extras.clear();
         for (target, field) in layout.iter().zip(record.iter()) {
             match target {
                 CsvTarget::Column(column) => {
@@ -236,8 +241,9 @@ pub fn table_from_csv(
             }
         }
         table
-            .push_row_vec_with_extras(values, extras)
+            .push_row_buffer_with_extras(&mut values, &mut extras)
             .map_err(|source| ImportError::Row { row, source })?;
+        row += 1;
     }
     Ok(table)
 }
@@ -330,6 +336,9 @@ fn parse_integer(text: &str, data_type: DataType) -> Option<Value> {
 struct RowsSeed<'a> {
     table: &'a mut Table,
     failure: &'a mut Option<ImportError>,
+    values: Vec<Value>,
+    seen: Vec<bool>,
+    extras: Vec<(CompactString, Value)>,
 }
 
 impl<'de> DeserializeSeed<'de> for RowsSeed<'_> {
@@ -347,12 +356,15 @@ impl<'de> Visitor<'de> for RowsSeed<'_> {
         formatter.write_str("a JSON array of row objects")
     }
 
-    fn visit_seq<A: SeqAccess<'de>>(self, mut rows: A) -> Result<(), A::Error> {
+    fn visit_seq<A: SeqAccess<'de>>(mut self, mut rows: A) -> Result<(), A::Error> {
         let mut row = 0;
         while rows
             .next_element_seed(RowSeed {
                 table: &mut *self.table,
                 failure: &mut *self.failure,
+                values: &mut self.values,
+                seen: &mut self.seen,
+                extras: &mut self.extras,
                 row,
             })?
             .is_some()
@@ -366,6 +378,9 @@ impl<'de> Visitor<'de> for RowsSeed<'_> {
 struct RowSeed<'a> {
     table: &'a mut Table,
     failure: &'a mut Option<ImportError>,
+    values: &'a mut Vec<Value>,
+    seen: &'a mut Vec<bool>,
+    extras: &'a mut Vec<(CompactString, Value)>,
     row: usize,
 }
 
@@ -395,42 +410,46 @@ impl<'de> Visitor<'de> for RowSeed<'_> {
     fn visit_map<A: MapAccess<'de>>(mut self, mut fields: A) -> Result<(), A::Error> {
         let schema = self.table.schema_arc();
         let row = self.row;
-        let mut values: Vec<Option<Value>> =
-            std::iter::repeat_with(|| None).take(schema.len()).collect();
-        let mut extras: Vec<(CompactString, Value)> = Vec::new();
+        self.values.clear();
+        self.values.resize(schema.len(), Value::Null);
+        self.seen.clear();
+        self.seen.resize(schema.len(), false);
+        self.extras.clear();
         while let Some(FieldName(name)) = fields.next_key()? {
             let raw: &'de RawValue = fields.next_value()?;
             let decoded = match schema.column_index(&name) {
-                Some(column) if values[column].is_some() => Err(ImportError::DuplicateField {
+                Some(column) if self.seen[column] => Err(ImportError::DuplicateField {
                     row: Some(row),
                     name,
                 }),
                 Some(column) => schema_column(&schema, column)
                     .and_then(|spec| json_cell(raw, spec, row, &name))
-                    .map(|value| values[column] = Some(value)),
+                    .map(|value| {
+                        self.values[column] = value;
+                        self.seen[column] = true;
+                    }),
                 None if schema.unknown_fields() == UnknownFields::Reject => {
                     Err(ImportError::UnknownField {
                         row: Some(row),
                         name,
                     })
                 }
-                None if extras.iter().any(|(extra, _)| *extra == name) => {
+                None if self.extras.iter().any(|(extra, _)| *extra == name) => {
                     Err(ImportError::DuplicateField {
                         row: Some(row),
                         name,
                     })
                 }
-                None => json_natural(raw, row, &name).map(|value| extras.push((name, value))),
+                None => json_natural(raw, row, &name).map(|value| self.extras.push((name, value))),
             };
             if let Err(failure) = decoded {
                 return Err(self.fail(failure));
             }
         }
-        let values = values
-            .into_iter()
-            .map(|value| value.unwrap_or(Value::Null))
-            .collect();
-        match self.table.push_row_vec_with_extras(values, extras) {
+        match self
+            .table
+            .push_row_buffer_with_extras(self.values, self.extras)
+        {
             Ok(_) => Ok(()),
             Err(source) => Err(self.fail(ImportError::Row { row, source })),
         }

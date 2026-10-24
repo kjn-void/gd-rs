@@ -2,6 +2,9 @@
 
 use std::cmp::Ordering;
 
+#[cfg(feature = "german-strings")]
+use german_str::GermanStr;
+
 use super::storage::ColumnStorage;
 use super::{Row, Table, TableError};
 
@@ -68,6 +71,14 @@ impl ColumnStorage {
                 f64::total_cmp,
             ),
             Self::String(values) => ordered!(values),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => compare_optional(
+                values.value(left)?,
+                values.value(right)?,
+                direction,
+                null_order,
+                compare_german,
+            ),
             Self::InternedString(values) => compare_optional(
                 values.value(left)?,
                 values.value(right)?,
@@ -89,6 +100,16 @@ impl ColumnStorage {
             Self::Uuid(values) => ordered!(values),
         })
     }
+}
+
+#[cfg(feature = "german-strings")]
+fn compare_german(left: &GermanStr, right: &GermanStr) -> Ordering {
+    // The zero-padded four-byte prefix decides most comparisons without
+    // following a heap pointer. Fall back to the complete text when it ties,
+    // which also resolves interior-NUL and short-prefix cases correctly.
+    left.prefix_bytes_array()
+        .cmp(&right.prefix_bytes_array())
+        .then_with(|| left.as_str().cmp(right.as_str()))
 }
 
 fn compare_optional<T: ?Sized>(

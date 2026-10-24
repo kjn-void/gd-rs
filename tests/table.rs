@@ -652,6 +652,37 @@ fn column_index_preserves_duplicate_and_null_rows() {
 }
 
 #[test]
+fn sampled_large_low_cardinality_indexes_keep_exact_matches() {
+    const ROWS: usize = 24_000;
+    let schema = Schema::new([
+        ColumnSpec::new("group", DataType::String),
+        ColumnSpec::new("bucket", DataType::U64),
+    ])
+    .unwrap();
+    let mut table = Table::with_capacity(schema, ROWS);
+    for row in 0..ROWS {
+        table
+            .push_row([
+                Value::from(format!("group-{}", row % 4)),
+                Value::U64(u64::try_from(row % 3).unwrap()),
+            ])
+            .unwrap();
+    }
+
+    let groups = table.index(0).unwrap();
+    assert_eq!(groups.rows(IndexKeyRef::from("group-1")).len(), ROWS / 4);
+
+    let composite = table.composite_index([0, 1]).unwrap();
+    assert_eq!(composite.distinct_key_count(), 12);
+    assert_eq!(
+        composite
+            .rows([IndexKeyRef::from("group-1"), IndexKeyRef::from(1_u64)])
+            .len(),
+        ROWS / 12
+    );
+}
+
+#[test]
 fn row_order_is_stable_and_places_nulls_explicitly() {
     let mut table = Table::new(people_schema());
     for (id, name, score) in [

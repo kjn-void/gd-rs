@@ -270,6 +270,39 @@ fn zero_column_append_keeps_physical_rows_extras_and_deletion_flags() {
     );
 }
 
+#[test]
+fn compatible_fixed_and_interned_columns_append_independently() {
+    let schema = Schema::new([
+        ColumnSpec::fixed_string("fixed", 8),
+        ColumnSpec::interned_string("interned"),
+        ColumnSpec::new("ordinary", DataType::String),
+    ])
+    .unwrap();
+    let mut source = Table::new(schema.clone());
+    source
+        .push_row(["left".into(), "shared".into(), "row-0".into()])
+        .unwrap();
+    source
+        .push_row(["right".into(), "other".into(), "row-1".into()])
+        .unwrap();
+    let mut target = Table::new(schema);
+    target
+        .push_row(["first".into(), "target".into(), "row-2".into()])
+        .unwrap();
+
+    assert_eq!(target.append(&source).unwrap(), 1..3);
+    assert_eq!(target.cell(1, 0), Ok(ValueRef::String("left")));
+    assert_eq!(target.cell(1, 1), Ok(ValueRef::String("shared")));
+    assert_eq!(target.cell(2, 2), Ok(ValueRef::String("row-1")));
+
+    source.set_cell(0, 0, "changed".into()).unwrap();
+    source.set_cell(0, 1, "changed".into()).unwrap();
+    source.set_cell(0, 2, "changed".into()).unwrap();
+    assert_eq!(target.cell(1, 0), Ok(ValueRef::String("left")));
+    assert_eq!(target.cell(1, 1), Ok(ValueRef::String("shared")));
+    assert_eq!(target.cell(1, 2), Ok(ValueRef::String("row-0")));
+}
+
 proptest! {
     #[test]
     fn mapped_append_matches_a_row_model(

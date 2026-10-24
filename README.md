@@ -25,6 +25,8 @@ The implemented core currently provides:
 - validated schemas and typed column storage;
 - ordinary UTF-8 strings and fixed-capacity shared column buffers with checked writes;
 - opt-in interned string columns with shared payloads and checked replacement;
+- opt-in German/Umbra 16-byte string columns with prefix-first ordering
+  (`german-strings`, 64-bit only); C++ GD has no equivalent layout;
 - typed `SharedRecordTable<S>` with `Arc<S>` handles and copy-on-write editing;
 - borrowing row and column views;
 - owning immutable table selections with shared storage and constant-time cloning;

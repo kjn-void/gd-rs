@@ -13,6 +13,8 @@ use super::storage::{ColumnData, ColumnStorage, NumericData};
 use super::{
     ColumnSpec, FixedStrings, FixedStringsMut, InternedStrings, InternedStringsMut, Table,
 };
+#[cfg(feature = "german-strings")]
+use super::{GermanStrings, GermanStringsMut};
 
 /// Error returned when requesting a typed slice from a column.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
@@ -25,13 +27,11 @@ pub enum ColumnSliceError {
         /// Logical type declared by the column schema.
         actual: DataType,
     },
-    /// Fixed or interned string storage cannot be represented as `CompactString` slices.
+    /// Specialized string storage cannot be represented as `CompactString` slices.
     ///
-    /// This variant covers both layouts. Use the corresponding
-    /// `fixed_strings` or `interned_strings` view instead.
-    #[error(
-        "the string column uses buffer storage; use its fixed_strings or interned_strings view"
-    )]
+    /// Use the corresponding `fixed_strings`, `interned_strings`, or
+    /// `german_strings` view instead.
+    #[error("the string column uses a specialized layout; use its typed string view")]
     FixedStringBuffer,
     /// Nullable storage cannot be represented as a dense `&[T]`.
     #[error("the {data_type} column is nullable and has no dense required-value slice")]
@@ -55,7 +55,7 @@ mod column_element_private {
 ///
 /// This trait is sealed. It is implemented for `bool`, the fixed-width integer
 /// and floating-point primitives, [`Uuid`], and [`CompactString`] for ordinary
-/// string storage. Fixed and interned strings use their dedicated string views instead.
+/// string storage. Fixed, interned, and German strings use their dedicated string views instead.
 ///
 /// Nullable storage depends on the element type. Fixed-width numbers keep dense values
 /// with one validity byte per row and borrow as [`NullableValues`]; `bool`, `Uuid`, and
@@ -186,6 +186,10 @@ fn mismatch(storage: &ColumnStorage, expected: DataType, spec: &ColumnSpec) -> C
         ColumnStorage::FixedString(_) | ColumnStorage::InternedString(_)
             if expected == DataType::String =>
         {
+            ColumnSliceError::FixedStringBuffer
+        }
+        #[cfg(feature = "german-strings")]
+        ColumnStorage::GermanString(_) if expected == DataType::String => {
             ColumnSliceError::FixedStringBuffer
         }
         _ => ColumnSliceError::TypeMismatch {
@@ -502,21 +506,32 @@ impl<'a> Column<'a> {
         }
     }
 
+    /// Borrows German/Umbra UTF-8 storage, or returns `None` for other layouts.
+    #[cfg(feature = "german-strings")]
+    #[must_use]
+    pub fn german_strings(self) -> Option<GermanStrings<'a>> {
+        match self.storage {
+            ColumnStorage::GermanString(values) => Some(GermanStrings::new(values)),
+            _ => None,
+        }
+    }
+
     /// Borrows a required column as one contiguous typed storage slice.
     ///
     /// Type and nullability are checked once before returning the slice. Loops
     /// over the result contain no per-cell table lookup, dynamic value tag, or
     /// null discriminant, making this the preferred interface for numerical
     /// column operations and compiler auto-vectorization.
-    /// Ordinary strings use `T = CompactString`; fixed and interned strings use
-    /// [`Self::fixed_strings`] and [`Self::interned_strings`] respectively.
+    /// Ordinary strings use `T = CompactString`; fixed, interned, and German
+    /// strings use [`Self::fixed_strings`], [`Self::interned_strings`], and
+    /// [`Self::german_strings`] respectively.
     ///
     /// # Errors
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
     /// Returns [`ColumnSliceError::FixedStringBuffer`] when requesting string
-    /// descriptors from fixed or interned string storage.
+    /// descriptors from fixed, interned, or German string storage.
     pub fn as_slice<T: ColumnElement>(self) -> Result<&'a [T], ColumnSliceError> {
         T::required_values(self)
     }
@@ -545,8 +560,8 @@ impl<'a> Column<'a> {
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Required`] for a required column.
-    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed
-    /// or interned string storage requested as `CompactString` descriptors.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed,
+    /// interned, or German string storage requested as `CompactString` descriptors.
     pub fn as_nullable_slice<T: ColumnElement>(self) -> Result<T::Nullable<'a>, ColumnSliceError> {
         T::nullable_values(self)
     }
@@ -638,7 +653,8 @@ impl<'a> Column<'a> {
     /// nullability dispatch for every cell. Values remain
     /// dynamically represented as [`ValueRef`]; use [`Column::as_slice`] or
     /// [`Column::as_nullable_slice`] for a fully typed loop, or
-    /// [`Column::fixed_strings`] or [`Column::interned_strings`] for string views.
+    /// [`Column::fixed_strings`], [`Column::interned_strings`], or
+    /// [`Column::german_strings`] for string views.
     pub fn for_each_value(self, mut operation: impl FnMut(ValueRef<'a>)) {
         macro_rules! copied {
             ($values:expr, $variant:ident) => {
@@ -731,6 +747,12 @@ impl<'a> Column<'a> {
                     operation(value.map_or(ValueRef::Null, ValueRef::String));
                 }
             }
+            #[cfg(feature = "german-strings")]
+            ColumnStorage::GermanString(values) => {
+                for value in GermanStrings::new(values).iter() {
+                    operation(value.map_or(ValueRef::Null, ValueRef::String));
+                }
+            }
             ColumnStorage::Bytes(values) => {
                 borrowed!(values, Bytes, |value: &'a [u8]| value);
             }
@@ -776,6 +798,17 @@ impl<'a> ColumnMut<'a> {
         }
     }
 
+    /// Borrows German/Umbra strings for checked replacement.
+    /// Returns `None` for other storage layouts.
+    #[cfg(feature = "german-strings")]
+    #[must_use]
+    pub fn german_strings_mut(self) -> Option<GermanStringsMut<'a>> {
+        match self.storage {
+            ColumnStorage::GermanString(values) => Some(GermanStringsMut::new(values)),
+            _ => None,
+        }
+    }
+
     /// Returns this column's schema definition.
     #[must_use]
     pub const fn spec(&self) -> &'a ColumnSpec {
@@ -803,8 +836,8 @@ impl<'a> ColumnMut<'a> {
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Nullable`] for a nullable column.
-    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed
-    /// or interned string storage requested as `CompactString` descriptors.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed,
+    /// interned, or German string storage requested as `CompactString` descriptors.
     pub fn as_mut_slice<T: ColumnElement>(self) -> Result<&'a mut [T], ColumnSliceError> {
         T::required_values_mut(self)
     }
@@ -842,8 +875,8 @@ impl<'a> ColumnMut<'a> {
     ///
     /// Returns [`ColumnSliceError::TypeMismatch`] if `T` does not match the
     /// schema type, or [`ColumnSliceError::Required`] for a required column.
-    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed
-    /// or interned string storage requested as `CompactString` descriptors.
+    /// Returns [`ColumnSliceError::FixedStringBuffer`] for fixed,
+    /// interned, or German string storage requested as `CompactString` descriptors.
     pub fn as_nullable_mut_slice<T: ColumnElement>(
         self,
     ) -> Result<T::NullableMut<'a>, ColumnSliceError> {

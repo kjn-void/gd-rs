@@ -3,6 +3,8 @@
 use std::fmt;
 
 use compact_str::CompactString;
+#[cfg(feature = "german-strings")]
+use german_str::GermanStr;
 use uuid::Uuid;
 
 use crate::{Value, ValueRef};
@@ -153,6 +155,8 @@ enum CellMut<'a> {
     F32(CellSlotMut<'a, f32>),
     F64(CellSlotMut<'a, f64>),
     String(CellSlotMut<'a, CompactString>),
+    #[cfg(feature = "german-strings")]
+    GermanString(CellSlotMut<'a, GermanStr>),
     InternedString(InternedStringCellMut<'a>),
     FixedString(FixedStringCellMut<'a>),
     Bytes(CellSlotMut<'a, Box<[u8]>>),
@@ -195,6 +199,23 @@ impl CellMut<'_> {
             Self::F32(slot) => set!(slot, F32),
             Self::F64(slot) => set!(slot, F64),
             Self::String(slot) => set!(slot, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(slot) => {
+                let value = match &value {
+                    Value::Null => None,
+                    Value::String(text) => Some(GermanStr::new(text.as_str()).map_err(|_| {
+                        TableError::InternalInvariant {
+                            detail: "validated German string exceeded layout limit",
+                        }
+                    })?),
+                    _ => {
+                        return Err(TableError::InternalInvariant {
+                            detail: "German string input type differs",
+                        });
+                    }
+                };
+                slot.set(value)
+            }
             Self::InternedString(slot) => slot
                 .set(match &value {
                     Value::Null => None,
@@ -241,6 +262,8 @@ enum ColumnRangeMut<'a> {
     F32(ColumnSliceMut<'a, f32>),
     F64(ColumnSliceMut<'a, f64>),
     String(ColumnSliceMut<'a, CompactString>),
+    #[cfg(feature = "german-strings")]
+    GermanString(ColumnSliceMut<'a, GermanStr>),
     InternedString(InternedStringsMut<'a>),
     FixedString(FixedStringsMut<'a>),
     Bytes(ColumnSliceMut<'a, Box<[u8]>>),
@@ -269,6 +292,8 @@ impl ColumnRangeMut<'_> {
             Self::F32(values) => split!(values, F32),
             Self::F64(values) => split!(values, F64),
             Self::String(values) => split!(values, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => split!(values, GermanString),
             Self::InternedString(values) => split!(values, InternedString),
             Self::FixedString(values) => split!(values, FixedString),
             Self::Bytes(values) => split!(values, Bytes),
@@ -303,6 +328,12 @@ impl ColumnRangeMut<'_> {
                 CellValue::OutOfBounds => None,
                 CellValue::Null => Some(ValueRef::Null),
                 CellValue::Value(value) => Some(ValueRef::String(value)),
+            },
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => match values.get(row) {
+                CellValue::OutOfBounds => None,
+                CellValue::Null => Some(ValueRef::Null),
+                CellValue::Value(value) => Some(ValueRef::String(value.as_str())),
             },
             Self::InternedString(values) => values
                 .get(row)
@@ -339,6 +370,8 @@ impl ColumnRangeMut<'_> {
             Self::F32(values) => cell!(values, F32),
             Self::F64(values) => cell!(values, F64),
             Self::String(values) => cell!(values, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => cell!(values, GermanString),
             Self::InternedString(values) => values.cell_mut(row).map(CellMut::InternedString),
             Self::FixedString(values) => values.cell_mut(row).map(CellMut::FixedString),
             Self::Bytes(values) => cell!(values, Bytes),
@@ -368,6 +401,8 @@ impl ColumnStorage {
             Self::F32(values) => range!(values, F32),
             Self::F64(values) => range!(values, F64),
             Self::String(values) => range!(values, String),
+            #[cfg(feature = "german-strings")]
+            Self::GermanString(values) => range!(values, GermanString),
             Self::InternedString(values) => ColumnRangeMut::InternedString(values.view_mut()),
             Self::FixedString(values) => ColumnRangeMut::FixedString(values.view_mut()),
             Self::Bytes(values) => range!(values, Bytes),

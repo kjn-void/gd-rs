@@ -121,6 +121,8 @@ pub struct ColumnSpec {
     converter: Option<ColumnConverter>,
     fixed_string_capacity: Option<usize>,
     interned_string: bool,
+    #[cfg(feature = "german-strings")]
+    german_string: bool,
 }
 
 /// Policy for names that are not declared as schema columns or aliases.
@@ -144,6 +146,8 @@ impl ColumnSpec {
             converter: None,
             fixed_string_capacity: None,
             interned_string: false,
+            #[cfg(feature = "german-strings")]
+            german_string: false,
         }
     }
 
@@ -211,6 +215,43 @@ impl ColumnSpec {
     #[must_use]
     pub const fn is_interned_string(&self) -> bool {
         self.interned_string
+    }
+
+    /// Creates a UTF-8 column using the German/Umbra string layout.
+    ///
+    /// Cells use a 16-byte representation: a 32-bit length, the first four UTF-8
+    /// bytes, and either eight inline bytes or a pointer. Strings up to 12 bytes
+    /// stay inline; longer strings allocate. Reads and writes use the ordinary
+    /// string API, while [`super::Column::german_strings`] exposes a typed view.
+    ///
+    /// This storage is available only with the `german-strings` feature on
+    /// 64-bit targets. GD has no equivalent column layout.
+    ///
+    /// ```
+    /// use gd::{ColumnSpec, Schema, Table, ValueRef};
+    /// let mut table = Table::new(Schema::new([
+    ///     ColumnSpec::german_string("name").nullable(true),
+    /// ])?);
+    /// table.push_row(["Åsa".into()])?;
+    /// table.push_row(["a longer value".into()])?;
+    /// assert_eq!(table.cell(0, 0)?, ValueRef::String("Åsa"));
+    /// assert_eq!(table.cell(1, 0)?, ValueRef::String("a longer value"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    #[cfg(feature = "german-strings")]
+    #[must_use]
+    pub fn german_string(name: impl Into<CompactString>) -> Self {
+        Self {
+            german_string: true,
+            ..Self::new(name, DataType::String)
+        }
+    }
+
+    /// Returns whether this column uses the German/Umbra string layout.
+    #[cfg(feature = "german-strings")]
+    #[must_use]
+    pub const fn is_german_string(&self) -> bool {
+        self.german_string
     }
 
     /// Returns the fixed UTF-8 slot capacity, or `None` for other storage layouts.

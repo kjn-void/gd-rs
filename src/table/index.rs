@@ -1,6 +1,6 @@
 //! Borrowing hash indexes over supported table columns.
 
-use ahash::AHashMap;
+use ahash::{AHashMap, AHashSet};
 use smallvec::SmallVec;
 use uuid::Uuid;
 
@@ -181,6 +181,41 @@ impl<'a> IndexStorage<'a> {
     }
 }
 
+/// Estimates how many distinct keys a column is likely to produce.
+///
+/// A full row-count reservation is wasted for low-cardinality columns but
+/// avoids repeated growth for unique ones. Sample a bounded number of live rows
+/// and extrapolate conservatively: a sample that is mostly distinct keeps the
+/// row-count reservation, while a low-distinct sample reserves only a small
+/// multiple of its observed key count.
+fn estimated_capacity(table: &Table, storage: &super::storage::ColumnStorage) -> usize {
+    let rows = table.live_row_count();
+    if rows <= super::INDEX_SMALL_TABLE_ROWS {
+        return rows;
+    }
+    let mut sample = AHashSet::with_capacity(super::INDEX_SAMPLE_ROWS);
+    let mut sampled = 0;
+    for row in 0..table.row_count() {
+        if table.tombstones.is_tombstoned(row) {
+            continue;
+        }
+        if sampled == super::INDEX_SAMPLE_ROWS {
+            break;
+        }
+        sampled += 1;
+        if let Some(value) = storage.get(row) {
+            if let Some(key) = IndexKeyRef::from_value(value) {
+                sample.insert(key);
+            }
+        }
+    }
+    if sample.len().saturating_mul(2) >= sampled {
+        rows
+    } else {
+        sample.len().saturating_mul(4).clamp(16, rows)
+    }
+}
+
 impl<'a> ColumnIndex<'a> {
     pub(super) fn new(table: &'a Table, column: usize) -> Result<Self, TableError> {
         let spec = table
@@ -190,9 +225,6 @@ impl<'a> ColumnIndex<'a> {
                 column,
                 column_count: table.column_count(),
             })?;
-        let mut by_key = IndexStorage::new(spec.data_type(), table.row_count())?;
-        let mut null_rows = SmallVec::new();
-        let mut tombstoned_rows = SmallVec::new();
         let storage = table
             .columns
             .get(column)
@@ -200,6 +232,9 @@ impl<'a> ColumnIndex<'a> {
                 column,
                 column_count: table.column_count(),
             })?;
+        let mut by_key = IndexStorage::new(spec.data_type(), estimated_capacity(table, storage))?;
+        let mut null_rows = SmallVec::new();
+        let mut tombstoned_rows = SmallVec::new();
         for row in 0..table.row_count() {
             if table.tombstones.is_tombstoned(row) {
                 tombstoned_rows.push(row);

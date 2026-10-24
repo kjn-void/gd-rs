@@ -2,7 +2,8 @@
 
 use std::ops::Range;
 
-use super::{Table, TableError, collect_extras, prepare_cell};
+use super::storage::{ColumnStorage, ExtrasStorage};
+use super::{ColumnSpec, Schema, Table, TableError, collect_extras, prepare_cell};
 use crate::{DataType, Value};
 
 /// One source column copied into one destination column during table append.
@@ -94,9 +95,9 @@ impl Table {
     /// schemas or collisions with destination names/aliases reject the batch.
     /// Unmapped fixed source columns are omitted rather than becoming extras.
     ///
-    /// All preparation occurs in independent storage before any destination
-    /// mutation. Compatible columns are cloned in bulk, converted columns are
-    /// staged cell by cell, then typed vectors and sidecars are extended by moves.
+    /// All fallible preparation occurs before any destination mutation. Compatible
+    /// columns are extended directly from the source after validation; converted
+    /// and null-filled columns are staged cell by cell.
     /// Source tombstones are copied. Destination properties remain unchanged.
     ///
     /// ```
@@ -151,80 +152,121 @@ impl Table {
                 return Err(TableError::DuplicateColumnMapping { column: to });
             }
         }
-        let mut staged = Self::with_capacity(self.schema_arc(), source.row_count);
-        for (destination, (spec, from)) in self.schema().iter().zip(layout).enumerate() {
-            if let Some(from) = from {
-                let source_spec =
-                    source
-                        .schema()
-                        .column(from)
-                        .ok_or(TableError::InternalInvariant {
-                            detail: "mapped source column is missing",
-                        })?;
-                if source_spec.data_type() == spec.data_type()
-                    && source_spec.is_nullable() == spec.is_nullable()
-                    && source_spec.fixed_string_capacity() == spec.fixed_string_capacity()
-                    && source_spec.is_interned_string() == spec.is_interned_string()
-                {
-                    staged.columns[destination] = source.columns[from].clone();
-                    continue;
-                }
-                if source_spec.data_type() != spec.data_type()
-                    && source_spec.data_type() != DataType::Null
-                    && spec.converter().is_none()
-                {
-                    return Err(TableError::TypeMismatch {
-                        column: destination,
-                        expected: spec.data_type(),
-                        actual: source_spec.data_type(),
-                    });
-                }
-            } else if !spec.is_nullable() {
-                return Err(TableError::NullNotAllowed {
-                    column: destination,
-                });
-            }
-            let column = &mut staged.columns[destination];
-            for row in 0..source.row_count {
-                let mut value = match from {
-                    Some(from) => source.cell(row, from)?.to_owned(),
-                    None => Value::Null,
-                };
-                prepare_cell(spec, &mut value, destination)?;
-                column.push_validated(value)?;
-            }
-        }
-        for row in 0..source.row_count {
-            staged.extras.push_empty();
-            if let Some(extras) = source.extras.get(row) {
-                let extras = collect_extras(
-                    self.schema(),
-                    extras.iter().map(|(name, value)| (name, value.clone())),
-                )?;
-                if !extras.is_empty() {
-                    staged.extras.set(row, extras)?;
-                }
-            }
-        }
-        // Verify every storage pair before performing any fallible internal append.
-        if !self.extras.can_append(&staged.extras)
-            || !self
-                .columns
-                .iter()
-                .zip(&staged.columns)
-                .all(|(left, right)| left.can_append(right))
-        {
+        let staged_columns = stage_columns(self.schema(), source, &layout)?;
+        let staged_extras = stage_extras(self.schema(), source)?;
+        // Verify every storage pair before mutating the destination. Direct and
+        // staged columns are both checked, so the commit below only repeats
+        // infallible typed extensions.
+        if !self.extras.can_append(&staged_extras) {
             return Err(TableError::InternalInvariant {
                 detail: "append storage layouts differ",
             });
         }
-        for (destination, column) in self.columns.iter_mut().zip(staged.columns) {
-            destination.append(column)?;
+        for (destination, staged) in staged_columns.iter().enumerate() {
+            let compatible = if let Some(staged) = staged {
+                self.columns[destination].can_append(staged)
+            } else if let Some(from) = layout[destination] {
+                self.columns[destination].can_append(&source.columns[from])
+            } else {
+                true
+            };
+            if !compatible {
+                return Err(TableError::InternalInvariant {
+                    detail: "append storage layouts differ",
+                });
+            }
         }
-        self.extras.append(staged.extras)?;
+        for (destination, staged) in staged_columns.into_iter().enumerate() {
+            if let Some(staged) = staged {
+                self.columns[destination].append(staged)?;
+            } else if let Some(from) = layout[destination] {
+                self.columns[destination].append_from(&source.columns[from])?;
+            }
+        }
+        self.extras.append(staged_extras)?;
         self.tombstones
             .append(&source.tombstones, begin, source.row_count);
         self.row_count = end;
         Ok(begin..end)
     }
+}
+
+fn layouts_match(source: &ColumnSpec, destination: &ColumnSpec) -> bool {
+    let common = source.data_type() == destination.data_type()
+        && source.is_nullable() == destination.is_nullable()
+        && source.fixed_string_capacity() == destination.fixed_string_capacity()
+        && source.is_interned_string() == destination.is_interned_string();
+    #[cfg(feature = "german-strings")]
+    let common = common && source.is_german_string() == destination.is_german_string();
+    common
+}
+
+fn stage_columns(
+    schema: &Schema,
+    source: &Table,
+    layout: &[Option<usize>],
+) -> Result<Vec<Option<ColumnStorage>>, TableError> {
+    let mut staged_columns = vec![None; schema.len()];
+    for (destination, (spec, from)) in schema.iter().zip(layout.iter().copied()).enumerate() {
+        let Some(from) = from else {
+            if !spec.is_nullable() {
+                return Err(TableError::NullNotAllowed {
+                    column: destination,
+                });
+            }
+            if source.row_count == 0 {
+                continue;
+            }
+            let mut column = ColumnStorage::for_spec(spec, source.row_count);
+            for _ in 0..source.row_count {
+                column.push_validated(Value::Null)?;
+            }
+            staged_columns[destination] = Some(column);
+            continue;
+        };
+        let source_spec = source
+            .schema()
+            .column(from)
+            .ok_or(TableError::InternalInvariant {
+                detail: "mapped source column is missing",
+            })?;
+        if layouts_match(source_spec, spec) {
+            continue;
+        }
+        if source_spec.data_type() != spec.data_type()
+            && source_spec.data_type() != DataType::Null
+            && spec.converter().is_none()
+        {
+            return Err(TableError::TypeMismatch {
+                column: destination,
+                expected: spec.data_type(),
+                actual: source_spec.data_type(),
+            });
+        }
+        let mut column = ColumnStorage::for_spec(spec, source.row_count);
+        for row in 0..source.row_count {
+            let mut value = source.cell(row, from)?.to_owned();
+            prepare_cell(spec, &mut value, destination)?;
+            column.push_validated(value)?;
+        }
+        staged_columns[destination] = Some(column);
+    }
+    Ok(staged_columns)
+}
+
+fn stage_extras(schema: &Schema, source: &Table) -> Result<ExtrasStorage, TableError> {
+    let mut staged_extras = ExtrasStorage::with_capacity(schema.unknown_fields(), source.row_count);
+    for row in 0..source.row_count {
+        staged_extras.push_empty();
+        if let Some(extras) = source.extras.get(row) {
+            let extras = collect_extras(
+                schema,
+                extras.iter().map(|(name, value)| (name, value.clone())),
+            )?;
+            if !extras.is_empty() {
+                staged_extras.set(row, extras)?;
+            }
+        }
+    }
+    Ok(staged_extras)
 }

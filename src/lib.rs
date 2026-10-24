@@ -8,11 +8,17 @@
 //! arguments, typed tables, and `rusqlite`. Other database drivers and a generic
 //! database abstraction are intentionally excluded.
 //!
+//! The optional `german-strings` feature adds an opt-in German/Umbra string
+//! column layout with 16-byte cells. It is available only on 64-bit targets.
+//!
 //! The library contains no unsafe code except three unchecked UTF-8 conversions
 //! in fixed-capacity string storage. Writes accept valid strings, private lengths
 //! and offsets identify their initialized prefixes, and safe string mutation
 //! preserves UTF-8. The conversions avoid revalidating those bytes on every read;
 //! bounds, capacity, nullability, and borrowing remain checked.
+
+#[cfg(all(feature = "german-strings", not(target_pointer_width = "64")))]
+compile_error!("the `german-strings` feature requires a 64-bit target");
 
 mod arguments;
 mod binary;
@@ -57,6 +63,8 @@ pub use table::{
     SharedTableSelection, SortDirection, Table, TableError, TableProjectionReadGuard,
     TableProjectionWriteGuard, TableSelection, UnknownFields,
 };
+#[cfg(feature = "german-strings")]
+pub use table::{GermanStringError, GermanStrings, GermanStringsMut};
 pub use text::{
     TextError, decode_json_string, decode_percent_component, decode_utf16, encode_json_string,
     encode_percent_component, escape_xml, prefix_chars, split_escaped, trim_ascii_control,

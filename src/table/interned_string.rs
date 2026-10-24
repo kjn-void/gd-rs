@@ -231,6 +231,41 @@ impl InternedStringData {
         std::mem::discriminant(&self.values) == std::mem::discriminant(&other.values)
     }
 
+    pub(super) fn append_from(&mut self, other: &Self) -> Result<(), TableError> {
+        let Self { values, interner } = self;
+        let same_pool = Arc::ptr_eq(interner, &other.interner);
+        match (values, &other.values) {
+            (ColumnData::Required(left), ColumnData::Required(right)) => {
+                if same_pool {
+                    left.extend_from_slice(right);
+                } else {
+                    left.extend(
+                        right
+                            .iter()
+                            .map(|value| interner.intern_shared(&value.text)),
+                    );
+                }
+            }
+            (ColumnData::Nullable(left), ColumnData::Nullable(right)) => {
+                if same_pool {
+                    left.extend_from_slice(right);
+                } else {
+                    left.extend(right.iter().map(|value| {
+                        value
+                            .as_ref()
+                            .map(|value| interner.intern_shared(&value.text))
+                    }));
+                }
+            }
+            _ => {
+                return Err(TableError::InternalInvariant {
+                    detail: "interned append nullability differs",
+                });
+            }
+        }
+        Ok(())
+    }
+
     pub(super) fn append(&mut self, mut other: Self) -> Result<(), TableError> {
         let same_pool = Arc::ptr_eq(&self.interner, &other.interner);
         match (&mut self.values, &mut other.values) {

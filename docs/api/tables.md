@@ -258,12 +258,59 @@ borrowed selections, owning immutable selections and shared mutable projections
 all support interned storage. CSV/JSON import and SQLite schema-based loading also
 honor the policy. Ordering and indexes compare string contents.
 
-The typed `CompactString` slice APIs access ordinary columns. Fixed and interned
-columns cannot provide those slices and return the
+The typed `CompactString` slice APIs access ordinary columns. Fixed, interned and
+German columns cannot provide those slices and return the
 `ColumnSliceError::FixedStringBuffer` layout error. Use the corresponding string views.
 Interning adds per-cell reference-counting and write-side hashing/locking costs.
 It is useful when repeated text or shared copies justify that overhead; it does
 not promise a speed or memory improvement for mostly unique or short inline text.
+
+### German/Umbra string columns
+
+`ColumnSpec::german_string(name)` opts one column into the 16-byte German/Umbra
+layout. It requires the `german-strings` feature on a 64-bit target. The logical
+type remains `DataType::String`; names, aliases, nullability, converters,
+formatting, import, SQLite loading, selection, append and compaction retain their
+ordinary behavior. C++ GD has no equivalent column layout.
+
+```rust
+use gd::{ColumnSpec, Schema, Table, Value, ValueRef};
+
+let mut table = Table::new(Schema::new([
+    ColumnSpec::german_string("name").nullable(true),
+])?);
+table.push_row(["Åsa".into()])?;
+table.push_row(["a longer value".into()])?;
+table.push_row([Value::Null])?;
+
+{
+    let strings = table.column(0).unwrap().german_strings().unwrap();
+    assert_eq!(strings.get(0), Some(Some("Åsa")));
+    assert_eq!(strings.get(2), Some(None));
+}
+{
+    let (_, [column]) = table.columns_io([], [0])?;
+    let mut strings = column.german_strings_mut().unwrap();
+    strings.set(0, Some("Ada"))?;
+}
+assert_eq!(table.cell(0, 0)?, ValueRef::String("Ada"));
+# Ok::<(), Box<dyn std::error::Error>>(())
+```
+
+Cells store a 32-bit length, a four-byte prefix, and either eight inline bytes or a
+heap pointer. Values up to 12 bytes stay inline; longer values allocate. Ordering
+compares the prefix first and falls back to the complete text on a tie, preserving
+ordinary bytewise `str` order including interior NUL bytes. Indexes hash and compare
+complete text. `GermanStrings` supports `len`, `is_empty`, `get` and `iter`;
+`GermanStringsMut` adds `as_view` and `set`. `get` returns outer `None` for
+out-of-bounds and inner `None` for null. `GermanStringError` reports bounds,
+disallowed-null, or 32-bit length errors before changing a cell.
+
+The layout saves eight bytes per cell compared with a 24-byte `CompactString` for
+values up to 12 bytes, but values from 13 through 24 bytes allocate even though
+`CompactString` stores them inline. It is not a universal replacement for ordinary
+or interned string columns. Requesting `as_slice::<CompactString>()` from this
+layout returns `ColumnSliceError::FixedStringBuffer`; use `german_strings` instead.
 
 ### Explicit column conversion
 
@@ -1249,13 +1296,13 @@ Policies are explicit:
   to a closed destination schema, or an extra name colliding with a destination
   name/alias, rejects the batch.
 
-Compatible columns are cloned directly as typed vectors. Columns requiring conversion
-or a nullability change are staged cell by cell. Extras are prepared and checked
-before typed vectors and sidecars are extended by moves. A returned error leaves the
-destination unchanged, even if a late source value fails conversion. Converter
-side effects cannot be rolled back, and allocation failure has normal Rust behavior.
-Peak staging space is proportional to the appended data, not existing destination
-size; append does not clone the destination.
+Compatible columns are copied directly into typed destination vectors after
+validation. Columns requiring conversion or a nullability change are staged cell by
+cell. Extras are prepared and checked before destination columns are extended. A
+returned error leaves the destination unchanged, even if a late source value fails
+conversion. Converter side effects cannot be rolled back, and allocation failure has
+normal Rust behavior. Peak staging space covers converted columns and extras, not
+compatible source columns; append does not clone the destination.
 
 To append live rows only, use a live selection and materialize it before appending:
 `destination.append(&source.filter_view(|_| true).materialize()?)?`.

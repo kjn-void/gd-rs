@@ -123,6 +123,18 @@ impl FixedStringData {
         self.buffer.extend(other.buffer);
     }
 
+    pub(super) fn append_from(&mut self, other: &Self) {
+        let base = self.buffer.len();
+        self.indices.reserve(other.indices.len());
+        self.buffer.reserve(other.buffer.len());
+        self.indices
+            .extend(other.indices.iter().map(|index| StringIndex {
+                offset: index.offset + base,
+                length: index.length,
+            }));
+        self.buffer.extend_from_slice(&other.buffer);
+    }
+
     pub(super) fn copy_rows(&self, rows: impl IntoIterator<Item = usize>, count: usize) -> Self {
         let mut result = Self::new(self.capacity, self.nullable, count);
         for row in rows {

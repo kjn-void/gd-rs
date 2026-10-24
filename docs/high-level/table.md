@@ -75,6 +75,26 @@ The [interned string benchmarks](interned-string-results.md) compare memory,
 insertion, copying and mutation with default strings and C++ GD across repetition
 levels and short/long values.
 
+`ColumnSpec::german_string(name)` selects the optional German/Umbra layout from the
+`german-strings` feature (64-bit targets only). Each cell is a 16-byte descriptor:
+a 32-bit byte length, the first four UTF-8 bytes, and either eight inline bytes or
+a heap pointer. Values up to 12 bytes stay entirely inline; longer values own a
+heap allocation. The logical type remains `DataType::String`, so names, aliases,
+nullability, converters, formatting, import, SQLite loading, selection, append and
+compaction retain their ordinary contracts. `Column::german_strings` and
+`ColumnMut::german_strings_mut` expose typed read/write views without leaking the
+descriptor type.
+
+Ordering compares the prefix first and falls back to the complete text when it
+ties, so interior NULs and short prefixes retain bytewise `str` order. Index keys
+still hash and compare complete text. The representation saves eight bytes per
+cell compared with a 24-byte `CompactString` for 12-byte-or-shorter values, and it
+can avoid a heap dereference during ordering when prefixes differ. Values from 13
+through 24 bytes allocate here although `CompactString` stores them inline, so the
+layout is not a universal replacement; repeated values remain better served by
+interned storage. C++ GD has no German/Umbra string column layout. See the
+[API examples](../api/tables.md#germanumbra-string-columns).
+
 ## Schema and rows
 
 Primary names and aliases are unique across different columns. Schema lookup uses
@@ -652,15 +672,15 @@ and independent parameterized outputs, including concurrent variant generation.
 
 ## Combining and viewing tables
 
-Mapped append stages an entire source batch before extending the destination.
+Mapped append prepares an entire source batch before extending the destination.
 `append` maps positions, `append_named` resolves destination names/aliases, and
-`append_mapped` uses explicit `ColumnMapping` entries. Matching storage layouts are
-cloned as typed vectors; conversion/nullability changes use per-cell preparation.
-Extras are validated before commit, then prepared columns and sidecars are moved
-into destination vectors. Existing destination cells are not cloned. The guarantee
-is atomicity for returned validation errors, with converter side effects and
-allocation failures outside that guarantee. Physical rows and tombstones are
-preserved; destination properties are not merged with source properties.
+`append_mapped` uses explicit `ColumnMapping` entries. Exact-layout columns are
+extended directly into destination vectors after validation; conversion and
+nullability changes use per-cell staging. Extras are validated before commit.
+Existing destination cells are not cloned. The guarantee is atomicity for returned
+validation errors, with converter side effects and allocation failures outside that
+guarantee. Physical rows and tombstones are preserved; destination properties are
+not merged with source properties.
 
 `CompositeIndex<N>` extends equality indexing to ordered tuples. It uses borrowed
 `IndexKeyRef` arrays in a hash map and separate duplicate-position buckets. Looking
