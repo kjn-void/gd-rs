@@ -4,11 +4,11 @@ This is a snapshot of the `gd-rs` source tree published with the StringTransport
 addition, the fixed-string gather optimization, lazily resolved `RowMut` views, the
 matched GD DTO row-sum benchmarks and split value/validity storage for nullable numeric
 columns, direct compatible-column append, sampled low-cardinality index capacity,
-reused CSV/JSON import buffers, and the opt-in German/Umbra string column layout,
-remeasured on 2026-10-24.
-Uncommitted benchmark experiments are excluded from this publication snapshot; GD is
-pinned to `1bba194909d997891c05fe5a4ce1d3d3a888e0cf`. The committed Rust figures were
-remeasured on 2026-10-24; C++ figures remain from the pinned baseline. It measures
+reused CSV/JSON import buffers, the opt-in German/Umbra string column layout, and the
+standalone cache-latency fixture, remeasured on 2026-10-25.
+The C++ product scope uses GD pinned to
+`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`, exported from Git independently of the
+working-tree submodule checkout. All scopes were remeasured on 2026-10-25. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include maintained
@@ -28,7 +28,7 @@ divided by the number of functions recognized by Lizard.
 | Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 86 | 22,251 | 788 | 2,066 | 2.62 |
 | C++ product (`source`) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
-| C++ product + tests + maintained benchmarks | 171 | 68,957 | 8,950 | 20,904 | 2.34 |
+| C++ product + tests + maintained benchmarks | 172 | 69,220 | 8,961 | 20,953 | 2.34 |
 
 The Rust totals are **10,704 SLOC in `src`** and **22,251 SLOC including `tests`
 and `benches`**. The separate test tree adds 6,211 SLOC and benchmarks add 5,336
@@ -46,11 +46,12 @@ heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 4,093 SLOC, including the GD DTO row-sum test, the `string_transport` benchmark, the interned
+references add 4,356 SLOC, including the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
-layout probe and projection correctness fixture in this worktree.
+layout probe, projection correctness fixture, and standalone cache-latency fixture
+in this worktree. The cache-latency fixture has no matched Rust counterpart.
 
 These totals do not establish the source size of an identical product. The Rust
 crate implements a deliberately smaller surface, while
@@ -84,6 +85,10 @@ run from `gd-rs`, replace the roots with `external/gd/source benches/cpp-referen
 above, and use `--languages cpp`. The maintained C++ benchmark scope includes matched GD
 references and standalone host fixtures; reports identify fixtures that have no Rust
 counterpart.
+
+If the GD working-tree checkout differs from the pinned revision above, export the
+pinned `source` tree with `git archive` and measure that export instead. This keeps
+the product scope tied to the committed submodule pointer.
 
 Lizard assigns CCN 1 to a straight-line function and adds paths for recognized branches
 and loops. Its parsers are language-aware but not compiler front ends. Macros can hide
