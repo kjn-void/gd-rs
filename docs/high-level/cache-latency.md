@@ -6,6 +6,10 @@ L2. It has no GD dependency or matched Rust counterpart. The
 [CMake project](../../benches/cpp-reference/cache_latency/CMakeLists.txt) builds it
 separately from the GD reference benchmarks.
 
+Optional perf-stat FIFO control is implemented separately in
+[`perf_control.h`](../../benches/cpp-reference/cache_latency/perf_control.h) and
+[`perf_control.cpp`](../../benches/cpp-reference/cache_latency/perf_control.cpp).
+
 ## Build and verify
 
 On the target Linux machine, run from the repository root:
@@ -54,8 +58,8 @@ taskset -c 4 /tmp/gd-cache-latency-build/cache-latency work1 80 0.5
 The existing verification checks ring construction and all kernels against a
 reference implementation outside the timed region. The
 [measurement runner](../../benches/cpp-reference/cache_latency/run_cache_latency.py)
-collects user-mode PMU counters, randomizes trials, and records source/binary
-hashes, toolchain, affinity, cache geometry, and seeds. It targets the RK3588 A55/A76
+collects user-mode PMU counters, randomizes trials, and records all C++ source and
+binary hashes, toolchain, affinity, cache geometry, and seeds. It targets the RK3588 A55/A76
 PMU names and expects a GCC build and working user perf access:
 
 ```sh

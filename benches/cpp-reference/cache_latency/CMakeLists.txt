@@ -59,7 +59,7 @@ if(cache_line_bytes LESS 16 OR cache_line_bytes GREATER 1024 OR line_size_remain
 endif()
 message(STATUS "L1 data-cache line size: ${cache_line_bytes} bytes")
 
-add_executable(cache-latency cache_latency.cpp)
+add_executable(cache-latency cache_latency.cpp perf_control.cpp perf_control.h)
 target_compile_features(cache-latency PRIVATE cxx_std_20)
 set_target_properties(cache-latency PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_definitions(cache-latency PRIVATE ${cache_line_definitions})

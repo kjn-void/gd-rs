@@ -184,6 +184,12 @@ def main():
         source_sha256=hashlib.sha256(
             (Path(__file__).with_name("cache_latency.cpp")).read_bytes()
         ).hexdigest(),
+        source_sha256_by_file={
+            name: hashlib.sha256(
+                Path(__file__).with_name(name).read_bytes()
+            ).hexdigest()
+            for name in ("cache_latency.cpp", "perf_control.cpp", "perf_control.h")
+        },
         cores=cores, perf_events=EVENTS, repetitions=arguments.reps,
         seconds=arguments.seconds, seeds=arguments.seeds, sizes=arguments.sizes,
         kernels=arguments.kernels, warmup_seconds=0.1,

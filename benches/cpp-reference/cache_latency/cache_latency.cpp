@@ -2,7 +2,7 @@
 // Build on Linux (run both lines):
 // clang-format off
 // line_bytes=$(getconf LEVEL1_DCACHE_LINESIZE)
-// g++ -std=c++20 -O3 -flto -DL1_CACHE_BYTES=$line_bytes cache_latency.cpp -o cache-latency
+// g++ -std=c++20 -O3 -flto -DL1_CACHE_BYTES=$line_bytes cache_latency.cpp perf_control.cpp -o cache-latency
 // clang-format on
 //
 // Run: taskset -c 3 ./cache-latency work1 80 0.5
@@ -16,8 +16,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <numeric>
@@ -25,6 +23,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "perf_control.h"
 
 // These Linux kernel macros are not exported in userspace headers. Supply the
 // detected target line size at build time; alignas requires a constant
@@ -138,6 +138,21 @@ struct Entry {
   bool serial;
 };
 
+// The mixed kernels repeat cold -> hot -> hot -> hot, adding each loaded index
+// to the checksum. The number in the name selects arithmetic rounds per
+// iteration. Each round updates four independent uint64_t states (a, b, c, d),
+// with one rotation and one addition per state. These updates do not depend on
+// the loaded index, so OoO execution can overlap them with a pending load.
+//
+// work0: Ring traversal and checksum only; no independent arithmetic.
+// work1: 1 round per iteration: 4 rotations and 4 additions.
+// work2: 2 rounds per iteration: 8 rotations and 8 additions.
+// work4: 4 rounds per iteration: 16 rotations and 16 additions.
+//
+// serial: Follow only the cold ring, once per iteration, and update the
+// checksum. Every next address depends on the previous load. There are no
+// hot-ring steps or independent arithmetic rounds, exposing the chain's
+// load-to-use latency.
 constexpr Entry kEntries[] = {
     {"work0", RunMixed<0>, 0, false}, {"work1", RunMixed<1>, 1, false},
     {"work2", RunMixed<2>, 2, false}, {"work4", RunMixed<4>, 4, false},
@@ -228,48 +243,6 @@ std::uint64_t Digest(const State& state) {
 }
 
 volatile std::uint64_t g_observed;
-
-// Optional perf-stat control. Setup, warmup, and verification are not counted.
-class PerfControl {
- public:
-  void Start() {
-    const char* control_path = std::getenv("CACHE_PERF_CTL");
-
-    if (control_path != nullptr) {
-      const char* acknowledgement_path = std::getenv("CACHE_PERF_ACK");
-
-      if (acknowledgement_path == nullptr) {
-        throw std::runtime_error("CACHE_PERF_ACK is missing");
-      }
-
-      control_.open(control_path);
-      acknowledgement_.open(acknowledgement_path);
-
-      Command("disable");
-      Command("enable");
-    }
-  }
-
-  void Stop() {
-    if (control_.is_open()) {
-      Command("disable");
-    }
-  }
-
- private:
-  void Command(const char* text) {
-    control_ << text << '\n' << std::flush;
-
-    std::string reply;
-
-    if (!std::getline(acknowledgement_, reply)) {
-      throw std::runtime_error("perf did not acknowledge command");
-    }
-  }
-
-  std::ofstream control_;
-  std::ifstream acknowledgement_;
-};
 
 int main(int argc, char** argv) {
   try {
