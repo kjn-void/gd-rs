@@ -499,9 +499,11 @@ packed row without consulting null flags.
 
 Nullable numeric columns previously stored `Option<u64>` (16 bytes per value). Measured
 before and after the change to dense values plus validity bytes on the same M6
-([raw data](measurements/nullable-storage-m6.json)), `Sum01`–`Sum03` became 5–9%
-slower, because each per-cell access reads two vectors, while `Sum04` and `Sum05` were
-unchanged within noise: these 10,000-row columns stay in cache either way. See
+([raw data](measurements/nullable-storage-m6.json)), the recorded `Sum01`–`Sum03`
+samples were 5–11% slower, while `Sum04` and `Sum05` were 4–10% slower. Per-cell
+access now reads two vectors; these 10,000-row columns stay in cache either way.
+There are two baseline samples and one changed-build sample per variant, so these
+runs do not establish timing variability. See
 [nullable numeric storage](order-workflow.md#nullable-numeric-storage) for the effect on
 a one-million-row workflow.
 

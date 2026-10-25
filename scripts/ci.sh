@@ -28,8 +28,14 @@ cargo test --lib --tests --no-default-features
 step "cargo test --doc --all-features"
 cargo test --doc --all-features
 
+step "cargo test --doc --no-default-features --features rayon"
+cargo test --doc --no-default-features --features rayon
+
 step 'RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features'
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+
+step 'RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --no-default-features'
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --no-default-features
 
 step "cargo +1.86.0 check --lib --no-default-features (MSRV)"
 if command -v rustup >/dev/null 2>&1 && rustup toolchain list 2>/dev/null | grep -q '^1\.86\.0'; then

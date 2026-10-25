@@ -9,8 +9,8 @@ tables with the same layout can share schema metadata without sharing mutable ro
 flowchart TD
     Schema["Arc&lt;Schema&gt;\nColumnSpec + converters + name/alias map"] --> Table
     Table --> C0["required: Vec&lt;T0&gt;"]
-    Table --> C1["nullable: Vec&lt;Option&lt;T1&gt;&gt;"]
-    Table --> CN["required or nullable typed column"]
+    Table --> C1["nullable numbers: Vec&lt;T1&gt; + validity bytes"]
+    Table --> CN["other nullable values: Vec&lt;Option&lt;T&gt;&gt;"]
     Table --> Extras["optional Box&lt;RowExtras&gt; per row"]
     Table --> Tombstones["optional tombstone flags\nallocated on first deletion"]
     Table --> Properties["table-wide Arguments properties"]
@@ -613,7 +613,9 @@ its typed slice directly. Row iteration assembles a borrowing view across column
 it is read or written, so creating a view costs the same for any column count. `RowsMut`
 can split all column slices and the open-schema sidecar at one common row boundary;
 its halves can therefore be sent to scoped threads without a table lock or unsafe
-aliasing. With the optional `rayon` feature, `par_for_each_row_mut` performs this
+aliasing. Individual `RowMut` views are also `Send + Sync` and can cross scoped
+thread boundaries while retaining their exclusive storage borrow.
+With the optional `rayon` feature, `par_for_each_row_mut` performs this
 partitioning recursively using a caller-selected grain-size threshold. Typed column
 slices remain the lower-overhead interface for homogeneous bulk operations.
 `ColumnIndex` borrows the table, uses a typed `AHashMap`, preserves

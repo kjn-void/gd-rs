@@ -524,7 +524,7 @@ impl<'a> Column<'a> {
     /// column operations and compiler auto-vectorization.
     /// Ordinary strings use `T = CompactString`; fixed, interned, and German
     /// strings use [`Self::fixed_strings`], [`Self::interned_strings`], and
-    /// [`Self::german_strings`] respectively.
+    /// `german_strings` respectively; the latter requires the `german-strings` feature.
     ///
     /// # Errors
     ///
@@ -536,11 +536,12 @@ impl<'a> Column<'a> {
         T::required_values(self)
     }
 
-    /// Borrows a nullable column as a contiguous slice of typed storage options.
+    /// Borrows a nullable column as a typed storage view.
     ///
-    /// Type and nullability are checked once. Each physical row has one element:
-    /// `None` represents null, and `Some(value)` contains the typed value. The
-    /// slice includes tombstoned rows and does not copy or wrap cells in `ValueRef`.
+    /// Fixed-width numbers return [`NullableValues`], borrowing dense values and
+    /// validity bytes. `bool`, [`Uuid`], and ordinary [`CompactString`] columns
+    /// return `&[Option<T>]`. Type and nullability are checked once. Both forms
+    /// include tombstoned rows without copying or wrapping cells in `ValueRef`.
     /// A nullable column uses this interface even when every cell is populated.
     ///
     /// ```
@@ -654,7 +655,7 @@ impl<'a> Column<'a> {
     /// dynamically represented as [`ValueRef`]; use [`Column::as_slice`] or
     /// [`Column::as_nullable_slice`] for a fully typed loop, or
     /// [`Column::fixed_strings`], [`Column::interned_strings`], or
-    /// [`Column::german_strings`] for string views.
+    /// `german_strings` (with the `german-strings` feature) for string views.
     pub fn for_each_value(self, mut operation: impl FnMut(ValueRef<'a>)) {
         macro_rules! copied {
             ($values:expr, $variant:ident) => {
@@ -842,12 +843,14 @@ impl<'a> ColumnMut<'a> {
         T::required_values_mut(self)
     }
 
-    /// Borrows a nullable column as a mutable slice of typed storage options.
+    /// Borrows a nullable column as a mutable typed storage view.
     ///
-    /// Type and nullability are checked once, then callers can replace values
-    /// with `Some(value)` or `None` without dynamic cell setters. The exclusive
-    /// borrow prevents table access while the slice is in use. All physical
-    /// rows are included; changing a value does not change its tombstone flag.
+    /// Numbers return [`NullableValuesMut`], with checked row replacement and
+    /// mutable access to dense values and validity bytes. `bool`, [`Uuid`], and
+    /// ordinary [`CompactString`] columns return `&mut [Option<T>]`. Type and
+    /// nullability are checked once. The exclusive borrow prevents table access
+    /// while the view is in use. All physical rows are included; changing a value
+    /// does not change its tombstone flag.
     ///
     /// ```
     /// use gd::{ColumnSpec, DataType, Schema, Table, Value, ValueRef};

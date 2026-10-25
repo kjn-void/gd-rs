@@ -1101,6 +1101,49 @@ fn mutable_row_reads_and_replaces_fixed_and_extra_values() {
 }
 
 #[test]
+fn mutable_row_views_can_cross_scoped_threads() {
+    fn assert_send_sync<T: Send + Sync>(_: &T) {}
+
+    let schema = Schema::new([
+        ColumnSpec::new("amount", DataType::I64).nullable(true),
+        ColumnSpec::fixed_string("name", 16),
+        ColumnSpec::interned_string("kind"),
+    ])
+    .unwrap()
+    .with_unknown_fields(UnknownFields::Store);
+    let mut table = Table::new(schema);
+    table
+        .push_row([Value::Null, "Ada".into(), "shared".into()])
+        .unwrap();
+
+    let mut row = table.row_mut(0).unwrap();
+    assert_send_sync(&row);
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            row.set(0, Value::I64(7)).unwrap();
+            row.set_named("name", "Grace").unwrap();
+            row.set_named("worker", "table").unwrap();
+        });
+    });
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::I64(7)));
+    assert_eq!(table.cell(0, 1), Ok(ValueRef::String("Grace")));
+    assert_eq!(table.cell_named(0, "worker"), Ok(ValueRef::String("table")));
+
+    let mut rows = table.rows_mut();
+    let mut row = rows.row_mut(0).unwrap();
+    std::thread::scope(|scope| {
+        scope.spawn(move || {
+            row.set(0, Value::Null).unwrap();
+            row.set_named("kind", "changed").unwrap();
+            row.set_named("worker", "range").unwrap();
+        });
+    });
+    assert_eq!(table.cell(0, 0), Ok(ValueRef::Null));
+    assert_eq!(table.cell(0, 2), Ok(ValueRef::String("changed")));
+    assert_eq!(table.cell_named(0, "worker"), Ok(ValueRef::String("range")));
+}
+
+#[test]
 fn split_mutable_rows_can_run_on_scoped_threads() {
     let schema = Schema::new([
         ColumnSpec::new("arg", DataType::U32),

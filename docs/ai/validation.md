@@ -25,8 +25,10 @@ Run every check in this document through the repository script:
 ```
 
 The script runs formatting, Clippy, all-features tests, minimal-features tests,
-all-features doctests (including the standalone usage guides), documentation, and the
-MSRV check in order. It reports explicitly when the MSRV toolchain is unavailable.
+all-features doctests (including the standalone usage guides), doctests with only
+Rayon enabled, documentation with all features and without default features, and the
+MSRV check in order. The Rayon-only doctests exercise the table guides without the
+optional German string API. It reports explicitly when the MSRV toolchain is unavailable.
 The same script runs in
 `.github/workflows/ci.yml` on pushes and pull requests. CI installs both the stable
 toolchain and Rust 1.86.0 before invoking the script.

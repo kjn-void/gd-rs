@@ -483,7 +483,7 @@ impl ExtrasStorage {
 ///
 /// Resolving cells lazily keeps row-view construction independent of the column
 /// count; only the cells an operation touches are dispatched.
-trait RowCells {
+trait RowCells: Send + Sync {
     fn column_count(&self) -> usize;
     fn cell(&self, row: usize, column: usize) -> Option<ValueRef<'_>>;
     fn set_cell_validated(

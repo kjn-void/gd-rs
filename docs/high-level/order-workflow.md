@@ -262,8 +262,8 @@ invocations and should not be added to predict a complete-run median.
 
 Whole-process peak RSS for `complete` is 469/479 MiB for gd-rs at one/eight workers,
 567/589 MiB for GD AoS, and 551/574 MiB for GD AoSoA. gd-rs's nullable `i64` columns
-store dense values plus one validity byte per row; before that change its `complete`
-peak was 42% higher than now, above both GD layouts (see [nullable numeric
+store dense values plus one validity byte per row; this reduced its `complete`
+peak by 42% in the storage comparison (see [nullable numeric
 storage](#nullable-numeric-storage)). The stripped standalone executables occupy
 2,401,872, 1,325,104, and 1,324,960 bytes respectively; these include the benchmark
 driver and dependencies, not just table code.
@@ -275,6 +275,10 @@ Sources: [Rust application](../../benches/order_workflow/workload.rs),
 [storage](../../src/table/storage.rs),
 [comparison script](../../benches/order_workflow/compare_revisions.sh), and
 [raw measurements](measurements/nullable-storage-m6.json).
+
+This compares Rust storage variants; there is no matched C++ storage change.
+The microbenchmarks use the [Rust float-sum fixture](../../benches/float_sum.rs)
+and [Rust TableDto fixture](../../benches/table_dto.rs).
 
 Nullable `i64` columns now store a dense `Vec<i64>` plus one validity byte per row
 instead of `Vec<Option<i64>>`, which takes 16 bytes per row. Every numeric column in
@@ -299,7 +303,8 @@ between rounds, so the table uses the quieter session; both are in the raw data.
 | Complete | 1 | 210.6–213.7 | 217.9–225.5 | 3–6% slower | 814 → 469 MiB (−42%) |
 | Complete | 8 | 196.3–196.4 | 202.6–204.5 | 3–4% slower | 817 → 476 MiB (−42%) |
 
-The memory reduction comes from halving each nullable `i64` cell. The single-worker
+The memory reduction comes from shrinking each nullable `i64` cell from 16 to 9
+bytes, a 44% reduction. The single-worker
 slowdown comes from row-at-a-time work that now touches two vectors per cell:
 appending a row writes a value and a validity byte, a scattered lookup reads two cache
 lines, and gathering rows copies both vectors. Measured separately on the same host
@@ -310,9 +315,11 @@ bandwidth-bound and benefits from the smaller columns.
 
 Bulk numeric work gains the most. In the repository microbenchmarks on the same host,
 the one-million-row nullable `sum_f64` fell from 176 µs to 116 µs and `sum_f32` from
-157 µs to 59 µs: values are contiguous, and a null is masked with a bitwise AND
+157–158 µs to 59 µs: values are contiguous, and a null is masked with a bitwise AND
 instead of unpacking an `Option`. The `TableDto` per-cell variants (`Sum01`–`Sum03`)
-were 5–9% slower and the typed-column variants unchanged within noise.
+were 5–11% slower in the recorded samples, and the typed-column variants were
+4–10% slower. Each variant has two baseline samples and one changed-build sample;
+these runs do not establish timing variability.
 
 ## Rust column access and import
 

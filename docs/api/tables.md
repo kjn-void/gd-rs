@@ -274,6 +274,7 @@ formatting, import, SQLite loading, selection, append and compaction retain thei
 ordinary behavior. C++ GD has no equivalent column layout.
 
 ```rust
+# #[cfg(feature = "german-strings")] {
 use gd::{ColumnSpec, Schema, Table, Value, ValueRef};
 
 let mut table = Table::new(Schema::new([
@@ -294,6 +295,7 @@ table.push_row([Value::Null])?;
     strings.set(0, Some("Ada"))?;
 }
 assert_eq!(table.cell(0, 0)?, ValueRef::String("Ada"));
+# }
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
@@ -1097,6 +1099,10 @@ and `set` still dispatches on the column type and validates written values, so r
 views suit genuinely row-oriented, heterogeneous work. For a uniform transform,
 `columns_io` and typed slices avoid that per-cell dispatch and remain the preferred
 bulk-performance API.
+
+`RowMut` implements `Send` and `Sync`, so an individual row view can also be moved
+to a scoped thread. Its exclusive borrow keeps the underlying storage unavailable
+to other code until the view is released.
 
 The current API does not insert or remove columns after construction. Build a new
 schema and table when the data model changes.

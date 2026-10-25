@@ -324,8 +324,10 @@ independent chains the required sums reach the speed of the vectorized integer s
 and `f32` processes twice as many elements per vector as `f64`. These nullable
 figures were measured with the earlier `Vec<Option<T>>` storage, where each `Option<T>`
 had to be unpacked before it could be added. Nullable float columns now store dense
-values plus validity bytes and mask nulls with a bitwise AND; on an Apple M6 this made
-the one-million-row nullable `sum_f64` 1.68× and `sum_f32` 2.70× faster.
+values plus validity bytes and mask nulls with a bitwise AND. The recorded Apple M6
+samples show the one-million-row nullable `sum_f64` running 1.52× and `sum_f32`
+2.67× faster, using the mean of the two baseline samples for each comparison
+([raw data](measurements/nullable-storage-m6.json)).
 
 #### Price calculation: aligned AoS versus typed SoA
 

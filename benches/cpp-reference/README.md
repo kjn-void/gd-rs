@@ -4,7 +4,7 @@ This directory contains the Google Benchmark fixtures used as the C++ GD referen
 for the Criterion benchmarks in the parent directory. Keeping the comparison sources
 here makes the benchmark methodology reviewable from the Rust repository.
 
-All maintained C++ sources use the repository's [.clang-format](../../.clang-format):
+The GD reference C++ sources use the repository's [.clang-format](../../.clang-format):
 four-space indentation, a 100-column limit, and expanded functions and braced
 control-flow blocks. From the repository root, format the tracked sources with:
 
@@ -15,6 +15,8 @@ git ls-files '*.cpp' '*.hpp' '*.h' '*.cc' '*.cxx' '*.c' | xargs clang-format -i
 The file list excludes the read-only GD submodule and generated build output.
 Separate logical steps, validation checks, and returns with blank lines.
 `clang-format` preserves this grouping; it does not infer the groups itself.
+The standalone cache-latency fixture uses its own
+[formatting configuration](cache_latency/.clang-format).
 
 The build expects the C++ GD git submodule at `external/gd` relative to the `gd-rs`
 repository. Initialize it with `git submodule update --init external/gd` after cloning.
@@ -111,6 +113,11 @@ pack hybrid, its scalar table-access counterpart, and a `std::string_view::find`
 implementation. All variants validate identical output before timing.
 The Rust executable exits after validation in debug builds or when passed `--test`,
 so `cargo test --all-targets --all-features` does not collect debug timing samples.
+
+The standalone [cache-latency fixture](cache_latency/cache_latency.cpp) measures
+shuffled pointer rings with independent arithmetic. It has its own CMake project
+and correctness verification, and no GD dependency or matched Rust counterpart.
+See the [build and measurement guide](../../docs/high-level/cache-latency.md).
 
 `stream_benchmark.cpp` is a standalone POSIX array-loop diagnostic retained for
 experimentation. It deliberately has no Rust counterpart, does not use Google

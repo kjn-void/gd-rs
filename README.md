@@ -78,6 +78,7 @@ the storage contract. Separate benchmark-only unsafe code is documented in the
 - [Interned strings: memory, insertion, copying and mutation](docs/high-level/interned-string-results.md)
 - [Rust benchmarks and examples in VS Code](docs/high-level/rust-debugging.md)
 - [Large-table performance](docs/high-level/perf_large_table.md)
+- [Cache latency and independent work](docs/high-level/cache-latency.md)
 - [Text filtering and transform comparison](docs/high-level/text-workflow-results.md)
 - [Text filtering and transform comparison on Apple M6](docs/high-level/text-workflow-m6-results.md)
 - [Whole-record filter and copy comparison (latest M6 results)](docs/high-level/examples/filter-copy-results.md)
@@ -108,8 +109,11 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-targets --all-features
 cargo test --lib --tests --no-default-features
 cargo test --doc --all-features
+cargo test --doc --no-default-features --features rayon
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --no-default-features
 cargo +1.86.0 check --lib --no-default-features
 ```
 
-The doctest step also compiles and runs the standalone API and usage-guide examples.
+The doctest steps also compile and run the standalone API and usage-guide examples,
+including the table guides with the optional German string API disabled.

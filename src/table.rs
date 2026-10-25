@@ -226,8 +226,9 @@ pub enum ColumnSelectionError {
 /// A schema-driven table whose fixed columns store their primitive types
 /// directly and whose optional unknown fields are owned by individual rows.
 ///
-/// Ordinary required columns store contiguous `T` values directly; nullable
-/// columns use `Option<T>`. Fixed-capacity string columns instead keep offsets
+/// Ordinary required columns store contiguous `T` values directly. Nullable
+/// numeric columns keep dense values and one validity byte per row; other
+/// ordinary nullable columns use `Option<T>`. Fixed-capacity strings keep offsets
 /// and lengths into a byte buffer, with a reserved length for null cells.
 /// Opt-in interned strings hold shared immutable `Arc<str>` payloads; ordinary
 /// strings retain their `CompactString` storage. The optional `german-strings`

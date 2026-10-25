@@ -5,7 +5,8 @@ addition, the fixed-string gather optimization, lazily resolved `RowMut` views, 
 matched GD DTO row-sum benchmarks and split value/validity storage for nullable numeric
 columns, direct compatible-column append, sampled low-cardinality index capacity,
 reused CSV/JSON import buffers, the opt-in German/Umbra string column layout, and the
-standalone cache-latency fixture, remeasured on 2026-10-25.
+standalone cache-latency fixture and scoped mutable-row thread tests, remeasured on
+2026-10-25.
 The C++ product scope uses GD pinned to
 `1bba194909d997891c05fe5a4ce1d3d3a888e0cf`, exported from Git independently of the
 working-tree submodule checkout. All scopes were remeasured on 2026-10-25. It measures
@@ -24,14 +25,14 @@ divided by the number of functions recognized by Lizard.
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 36 | 10,704 | 367 | 988 | 2.69 |
-| Rust product + tests (`src`, `tests`) | 56 | 16,915 | 586 | 1,412 | 2.41 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 86 | 22,251 | 788 | 2,066 | 2.62 |
+| Rust product + tests (`src`, `tests`) | 56 | 16,954 | 588 | 1,416 | 2.41 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 86 | 22,290 | 790 | 2,070 | 2.62 |
 | C++ product (`source`) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
 | C++ product + tests + maintained benchmarks | 174 | 69,227 | 8,961 | 20,953 | 2.34 |
 
-The Rust totals are **10,704 SLOC in `src`** and **22,251 SLOC including `tests`
-and `benches`**. The separate test tree adds 6,211 SLOC and benchmarks add 5,336
+The Rust totals are **10,704 SLOC in `src`** and **22,290 SLOC including `tests`
+and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,336
 SLOC, including the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
@@ -69,6 +70,9 @@ The measurement uses Lizard 1.17.31 for both languages. The selected files are:
   `benches/cpp-reference`;
 - excluded from both: documentation, manifests, build scripts, generated build
   output, vendored dependencies, and every directory not named above.
+
+Measure a clean checkout or Git export of the source being reported so unrelated
+untracked files and local edits do not enter the published totals.
 
 The product-only Rust measurement can be reproduced with:
 
