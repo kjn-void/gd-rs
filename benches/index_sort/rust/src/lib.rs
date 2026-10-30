@@ -1,6 +1,9 @@
-//! Rust counterpart of `../cpp/index_sort_benchmark.cpp` and
-//! `../cpp/sort_methods_benchmark.cpp`: GD's "sort table" cases over a
-//! struct-of-arrays table whose string columns hold `strumbra::SharedString`.
+//! Rust counterpart of `../cpp/sort_methods_benchmark.cpp`: sorting GD's
+//! seven-column table on each column, over a struct-of-arrays table whose string
+//! columns hold `strumbra::SharedString`.
+//!
+//! The port has one sort, [`key_sort`], the fastest of the physical, index, and key
+//! sorts measured at commit 906a410.
 
 use std::cmp::Ordering;
 use std::mem::ManuallyDrop;
@@ -9,11 +12,8 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use strumbra::SharedString;
 
-/// Row count in the C++ six-case benchmark.
-pub const ROW_COUNT: usize = 1000;
-
-/// Row count in the C++ three-sort-method benchmark.
-pub const SORT_METHODS_ROW_COUNT: usize = 10_000;
+/// Row count in the C++ benchmark.
+pub const ROW_COUNT: usize = 10_000;
 
 /// Column numbers as in the C++ table: C1 `uint64`, C2 `string(8)`, C3 and C4
 /// `double`, C5 `int32`, C6 `uint32`, C7 `string(50)`.
@@ -25,30 +25,21 @@ pub const C5: usize = 4;
 pub const C6: usize = 5;
 pub const C7: usize = 6;
 
-/// Generated values for one row. The six-case benchmark never sets C4 to C6.
+/// Generated values for one row.
 pub struct SourceRow {
     pub c1: u64,
     pub c2: String,
     pub c3: f64,
-    pub c4: Option<f64>,
-    pub c5: Option<i32>,
-    pub c6: Option<u32>,
+    pub c4: f64,
+    pub c5: i32,
+    pub c6: u32,
     pub c7: String,
 }
 
-/// Rows for the six-case benchmark, with C4 to C6 null. Same distributions and
-/// draw order as the C++ test. The engine differs, so the values do too.
+/// Same distributions and draw order as the C++ test, with every column set: C4 a
+/// double like C3, and C5 and C6 a draw like C1 modulo 1000. The engine differs, so
+/// the values do too.
 pub fn generate_rows(count: usize) -> Vec<SourceRow> {
-    generate(count, false)
-}
-
-/// Rows for the three-sort-method benchmark, with every column set: C4 a double
-/// like C3, and C5 and C6 a draw like C1 modulo 1000.
-pub fn generate_all_columns(count: usize) -> Vec<SourceRow> {
-    generate(count, true)
-}
-
-fn generate(count: usize, all_columns: bool) -> Vec<SourceRow> {
     let mut rng = StdRng::seed_from_u64(42);
     let letters = |rng: &mut StdRng, count: usize| -> String {
         (0..count)
@@ -63,12 +54,9 @@ fn generate(count: usize, all_columns: bool) -> Vec<SourceRow> {
             let c7 = format!("01234567890123456789{suffix}");
             let c1 = rng.random_range(0..=1_000_000u64);
             let c3 = rng.random_range(0.0..1_000.0);
-            let (mut c4, mut c5, mut c6) = (None, None, None);
-            if all_columns {
-                c4 = Some(rng.random_range(0.0..1_000.0));
-                c5 = Some((rng.random_range(0..=1_000_000u64) % 1000) as i32);
-                c6 = Some((rng.random_range(0..=1_000_000u64) % 1000) as u32);
-            }
+            let c4 = rng.random_range(0.0..1_000.0);
+            let c5 = (rng.random_range(0..=1_000_000u64) % 1000) as i32;
+            let c6 = (rng.random_range(0..=1_000_000u64) % 1000) as u32;
             SourceRow {
                 c1,
                 c2,
@@ -82,8 +70,9 @@ fn generate(count: usize, all_columns: bool) -> Vec<SourceRow> {
         .collect()
 }
 
-/// Struct of arrays: one `Vec` per column. Strings up to 12 bytes are stored
-/// inline; longer ones share an `Arc` buffer, so cloning a row never copies text.
+/// Struct of arrays: one `Vec` per column. C4 to C6 are nullable, like GD's.
+/// Strings up to 12 bytes are stored inline; longer ones share an `Arc` buffer, so
+/// cloning a row never copies text.
 #[derive(Clone)]
 pub struct Table {
     pub c1: Vec<u64>,
@@ -115,9 +104,9 @@ impl Table {
             table.c1.push(row.c1);
             table.c2.push(string(&row.c2));
             table.c3.push(row.c3);
-            table.c4.push(row.c4);
-            table.c5.push(row.c5);
-            table.c6.push(row.c6);
+            table.c4.push(Some(row.c4));
+            table.c5.push(Some(row.c5));
+            table.c6.push(Some(row.c6));
             table.c7.push(string(&row.c7));
         }
         table
@@ -147,103 +136,68 @@ impl Table {
         copy(&mut self.c7, &source.c7);
     }
 
-    #[inline]
-    pub fn swap_rows(&mut self, a: usize, b: usize) {
-        self.c1.swap(a, b);
-        self.c2.swap(a, b);
-        self.c3.swap(a, b);
-        self.c4.swap(a, b);
-        self.c5.swap(a, b);
-        self.c6.swap(a, b);
-        self.c7.swap(a, b);
-    }
-
-    #[inline]
+    /// Compares two rows on one column, in the order [`key_sort`] sorts by.
     pub fn compare_rows<const COLUMN: usize>(&self, a: usize, b: usize) -> Ordering {
         match COLUMN {
             C1 => self.c1[a].cmp(&self.c1[b]),
             C2 => self.c2[a].cmp(&self.c2[b]),
             C3 => self.c3[a].total_cmp(&self.c3[b]),
-            C4 => compare_set(self.c4[a], self.c4[b], f64::total_cmp),
-            C5 => compare_set(self.c5[a], self.c5[b], i32::cmp),
-            C6 => compare_set(self.c6[a], self.c6[b], u32::cmp),
+            C4 => f64::total_cmp(&key(&self.c4[a]), &key(&self.c4[b])),
+            C5 => key(&self.c5[a]).cmp(&key(&self.c5[b])),
+            C6 => key(&self.c6[a]).cmp(&key(&self.c6[b])),
             C7 => self.c7[a].cmp(&self.c7[b]),
             _ => unreachable!("table has no column {COLUMN}"),
         }
     }
 }
 
-/// Compares two values of a nullable column used as a sort key. Like GD's sorts, key
-/// values must not be null.
-#[inline]
-fn compare_set<T: Copy>(
-    a: Option<T>,
-    b: Option<T>,
-    compare: impl Fn(&T, &T) -> Ordering,
-) -> Ordering {
-    match (a, b) {
-        (Some(a), Some(b)) => compare(&a, &b),
-        _ => panic!("sort key is null"),
-    }
-}
-
-/// Cases 01 to 03: physical sort. Quicksort that compares and swaps whole rows in
-/// place. GD's default `sort(column, true)` is a selection sort instead.
-pub fn physical_sort<const COLUMN: usize>(table: &mut Table) {
-    let count = table.len();
-    quicksort(&mut Rows::<COLUMN>(table), 0, count);
-}
-
-/// Cases 04 to 06: index sort, after GD's `sort(column, true, tag_sort_index{})`. The
-/// same quicksort as [`physical_sort`] orders a vector of row numbers. The sorted
-/// order is then applied by building a new table: each new column is filled by
-/// moving the old column's values in sorted order, and each old column is freed as
-/// soon as it has been moved. GD instead swaps rows in place along permutation
-/// cycles; at 10,000 rows, building the new table took 5 to 34% less time.
-pub fn index_sort<const COLUMN: usize>(table: &mut Table) {
-    if table.len() < 2 {
-        return;
-    }
-
-    let index = sorted_index::<COLUMN>(table);
-    gather_table(table, &index);
-}
-
-/// Key sort, after GD's posted `sort(column, true, tag_sort_key{})`: each row's key
-/// is read once into a vector of (key, row number) pairs, the same quicksort orders
-/// the pairs, and the sorted order is applied by building a new table as in
-/// [`index_sort`]. Numbers are copied into the pairs; strings are referenced, as
-/// GD's cached `variant_view` points into the row. All three sorts produce the
-/// same row order.
+/// Sorts `table` on `COLUMN`, after GD's posted `sort(column, true, tag_sort_key{})`.
+///
+/// Each row's key is read once into a vector of (key, row number) pairs, and a
+/// quicksort orders the pairs. Numbers are copied into the pairs; strings are
+/// referenced, as GD's cached `variant_view` points into the row. The sorted order
+/// is then applied by building a new table: each new column is filled by moving the
+/// old column's values in sorted order, and each old column is freed as soon as it
+/// has been moved. Like GD's sorts, key values must not be null. The sort is not
+/// stable.
 pub fn key_sort<const COLUMN: usize>(table: &mut Table) {
     if table.len() < 2 {
         return;
     }
 
     let index = match COLUMN {
-        C1 => sorted_keys(table.c1.iter().copied(), u64::cmp),
-        C2 => sorted_keys(table.c2.iter(), |a, b| a.cmp(b)),
-        C3 => sorted_keys(table.c3.iter().copied(), f64::total_cmp),
-        C4 => sorted_keys(
-            table.c4.iter().map(|v| v.expect("sort key is null")),
-            f64::total_cmp,
-        ),
-        C5 => sorted_keys(
-            table.c5.iter().map(|v| v.expect("sort key is null")),
-            i32::cmp,
-        ),
-        C6 => sorted_keys(
-            table.c6.iter().map(|v| v.expect("sort key is null")),
-            u32::cmp,
-        ),
-        C7 => sorted_keys(table.c7.iter(), |a, b| a.cmp(b)),
+        C1 => sorted_rows(table.c1.iter().copied(), u64::cmp),
+        C2 => sorted_rows(table.c2.iter(), |a, b| a.cmp(b)),
+        C3 => sorted_rows(table.c3.iter().copied(), f64::total_cmp),
+        C4 => sorted_rows(table.c4.iter().map(key), f64::total_cmp),
+        C5 => sorted_rows(table.c5.iter().map(key), i32::cmp),
+        C6 => sorted_rows(table.c6.iter().map(key), u32::cmp),
+        C7 => sorted_rows(table.c7.iter(), |a, b| a.cmp(b)),
         _ => unreachable!("table has no column {COLUMN}"),
     };
-    gather_table(table, &index);
+
+    let old = std::mem::replace(table, Table::with_capacity(0));
+    *table = Table {
+        c1: gather(old.c1, &index),
+        c2: gather(old.c2, &index),
+        c3: gather(old.c3, &index),
+        c4: gather(old.c4, &index),
+        c5: gather(old.c5, &index),
+        c6: gather(old.c6, &index),
+        c7: gather(old.c7, &index),
+    };
 }
 
-/// Sorts (key, row number) pairs by key and returns the row numbers in that order.
-fn sorted_keys<K: Copy>(
+/// The value of a nullable column used as a sort key. Like GD's sorts, key values
+/// must not be null.
+#[inline]
+fn key<T: Copy>(value: &Option<T>) -> T {
+    value.expect("sort key is null")
+}
+
+/// Sorts (key, row number) pairs by key and returns the row numbers in that order:
+/// `index[k]` is the row that belongs at position `k`.
+fn sorted_rows<K: Copy>(
     keys: impl Iterator<Item = K>,
     compare: impl Fn(&K, &K) -> Ordering,
 ) -> Vec<usize> {
@@ -252,37 +206,8 @@ fn sorted_keys<K: Copy>(
         compare,
     };
     let count = pairs.pairs.len();
-    quicksort(&mut pairs, 0, count);
+    pairs.quicksort(0, count);
     pairs.pairs.into_iter().map(|(_, row)| row).collect()
-}
-
-/// Replaces `table` with a new table whose row `k` is the old row `index[k]`.
-fn gather_table(table: &mut Table, index: &[usize]) {
-    let old = std::mem::replace(table, Table::with_capacity(0));
-    *table = Table {
-        c1: gather(old.c1, index),
-        c2: gather(old.c2, index),
-        c3: gather(old.c3, index),
-        c4: gather(old.c4, index),
-        c5: gather(old.c5, index),
-        c6: gather(old.c6, index),
-        c7: gather(old.c7, index),
-    };
-}
-
-/// Row numbers in sorted order: `index[k]` is the row that belongs at position `k`.
-fn sorted_index<const COLUMN: usize>(table: &Table) -> Vec<usize> {
-    let count = table.len();
-    let mut index: Vec<usize> = (0..count).collect();
-    quicksort(
-        &mut RowNumbers::<COLUMN> {
-            table,
-            index: &mut index,
-        },
-        0,
-        count,
-    );
-    index
 }
 
 /// Moves `column`'s values into a new vector in `index` order. `index` must be a
@@ -305,128 +230,83 @@ fn gather<T>(column: Vec<T>, index: &[usize]) -> Vec<T> {
     sorted
 }
 
-/// What the quicksort orders: positions it can compare and swap.
-trait Sequence {
-    fn compare(&self, a: usize, b: usize) -> Ordering;
-    fn swap(&mut self, a: usize, b: usize);
-}
-
-/// The table's rows themselves.
-struct Rows<'a, const COLUMN: usize>(&'a mut Table);
-
-impl<const COLUMN: usize> Sequence for Rows<'_, COLUMN> {
-    #[inline]
-    fn compare(&self, a: usize, b: usize) -> Ordering {
-        self.0.compare_rows::<COLUMN>(a, b)
-    }
-
-    #[inline]
-    fn swap(&mut self, a: usize, b: usize) {
-        self.0.swap_rows(a, b);
-    }
-}
-
-/// (key, row number) pairs, compared by key.
+/// (key, row number) pairs and the key order.
 struct Keys<K, F> {
     pairs: Vec<(K, usize)>,
     compare: F,
 }
 
-impl<K, F: Fn(&K, &K) -> Ordering> Sequence for Keys<K, F> {
-    #[inline]
-    fn compare(&self, a: usize, b: usize) -> Ordering {
-        (self.compare)(&self.pairs[a].0, &self.pairs[b].0)
-    }
-
-    #[inline]
-    fn swap(&mut self, a: usize, b: usize) {
-        self.pairs.swap(a, b);
-    }
-}
-
-/// Row numbers, compared through the rows they name.
-struct RowNumbers<'a, const COLUMN: usize> {
-    table: &'a Table,
-    index: &'a mut [usize],
-}
-
-impl<const COLUMN: usize> Sequence for RowNumbers<'_, COLUMN> {
-    #[inline]
-    fn compare(&self, a: usize, b: usize) -> Ordering {
-        self.table
-            .compare_rows::<COLUMN>(self.index[a], self.index[b])
-    }
-
-    #[inline]
-    fn swap(&mut self, a: usize, b: usize) {
-        self.index.swap(a, b);
-    }
-}
-
 /// Ranges this short are finished with insertion sort.
 const INSERTION_SORT_LENGTH: usize = 16;
 
-/// Sorts positions `[from, to)`. The pivot is the median of the first, middle, and
-/// last positions. Partitioning stops on keys equal to the pivot, so duplicate keys
-/// still split evenly. The sort recurses into the smaller part only and uses
-/// insertion sort for short ranges. It is not stable.
-fn quicksort(sequence: &mut impl Sequence, mut from: usize, mut to: usize) {
-    while to - from > INSERTION_SORT_LENGTH {
-        let pivot = partition(sequence, from, to);
-        if pivot - from < to - pivot {
-            quicksort(sequence, from, pivot);
-            from = pivot + 1;
-        } else {
-            quicksort(sequence, pivot + 1, to);
-            to = pivot;
+impl<K, F: Fn(&K, &K) -> Ordering> Keys<K, F> {
+    #[inline]
+    fn less(&self, a: usize, b: usize) -> bool {
+        (self.compare)(&self.pairs[a].0, &self.pairs[b].0).is_lt()
+    }
+
+    /// Sorts positions `[from, to)`. The pivot is the median of the first, middle,
+    /// and last positions. Partitioning stops on keys equal to the pivot, so
+    /// duplicate keys still split evenly. The sort recurses into the smaller part
+    /// only and uses insertion sort for short ranges.
+    fn quicksort(&mut self, mut from: usize, mut to: usize) {
+        while to - from > INSERTION_SORT_LENGTH {
+            let pivot = self.partition(from, to);
+            if pivot - from < to - pivot {
+                self.quicksort(from, pivot);
+                from = pivot + 1;
+            } else {
+                self.quicksort(pivot + 1, to);
+                to = pivot;
+            }
         }
+        self.insertion_sort(from, to);
     }
-    insertion_sort(sequence, from, to);
-}
 
-/// Partitions `[from, to)` around a median-of-three pivot and returns the pivot's
-/// final position. Needs at least three positions.
-fn partition(sequence: &mut impl Sequence, from: usize, to: usize) -> usize {
-    let middle = from + (to - from) / 2;
-    let last = to - 1;
-    if sequence.compare(middle, from).is_lt() {
-        sequence.swap(middle, from);
-    }
-    if sequence.compare(last, from).is_lt() {
-        sequence.swap(last, from);
-    }
-    if sequence.compare(last, middle).is_lt() {
-        sequence.swap(last, middle);
-    }
-    // The pivot moves to `from`; the smaller and larger samples bound both scans.
-    sequence.swap(from, middle);
+    /// Partitions `[from, to)` around a median-of-three pivot and returns the
+    /// pivot's final position. Needs at least three positions.
+    fn partition(&mut self, from: usize, to: usize) -> usize {
+        let middle = from + (to - from) / 2;
+        let last = to - 1;
+        if self.less(middle, from) {
+            self.pairs.swap(middle, from);
+        }
+        if self.less(last, from) {
+            self.pairs.swap(last, from);
+        }
+        if self.less(last, middle) {
+            self.pairs.swap(last, middle);
+        }
+        // The pivot moves to `from`; the smaller and larger samples bound both scans.
+        self.pairs.swap(from, middle);
 
-    let (mut left, mut right) = (from, to);
-    loop {
-        left += 1;
-        while sequence.compare(left, from).is_lt() {
+        let (mut left, mut right) = (from, to);
+        loop {
             left += 1;
-        }
-        right -= 1;
-        while sequence.compare(from, right).is_lt() {
+            while self.less(left, from) {
+                left += 1;
+            }
             right -= 1;
+            while self.less(from, right) {
+                right -= 1;
+            }
+            if left >= right {
+                break;
+            }
+            self.pairs.swap(left, right);
         }
-        if left >= right {
-            break;
-        }
-        sequence.swap(left, right);
+        self.pairs.swap(from, right);
+        right
     }
-    sequence.swap(from, right);
-    right
-}
 
-/// Sorts `[from, to)` by swapping adjacent positions.
-fn insertion_sort(sequence: &mut impl Sequence, from: usize, to: usize) {
-    for next in from + 1..to {
-        let mut position = next;
-        while position > from && sequence.compare(position, position - 1).is_lt() {
-            sequence.swap(position, position - 1);
-            position -= 1;
+    /// Sorts `[from, to)` by swapping adjacent positions.
+    fn insertion_sort(&mut self, from: usize, to: usize) {
+        for next in from + 1..to {
+            let mut position = next;
+            while position > from && self.less(position, position - 1) {
+                self.pairs.swap(position, position - 1);
+                position -= 1;
+            }
         }
     }
 }
@@ -435,67 +315,8 @@ fn insertion_sort(sequence: &mut impl Sequence, from: usize, to: usize) {
 mod tests {
     use super::*;
 
-    fn is_sorted<const COLUMN: usize>(table: &Table) -> bool {
-        (1..table.len()).all(|row| table.compare_rows::<COLUMN>(row - 1, row).is_le())
-    }
-
-    fn check_column<const COLUMN: usize>(source: &Table) {
-        let mut physical = source.clone();
-        physical_sort::<COLUMN>(&mut physical);
-        assert!(is_sorted::<COLUMN>(&physical));
-
-        let mut index = source.clone();
-        index_sort::<COLUMN>(&mut index);
-        assert!(is_sorted::<COLUMN>(&index));
-        assert_eq!(index.len(), source.len());
-    }
-
-    #[test]
-    fn both_sorts_order_every_key_column() {
-        let table = Table::from_source(&generate_rows(ROW_COUNT));
-        check_column::<C1>(&table);
-        check_column::<C2>(&table);
-        check_column::<C7>(&table);
-    }
-
-    #[test]
-    fn both_sorts_handle_duplicates_and_short_tables() {
-        let mut rows = generate_rows(ROW_COUNT);
-        for row in &mut rows {
-            row.c1 %= 3;
-        }
-        for count in [0, 1, 2, 3, 16, 17, 100, ROW_COUNT] {
-            check_column::<C1>(&Table::from_source(&rows[..count]));
-        }
-    }
-
-    #[test]
-    fn both_sorts_produce_the_same_rows() {
-        let source = Table::from_source(&generate_rows(ROW_COUNT));
-        let rows = |table: &Table| -> Vec<(u64, String, String)> {
-            (0..table.len())
-                .map(|row| {
-                    let (c2, c7) = (&table.c2[row], &table.c7[row]);
-                    (table.c1[row], c2.to_string(), c7.to_string())
-                })
-                .collect()
-        };
-
-        let mut physical = source.clone();
-        physical_sort::<C7>(&mut physical);
-        let mut index = source.clone();
-        index_sort::<C7>(&mut index);
-        assert_eq!(rows(&physical), rows(&index));
-
-        let mut original = rows(&source);
-        original.sort();
-        let mut sorted = rows(&index);
-        sorted.sort();
-        assert_eq!(sorted, original, "rows were split or lost");
-    }
-
-    /// Every column of an all-columns table, as comparable text, for row-by-row checks.
-    fn all_columns(table: &Table) -> Vec<String> {
+    /// Every column of a table, as comparable text, for row-by-row checks.
+    fn rows(table: &Table) -> Vec<String> {
         (0..table.len())
             .map(|row| {
                 format!(
@@ -512,69 +333,50 @@ mod tests {
             .collect()
     }
 
-    fn check_three_methods<const COLUMN: usize>(source: &Table) {
-        let mut physical = source.clone();
-        physical_sort::<COLUMN>(&mut physical);
-        assert!(is_sorted::<COLUMN>(&physical), "physical, column {COLUMN}");
+    fn check_column<const COLUMN: usize>(source: &Table) {
+        let mut sorted = source.clone();
+        key_sort::<COLUMN>(&mut sorted);
+        assert!(
+            (1..sorted.len()).all(|row| sorted.compare_rows::<COLUMN>(row - 1, row).is_le()),
+            "column {COLUMN} is not sorted"
+        );
 
-        let mut index = source.clone();
-        index_sort::<COLUMN>(&mut index);
-        assert!(is_sorted::<COLUMN>(&index), "index, column {COLUMN}");
+        let (mut before, mut after) = (rows(source), rows(&sorted));
+        before.sort();
+        after.sort();
+        assert_eq!(after, before, "column {COLUMN} split or lost rows");
+    }
 
-        let mut key = source.clone();
-        key_sort::<COLUMN>(&mut key);
-        assert!(is_sorted::<COLUMN>(&key), "key, column {COLUMN}");
-
-        let rows = all_columns(&physical);
-        assert_eq!(rows, all_columns(&index), "column {COLUMN}");
-        assert_eq!(rows, all_columns(&key), "column {COLUMN}");
+    fn check_every_column(source: &Table) {
+        check_column::<C1>(source);
+        check_column::<C2>(source);
+        check_column::<C3>(source);
+        check_column::<C4>(source);
+        check_column::<C5>(source);
+        check_column::<C6>(source);
+        check_column::<C7>(source);
     }
 
     #[test]
-    fn three_methods_order_every_column_the_same_way() {
-        let source = Table::from_source(&generate_all_columns(SORT_METHODS_ROW_COUNT));
-        check_three_methods::<C1>(&source);
-        check_three_methods::<C2>(&source);
-        check_three_methods::<C3>(&source);
-        check_three_methods::<C4>(&source);
-        check_three_methods::<C5>(&source);
-        check_three_methods::<C6>(&source);
-        check_three_methods::<C7>(&source);
-
-        let mut original = all_columns(&source);
-        original.sort();
-        let mut key = source.clone();
-        key_sort::<C5>(&mut key);
-        let mut sorted = all_columns(&key);
-        sorted.sort();
-        assert_eq!(sorted, original, "rows were split or lost");
+    fn key_sort_orders_every_column() {
+        check_every_column(&Table::from_source(&generate_rows(ROW_COUNT)));
     }
 
     #[test]
     fn key_sort_handles_duplicates_and_short_tables() {
-        let rows = generate_all_columns(ROW_COUNT);
-        for count in [0, 1, 2, 3, 16, 17, 100, ROW_COUNT] {
+        let rows = generate_rows(1000);
+        for count in [0, 1, 2, 3, 16, 17, 100, 1000] {
             // C5 and C6 hold only 1,000 distinct values, and C1 is reduced to three.
             let mut source = Table::from_source(&rows[..count]);
             for value in &mut source.c1 {
                 *value %= 3;
             }
-            check_three_methods::<C1>(&source);
-            check_three_methods::<C6>(&source);
+            check_every_column(&source);
         }
     }
 
     #[test]
-    fn all_columns_are_set() {
-        for row in generate_all_columns(ROW_COUNT) {
-            assert!(row.c4.is_some_and(|v| (0.0..1_000.0).contains(&v)));
-            assert!(row.c5.is_some_and(|v| (0..1000).contains(&v)));
-            assert!(row.c6.is_some_and(|v| v < 1000));
-        }
-    }
-
-    #[test]
-    fn strings_match_the_benchmark_distribution() {
+    fn rows_match_the_benchmark_distribution() {
         for row in generate_rows(ROW_COUNT) {
             assert_eq!(row.c2.len(), 8);
             assert_eq!(row.c7.len(), 45);
@@ -585,6 +387,9 @@ mod tests {
                     .chain(row.c7.bytes().skip(20))
                     .all(|b| b.is_ascii_lowercase())
             );
+            assert!((0.0..1_000.0).contains(&row.c4));
+            assert!((0..1000).contains(&row.c5));
+            assert!(row.c6 < 1000);
         }
     }
 }

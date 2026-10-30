@@ -26,14 +26,14 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 36 | 10,704 | 367 | 988 | 2.69 |
 | Rust product + tests (`src`, `tests`) | 56 | 16,954 | 588 | 1,416 | 2.41 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 89 | 22,881 | 828 | 2,144 | 2.59 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,636 | 814 | 2,114 | 2.60 |
 | C++ product (`source`) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
 | C++ product + tests + maintained benchmarks | 177 | 69,776 | 9,039 | 21,085 | 2.33 |
 
-The Rust totals are **10,704 SLOC in `src`** and **22,881 SLOC including `tests`
-and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,927
-SLOC, including the index-sort and three-sort-method ports, the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
+The Rust totals are **10,704 SLOC in `src`** and **22,636 SLOC including `tests`
+and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,682
+SLOC, including the three-sort-method port, the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
 owning immutable selections, shared mutable projections and their

@@ -3,38 +3,18 @@ namespace IndexSort;
 public static class Sorts
 {
     /// <summary>
-    /// Cases 01 to 03: physical sort. Quicksort that compares and swaps whole rows in
-    /// place. GD's default <c>sort(column, true)</c> is a selection sort instead.
+    /// Sorts <paramref name="table"/> on <typeparamref name="TKey"/>, after GD's
+    /// <c>sort(column, true, tag_sort_index{})</c>. A quicksort orders an array of row
+    /// numbers, comparing through the rows they name, and the sorted order is applied
+    /// by building a new table. Returns the new table; <paramref name="table"/> is left
+    /// unchanged. The sort is not stable.
     /// </summary>
-    public static void PhysicalSort<TKey>(Table table)
-        where TKey : struct, IKey
-    {
-        var rows = new Rows<TKey>(table);
-        Quicksort(ref rows, 0, table.Size);
-    }
-
-    /// <summary>
-    /// Cases 04 to 06: index sort, after GD's <c>sort(column, true, tag_sort_index{})</c>.
-    /// The same quicksort as <see cref="PhysicalSort{TKey}"/> orders an array of row
-    /// numbers, and the sorted order is applied by building a new table. Returns the new
-    /// table; <paramref name="table"/> is left unchanged. GD instead swaps rows in place
-    /// along permutation cycles; at 10,000 rows, building the new table took 9 to 18%
-    /// less time.
-    /// </summary>
+    /// <remarks>
+    /// The port has this one sort, the fastest of the physical, index, and key sorts
+    /// measured at commit 906a410.
+    /// </remarks>
     public static Table IndexSort<TKey>(Table table)
         where TKey : struct, IKey
-    {
-        return table.Size < 2 ? table : table.Gather(SortedIndex<TKey>(table));
-    }
-
-    /// <summary>
-    /// Key sort, after GD's posted <c>sort(column, true, tag_sort_key{})</c>: each row's
-    /// key is copied once into an array of (key, row number) pairs, the same quicksort
-    /// orders the pairs, and the sorted order is applied by building a new table as in
-    /// <see cref="IndexSort{TKey}"/>. All three sorts produce the same row order.
-    /// </summary>
-    public static Table KeySort<TKey, TValue>(Table table)
-        where TKey : struct, IKey<TValue>
     {
         var count = table.Size;
         if (count < 2)
@@ -42,35 +22,13 @@ public static class Sorts
             return table;
         }
 
-        var pairs = new (TValue Key, int Row)[count];
-        for (var row = 0; row < count; row++)
-        {
-            pairs[row] = (TKey.Get(table, row), row);
-        }
-        var keys = new Keys<TKey, TValue>(pairs);
-        Quicksort(ref keys, 0, count);
-
-        var index = new int[count];
-        for (var position = 0; position < count; position++)
-        {
-            index[position] = pairs[position].Row;
-        }
-        return table.Gather(index);
-    }
-
-    /// <summary>Row numbers in sorted order: <c>index[k]</c> is the row that belongs at position <c>k</c>.</summary>
-    private static int[] SortedIndex<TKey>(Table table)
-        where TKey : struct, IKey
-    {
-        var count = table.Size;
         var index = new int[count];
         for (var row = 0; row < count; row++)
         {
             index[row] = row;
         }
-        var rowNumbers = new RowNumbers<TKey>(table, index);
-        Quicksort(ref rowNumbers, 0, count);
-        return index;
+        Quicksort<TKey>(table, index, 0, count);
+        return table.Gather(index);
     }
 
     /// <summary>Throws if <paramref name="table"/> is not ordered on <typeparamref name="TKey"/>.</summary>
@@ -86,105 +44,80 @@ public static class Sorts
         }
     }
 
-    /// <summary>What the quicksort orders: positions it can compare and swap.</summary>
-    private interface ISequence
-    {
-        int Compare(int a, int b);
-        void Swap(int a, int b);
-    }
-
-    /// <summary>The table's rows themselves.</summary>
-    private readonly struct Rows<TKey>(Table table) : ISequence
-        where TKey : struct, IKey
-    {
-        public int Compare(int a, int b) => TKey.Compare(table, a, b);
-        public void Swap(int a, int b) => table.SwapRows(a, b);
-    }
-
-    /// <summary>(key, row number) pairs, compared by key.</summary>
-    private readonly struct Keys<TKey, TValue>((TValue Key, int Row)[] pairs) : ISequence
-        where TKey : struct, IKey<TValue>
-    {
-        public int Compare(int a, int b) => TKey.CompareValues(pairs[a].Key, pairs[b].Key);
-        public void Swap(int a, int b) => (pairs[a], pairs[b]) = (pairs[b], pairs[a]);
-    }
-
-    /// <summary>Row numbers, compared through the rows they name.</summary>
-    private readonly struct RowNumbers<TKey>(Table table, int[] index) : ISequence
-        where TKey : struct, IKey
-    {
-        public int Compare(int a, int b) => TKey.Compare(table, index[a], index[b]);
-        public void Swap(int a, int b) => (index[a], index[b]) = (index[b], index[a]);
-    }
-
     /// <summary>Ranges this short are finished with insertion sort.</summary>
     private const int InsertionSortLength = 16;
 
+    private static bool Less<TKey>(Table table, int[] index, int a, int b)
+        where TKey : struct, IKey
+        => TKey.Compare(table, index[a], index[b]) < 0;
+
+    private static void Swap(int[] index, int a, int b) => (index[a], index[b]) = (index[b], index[a]);
+
     /// <summary>
-    /// Sorts positions <c>[from, to)</c>. The pivot is the median of the first, middle,
-    /// and last positions. Partitioning stops on keys equal to the pivot, so duplicate
-    /// keys still split evenly. The sort recurses into the smaller part only and uses
-    /// insertion sort for short ranges. It is not stable.
+    /// Sorts positions <c>[from, to)</c> of <paramref name="index"/>. The pivot is the
+    /// median of the first, middle, and last positions. Partitioning stops on keys equal
+    /// to the pivot, so duplicate keys still split evenly. The sort recurses into the
+    /// smaller part only and uses insertion sort for short ranges.
     /// </summary>
-    private static void Quicksort<TSequence>(ref TSequence sequence, int from, int to)
-        where TSequence : struct, ISequence
+    private static void Quicksort<TKey>(Table table, int[] index, int from, int to)
+        where TKey : struct, IKey
     {
         while (to - from > InsertionSortLength)
         {
-            var pivot = Partition(ref sequence, from, to);
+            var pivot = Partition<TKey>(table, index, from, to);
             if (pivot - from < to - pivot)
             {
-                Quicksort(ref sequence, from, pivot);
+                Quicksort<TKey>(table, index, from, pivot);
                 from = pivot + 1;
             }
             else
             {
-                Quicksort(ref sequence, pivot + 1, to);
+                Quicksort<TKey>(table, index, pivot + 1, to);
                 to = pivot;
             }
         }
-        InsertionSort(ref sequence, from, to);
+        InsertionSort<TKey>(table, index, from, to);
     }
 
     /// <summary>
     /// Partitions <c>[from, to)</c> around a median-of-three pivot and returns the
     /// pivot's final position. Needs at least three positions.
     /// </summary>
-    private static int Partition<TSequence>(ref TSequence sequence, int from, int to)
-        where TSequence : struct, ISequence
+    private static int Partition<TKey>(Table table, int[] index, int from, int to)
+        where TKey : struct, IKey
     {
         var middle = from + (to - from) / 2;
         var last = to - 1;
-        if (sequence.Compare(middle, from) < 0) sequence.Swap(middle, from);
-        if (sequence.Compare(last, from) < 0) sequence.Swap(last, from);
-        if (sequence.Compare(last, middle) < 0) sequence.Swap(last, middle);
+        if (Less<TKey>(table, index, middle, from)) Swap(index, middle, from);
+        if (Less<TKey>(table, index, last, from)) Swap(index, last, from);
+        if (Less<TKey>(table, index, last, middle)) Swap(index, last, middle);
         // The pivot moves to `from`; the smaller and larger samples bound both scans.
-        sequence.Swap(from, middle);
+        Swap(index, from, middle);
 
         var left = from;
         var right = to;
         while (true)
         {
             left++;
-            while (sequence.Compare(left, from) < 0) left++;
+            while (Less<TKey>(table, index, left, from)) left++;
             right--;
-            while (sequence.Compare(from, right) < 0) right--;
+            while (Less<TKey>(table, index, from, right)) right--;
             if (left >= right) break;
-            sequence.Swap(left, right);
+            Swap(index, left, right);
         }
-        sequence.Swap(from, right);
+        Swap(index, from, right);
         return right;
     }
 
     /// <summary>Sorts <c>[from, to)</c> by swapping adjacent positions.</summary>
-    private static void InsertionSort<TSequence>(ref TSequence sequence, int from, int to)
-        where TSequence : struct, ISequence
+    private static void InsertionSort<TKey>(Table table, int[] index, int from, int to)
+        where TKey : struct, IKey
     {
         for (var next = from + 1; next < to; next++)
         {
-            for (var position = next; position > from && sequence.Compare(position, position - 1) < 0; position--)
+            for (var position = next; position > from && Less<TKey>(table, index, position, position - 1); position--)
             {
-                sequence.Swap(position, position - 1);
+                Swap(index, position, position - 1);
             }
         }
     }

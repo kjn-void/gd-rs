@@ -44,21 +44,6 @@ class GermanStringColumn(val capacity: Int) {
         return Arrays.compareUnsigned(bytesA, 4, bytesA.size, bytesB, 4, bytesB.size)
     }
 
-    fun swap(a: Int, b: Int) {
-        val length = lengths[a]
-        lengths[a] = lengths[b]
-        lengths[b] = length
-        val prefix = prefixes[a]
-        prefixes[a] = prefixes[b]
-        prefixes[b] = prefix
-        val inlineBytes = inline[a]
-        inline[a] = inline[b]
-        inline[b] = inlineBytes
-        val heapBytes = heap[a]
-        heap[a] = heap[b]
-        heap[b] = heapBytes
-    }
-
     /** Replaces rows `0 until count` with `source`'s rows. Heap text is shared, not copied. */
     fun copyFrom(source: GermanStringColumn, count: Int) {
         System.arraycopy(source.lengths, 0, lengths, 0, count)

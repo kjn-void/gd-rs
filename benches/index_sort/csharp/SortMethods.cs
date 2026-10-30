@@ -1,33 +1,26 @@
 // C# counterpart of ../cpp/sort_methods_benchmark.cpp.
 //
 // A 10,000-row table with every column set is sorted on each of its seven columns
-// three ways: physical, index, and key. Each operation clears the target, appends
-// the source rows, and sorts, like the C++ cases.
+// with the port's index sort. Each operation clears the target, appends the source
+// rows, and sorts, like the C++ cases.
 
 using BenchmarkDotNet.Attributes;
 
 namespace IndexSort;
 
-public enum Method
-{
-    Physical,
-    Index,
-    Key,
-}
-
-/// <summary>Runs one sort method on one column, by column number as in the C++ table.</summary>
+/// <summary>Sorts by column number, as in the C++ table.</summary>
 public static class ColumnSorts
 {
-    /// <summary>Sorts <paramref name="table"/> and returns the sorted table, which is a new one for the index and key sorts.</summary>
-    public static Table Sort(Table table, Method method, int column) => column switch
+    /// <summary>Returns <paramref name="table"/> sorted on <paramref name="column"/>, as a new table.</summary>
+    public static Table Sort(Table table, int column) => column switch
     {
-        0 => Sort<KeyC1, ulong>(table, method),
-        1 => Sort<KeyC2, GermanString>(table, method),
-        2 => Sort<KeyC3, double>(table, method),
-        3 => Sort<KeyC4, double>(table, method),
-        4 => Sort<KeyC5, int>(table, method),
-        5 => Sort<KeyC6, uint>(table, method),
-        6 => Sort<KeyC7, GermanString>(table, method),
+        0 => Sorts.IndexSort<KeyC1>(table),
+        1 => Sorts.IndexSort<KeyC2>(table),
+        2 => Sorts.IndexSort<KeyC3>(table),
+        3 => Sorts.IndexSort<KeyC4>(table),
+        4 => Sorts.IndexSort<KeyC5>(table),
+        5 => Sorts.IndexSort<KeyC6>(table),
+        6 => Sorts.IndexSort<KeyC7>(table),
         _ => throw new ArgumentOutOfRangeException(nameof(column)),
     };
 
@@ -46,28 +39,12 @@ public static class ColumnSorts
             default: throw new ArgumentOutOfRangeException(nameof(column));
         }
     }
-
-    private static Table Sort<TKey, TValue>(Table table, Method method)
-        where TKey : struct, IKey<TValue>
-    {
-        switch (method)
-        {
-            case Method.Physical:
-                Sorts.PhysicalSort<TKey>(table);
-                return table;
-            case Method.Index:
-                return Sorts.IndexSort<TKey>(table);
-            default:
-                return Sorts.KeySort<TKey, TValue>(table);
-        }
-    }
 }
 
 public class SortMethods
 {
     private Table _source = null!;
     private Table _target = null!;
-    private Method _last;
 
     [Params(0, 1, 2, 3, 4, 5, 6)]
     public int Column { get; set; }
@@ -75,21 +52,18 @@ public class SortMethods
     [GlobalSetup]
     public void Setup()
     {
-        _source = Table.FromSource(Data.GenerateAllColumns(Data.SortMethodsRowCount));
-        _target = new Table(Data.SortMethodsRowCount);
+        _source = Table.FromSource(Data.GenerateRows(Data.RowCount));
+        _target = new Table(Data.RowCount);
     }
 
     [GlobalCleanup]
     public void Cleanup() => ColumnSorts.RequireSorted(_target, Column);
 
-    [Benchmark] public int Physical() => Run(Method.Physical);
-    [Benchmark] public int Index() => Run(Method.Index);
-    [Benchmark] public int Key() => Run(Method.Key);
-
-    private int Run(Method method)
+    [Benchmark]
+    public int Index()
     {
         _target.AppendFrom(_source);
-        _target = ColumnSorts.Sort(_target, _last = method, Column);
+        _target = ColumnSorts.Sort(_target, Column);
         return _target.Size;
     }
 }

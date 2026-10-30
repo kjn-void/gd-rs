@@ -2,7 +2,7 @@ namespace IndexSort;
 
 /// <summary>
 /// Struct of arrays: one array per column, preallocated to the row capacity. C2 and C7
-/// hold German strings.
+/// hold German strings; C4 to C6 are nullable, like GD's.
 /// </summary>
 public sealed class Table
 {
@@ -61,17 +61,6 @@ public sealed class Table
         Size = count;
     }
 
-    public void SwapRows(int a, int b)
-    {
-        Swap(C1, a, b);
-        Swap(C2, a, b);
-        Swap(C3, a, b);
-        Swap(C4, a, b);
-        Swap(C5, a, b);
-        Swap(C6, a, b);
-        Swap(C7, a, b);
-    }
-
     /// <summary>
     /// Builds a new table whose row <c>k</c> is this table's row <c>index[k]</c>, one
     /// column at a time. <paramref name="index"/> must be a permutation of the rows.
@@ -90,8 +79,6 @@ public sealed class Table
         return sorted;
     }
 
-    private static void Swap<T>(T[] values, int a, int b) => (values[a], values[b]) = (values[b], values[a]);
-
     private static void Gather<T>(T[] from, T[] to, int[] index)
     {
         for (var position = 0; position < index.Length; position++)
@@ -107,65 +94,52 @@ public interface IKey
     static abstract int Compare(Table table, int a, int b);
 }
 
-/// <summary>A sort key column whose values the key sort copies out of the table.</summary>
-public interface IKey<TValue> : IKey
-{
-    static abstract TValue Get(Table table, int row);
-    static abstract int CompareValues(in TValue a, in TValue b);
-}
-
 /// <summary>C1 <c>uint64</c>.</summary>
-public readonly struct KeyC1 : IKey<ulong>
+public readonly struct KeyC1 : IKey
 {
     public static int Compare(Table table, int a, int b) => table.C1[a].CompareTo(table.C1[b]);
-    public static ulong Get(Table table, int row) => table.C1[row];
-    public static int CompareValues(in ulong a, in ulong b) => a.CompareTo(b);
 }
 
 /// <summary>C2 <c>string(8)</c>.</summary>
-public readonly struct KeyC2 : IKey<GermanString>
+public readonly struct KeyC2 : IKey
 {
     public static int Compare(Table table, int a, int b) => GermanString.Compare(table.C2[a], table.C2[b]);
-    public static GermanString Get(Table table, int row) => table.C2[row];
-    public static int CompareValues(in GermanString a, in GermanString b) => GermanString.Compare(a, b);
 }
 
 /// <summary>C3 <c>double</c>.</summary>
-public readonly struct KeyC3 : IKey<double>
+public readonly struct KeyC3 : IKey
 {
     public static int Compare(Table table, int a, int b) => table.C3[a].CompareTo(table.C3[b]);
-    public static double Get(Table table, int row) => table.C3[row];
-    public static int CompareValues(in double a, in double b) => a.CompareTo(b);
 }
 
 /// <summary>C4 <c>double</c>, nullable; like GD's sorts, key values must be set.</summary>
-public readonly struct KeyC4 : IKey<double>
+public readonly struct KeyC4 : IKey
 {
-    public static int Compare(Table table, int a, int b) => Get(table, a).CompareTo(Get(table, b));
-    public static double Get(Table table, int row) => table.C4[row] ?? throw new InvalidOperationException("sort key is null");
-    public static int CompareValues(in double a, in double b) => a.CompareTo(b);
+    public static int Compare(Table table, int a, int b) => Key.Set(table.C4[a]).CompareTo(Key.Set(table.C4[b]));
 }
 
 /// <summary>C5 <c>int32</c>, nullable; key values must be set.</summary>
-public readonly struct KeyC5 : IKey<int>
+public readonly struct KeyC5 : IKey
 {
-    public static int Compare(Table table, int a, int b) => Get(table, a).CompareTo(Get(table, b));
-    public static int Get(Table table, int row) => table.C5[row] ?? throw new InvalidOperationException("sort key is null");
-    public static int CompareValues(in int a, in int b) => a.CompareTo(b);
+    public static int Compare(Table table, int a, int b) => Key.Set(table.C5[a]).CompareTo(Key.Set(table.C5[b]));
 }
 
 /// <summary>C6 <c>uint32</c>, nullable; key values must be set.</summary>
-public readonly struct KeyC6 : IKey<uint>
+public readonly struct KeyC6 : IKey
 {
-    public static int Compare(Table table, int a, int b) => Get(table, a).CompareTo(Get(table, b));
-    public static uint Get(Table table, int row) => table.C6[row] ?? throw new InvalidOperationException("sort key is null");
-    public static int CompareValues(in uint a, in uint b) => a.CompareTo(b);
+    public static int Compare(Table table, int a, int b) => Key.Set(table.C6[a]).CompareTo(Key.Set(table.C6[b]));
 }
 
 /// <summary>C7 <c>string(50)</c>.</summary>
-public readonly struct KeyC7 : IKey<GermanString>
+public readonly struct KeyC7 : IKey
 {
     public static int Compare(Table table, int a, int b) => GermanString.Compare(table.C7[a], table.C7[b]);
-    public static GermanString Get(Table table, int row) => table.C7[row];
-    public static int CompareValues(in GermanString a, in GermanString b) => GermanString.Compare(a, b);
+}
+
+internal static class Key
+{
+    /// <summary>The value of a nullable sort key, which must be set.</summary>
+    public static T Set<T>(T? value)
+        where T : struct
+        => value ?? throw new InvalidOperationException("sort key is null");
 }

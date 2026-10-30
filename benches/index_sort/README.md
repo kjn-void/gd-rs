@@ -1,14 +1,20 @@
 # Index sort versus physical sort
 
-Reproduces the six "sort table" cases from the upstream GD benchmark described in
-[this forum post](https://www.sweclockers.com/forum/post/21314377), then runs the same
-cases in Rust, C#, and Kotlin and at 10⁶ rows as well as the upstream 1,000.
+Reproduces two upstream GD sort benchmarks in C++:
+
+- the six "sort table" cases described in
+  [forum post 21314377](https://www.sweclockers.com/forum/post/21314377), at the
+  upstream 1,000 rows and at 10⁶ rows;
+- the follow-up in [forum post 21314807](https://www.sweclockers.com/forum/post/21314807),
+  which sorts every column of a 10,000-row table three ways.
+
+Rust, C#, and Kotlin ports run the follow-up, each with one sort: the fastest of the
+physical, index, and key sorts measured in that port.
 
 ## Data
 
 The table has 7 columns: `uint64`, `string(8)`, `double`, `double`, `int32`, `uint32`,
-and `string(50)`. Only C1, C2, C3, and C7 are set; C4 to C6 stay null. Each row draws,
-in this order:
+and `string(50)`. Each row draws, in this order:
 
 - **C2:** 8 random lowercase letters, such as `wikovaaw`.
 - **C7:** the fixed 20 characters `01234567890123456789` plus 25 random lowercase
@@ -16,30 +22,30 @@ in this order:
   Every row shares the first 20 characters, so each comparison has to get past them.
 - **C1:** a uniform integer from 0 to 1,000,000. At 10⁶ rows many values repeat.
 - **C3:** a uniform double from 0 to 1,000.
+- **C4 to C6, follow-up only:** C4 a uniform double from 0 to 1,000, and C5 and C6 a
+  uniform integer from 0 to 1,000,000 modulo 1000. In the six cases they stay null.
 
-C++ uses the upstream `std::mt19937_64(42)` generator. The other ports use their own
-seeded generators with the same distributions, so their values differ but the shape is
-the same.
+C++ uses the upstream `std::mt19937_64(42)` generator. The ports use their own seeded
+generators with the same distributions, so their values differ but the shape is the
+same.
 
-## Cases
+## Six cases (C++)
 
 Each timed iteration clears the target table, appends all source rows, and sorts on
 one column:
 
-| Case | Key | C++ GD | Rust, C#, Kotlin |
-|---|---|---|---|
-| 00 | – | append only, no sort | append only, no sort |
-| 01 | C1 `uint64` | `sort(0, true)`: selection sort | physical quicksort |
-| 02 | C2 `string(8)` | `sort(1, true)`: selection sort | physical quicksort |
-| 03 | C7 `string(50)` | `sort(6, true)`: selection sort | physical quicksort |
-| 04 | C1 `uint64` | `sort(0, true, tag_sort_index{})` | index quicksort |
-| 05 | C2 `string(8)` | `sort(1, true, tag_sort_index{})` | index quicksort |
-| 06 | C7 `string(50)` | `sort(6, true, tag_sort_index{})` | index quicksort |
-| 01s–03s | C1, C2, C7 | `std::sort` over the table's rows | – |
+| Case | Key | C++ GD |
+|---|---|---|
+| 00 | – | append only, no sort |
+| 01 | C1 `uint64` | `sort(0, true)`: selection sort |
+| 02 | C2 `string(8)` | `sort(1, true)`: selection sort |
+| 03 | C7 `string(50)` | `sort(6, true)`: selection sort |
+| 04 | C1 `uint64` | `sort(0, true, tag_sort_index{})` |
+| 05 | C2 `string(8)` | `sort(1, true, tag_sort_index{})` |
+| 06 | C7 `string(50)` | `sort(6, true, tag_sort_index{})` |
+| 01s–03s | C1, C2, C7 | `std::sort` over the table's rows |
 
 Case 00 and cases 01s to 03s are not upstream cases.
-
-### C++ GD
 
 GD's `table_column_buffer` stores each row as one block of bytes: 104 bytes of data per
 row, with C2 and C7 inline as a length plus the text. Each row's 8 bytes of null flags
@@ -60,11 +66,29 @@ The upstream comparison therefore changes two things at once: selection sort bec
 a merge sort, and row moves become index moves. Cases 01s to 03s keep physical row
 moves but replace the selection sort.
 
+Until commit 906a410 the ports ran these six cases too; RESULTS.md links their figures
+to the code that produced them.
+
+## Three sort methods
+
+Each timed iteration clears the target table, appends the 10,000 source rows with
+every column set, and sorts on one of the seven columns.
+
+### C++ GD
+
+Every column is sorted three ways: physical (GD's selection sort), index
+(`tag_sort_index`), and key. The key sort reads each row's key once into a vector of
+(`variant_view`, row number) pairs and sorts that vector with `std::stable_sort`. It
+then copies the rows, in sorted order, into a buffer and copies the buffer back over
+the table, and does the same for the row metadata. The post adds it to GD as
+`sort(column, ascending, tag_sort_key{})`, but GD has not published it, so the
+benchmark carries the posted function rewritten against GD's public row accessors.
+
 ### Rust, C#, and Kotlin
 
 Each port stores the table as a struct of arrays, one array per column. C4 to C6 are
-nullable. C2 and C7 hold German (Umbra) strings, which keep the length and a 4-byte
-prefix inline:
+nullable, and like GD's sorts, the ports require sort keys to be set. C2 and C7 hold
+German (Umbra) strings, which keep the length and a 4-byte prefix inline:
 
 - C2 is 8 bytes, short enough to be stored entirely inline.
 - C7 is 45 bytes, so its text lives in a shared heap buffer.
@@ -78,73 +102,36 @@ prefix inline:
 | C# | one array per column; `double?`, `int?`, `uint?` for C4 to C6 | `GermanString` struct, 24 bytes, shared `byte[]` (a managed reference cannot overlap the inline bytes) |
 | Kotlin | one primitive array per column, plus validity arrays for C4 to C6 | `GermanStringColumn`: parallel arrays for length, prefix, inline bytes, and a shared `ByteArray` |
 
-The physical and index sorts in each port run the same quicksort:
+Each port has one sort, chosen as the fastest of three measured at commit 906a410
+(see [RESULTS.md](RESULTS.md#three-sort-methods-in-four-languages-10000-rows-µs)):
+
+- **Rust, key sort:** each row's key is read once into a vector of (key, row number)
+  pairs, with numbers copied and strings referenced, and the pairs are sorted.
+- **C# and Kotlin, index sort:** an array of row numbers is sorted, comparing through
+  the rows they name. Their key sorts had to copy string keys, 24-byte `GermanString`s
+  in C# and a whole German string column in Kotlin, which cost more than it saved.
+
+Both sorts use the same quicksort:
 
 - median-of-three pivot;
 - partitioning that stops on keys equal to the pivot;
 - recursion into the smaller part only;
 - insertion sort for ranges of 16 or fewer.
 
-The two cases differ only in what the quicksort swaps:
-
-- **Physical:** whole rows, which swaps all seven columns.
-- **Index:** row numbers, compared through the rows they name. The sorted order is then
-  applied by building a new table: each new column is filled in sorted order from the
-  old one. Rust moves each column's values and frees the old column right away; C# and
-  Kotlin allocate a whole new table and drop the old one.
-
-Both cases make the same comparisons and produce the same row order, and the tests
-check that row for row. Neither sort is stable.
-
-GD applies its index sort's order in place instead, by swapping rows along permutation
-cycles. The ports did the same until this was measured against building a new table,
-which was faster in every port; see
-[RESULTS.md](RESULTS.md#swap-versus-gather-10000-rows-µs).
-
-## Three sort methods
-
-[`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) reproduces the
-follow-up benchmark in [forum post 21314807](https://www.sweclockers.com/forum/post/21314807),
-and the ports run the same cases. Unlike the six cases above:
-
-- the table has 10,000 rows;
-- every column is set, with C3 and C4 uniform doubles from 0 to 1,000, and C5 and C6
-  uniform integers from 0 to 999;
-- every column is sorted three ways: physical (GD's selection sort), index
-  (`tag_sort_index`), and key.
-
-The key sort reads each row's key once into a vector of (`variant_view`, row number)
-pairs and sorts that vector with `std::stable_sort`. It then copies the rows, in sorted
-order, into a buffer and copies the buffer back over the table, and does the same for
-the row metadata. The post adds it to GD as `sort(column, ascending, tag_sort_key{})`,
-but GD has not published it, so the benchmark carries the posted function rewritten
-against GD's public row accessors.
-
-In the ports, physical is the shared quicksort over rows and index is the quicksort
-over row numbers followed by building a new table, as in the six cases. Key copies
-each row's key once into (key, row number) pairs, orders the pairs with the same
-quicksort, and builds a new table:
-
-- **Rust:** numbers are copied into the pairs; strings are referenced.
-- **C#:** every key is copied, including the 24-byte `GermanString`.
-- **Kotlin:** numbers are cached as order-preserving `Long`s next to an array of row
-  numbers; strings as a copy of the German string column.
-
-All three methods produce the same row order, and the tests check that row for row.
-The `methods` phase of [`run_all.sh`](run_all.sh) runs the 21 cases in all four
-languages:
-
-```bash
-benches/index_sort/run_all.sh methods <out-dir>
-```
+Neither is stable. The sorted order is then applied by building a new table: each new
+column is filled in sorted order from the old one. Rust moves each column's values and
+frees the old column right away; C# and Kotlin allocate a whole new table and drop the
+old one. GD applies its index sort's order in place instead, by swapping rows along
+permutation cycles; building a new table was faster in every port (see
+[RESULTS.md](RESULTS.md#swap-versus-gather-10000-rows-µs)).
 
 ## Projects
 
 | Port | Harness | Sources |
 |---|---|---|
-| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h); [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) |
-| Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs), [`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) |
-| C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs), three methods in [`csharp/SortMethods.cs`](csharp/SortMethods.cs) |
+| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | six cases in [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), with the row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h); three methods in [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) |
+| Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) |
+| C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sort in [`csharp/Sorts.cs`](csharp/Sorts.cs), benchmark in [`csharp/SortMethods.cs`](csharp/SortMethods.cs) |
 | Kotlin | Kotlin 2.4.10, kotlinx-benchmark 0.4.14 (JMH) | [`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/) |
 
 The correctness checks run with:
@@ -162,9 +149,13 @@ cd benches/index_sort/kotlin && ./gradlew test
 ```
 
 [`run_all.sh`](run_all.sh) builds and runs every benchmark, and records the toolchains
-and load average in its output directory. Run it from the repository root. The
-`selection` phase holds GD's three 10⁶-row selection sorts. Each runs for a single
-iteration, and together they take about an hour.
+and load average in its output directory. Run it from the repository root.
+
+- **`fast`:** the C++ six cases at 1,000 and 10⁶ rows, except GD's three 10⁶-row
+  selection sorts.
+- **`selection`:** those three selection sorts, one timed iteration each, about an
+  hour in total.
+- **`methods`:** the three-method cases, in C++ and the three ports.
 
 ```bash
 benches/index_sort/run_all.sh fast <out-dir>
@@ -172,6 +163,10 @@ benches/index_sort/run_all.sh fast <out-dir>
 
 ```bash
 benches/index_sort/run_all.sh selection <out-dir>
+```
+
+```bash
+benches/index_sort/run_all.sh methods <out-dir>
 ```
 
 ## Results

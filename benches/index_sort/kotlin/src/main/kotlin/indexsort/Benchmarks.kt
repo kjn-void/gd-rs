@@ -1,7 +1,8 @@
-// Kotlin counterpart of ../cpp/index_sort_benchmark.cpp.
+// Kotlin counterpart of ../cpp/sort_methods_benchmark.cpp.
 //
-// Each operation clears the target, appends the source rows, and sorts on one
-// column, like the C++ cases.
+// A 10,000-row table with every column set is sorted on each of its seven columns
+// with the port's index sort. Each operation clears the target, appends the source
+// rows, and sorts, like the C++ cases.
 
 package indexsort
 
@@ -20,78 +21,6 @@ import org.openjdk.jmh.annotations.State
 import org.openjdk.jmh.annotations.TearDown
 import org.openjdk.jmh.annotations.Warmup
 
-/** Source and target tables plus the key of the last sort, checked after measuring. */
-@State(Scope.Benchmark)
-abstract class Fixture(private val rows: Int) {
-    private lateinit var source: Table
-    private lateinit var target: Table
-    private var lastKey: Key? = null
-
-    @Setup(Level.Trial)
-    fun setUp() {
-        source = Table.fromSource(generateRows(rows))
-        target = Table(rows)
-    }
-
-    @TearDown(Level.Trial)
-    fun tearDown() {
-        lastKey?.let { requireSorted(target, it.comparator) }
-    }
-
-    protected fun appendOnly(): Int {
-        target.appendFrom(source)
-        return target.size
-    }
-
-    protected fun physical(key: Key): Int {
-        target.appendFrom(source)
-        physicalSort(target, key.comparator)
-        lastKey = key
-        return target.size
-    }
-
-    protected fun index(key: Key): Int {
-        target.appendFrom(source)
-        target = indexSort(target, key.comparator)
-        lastKey = key
-        return target.size
-    }
-}
-
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
-@Warmup(iterations = 5, time = 1)
-@Measurement(iterations = 5, time = 1)
-@Fork(1)
-open class ThousandRows : Fixture(ROW_COUNT) {
-    @Benchmark fun sort00AppendOnly() = appendOnly()
-    @Benchmark fun sort01PhysicalUint64() = physical(Key.C1)
-    @Benchmark fun sort02PhysicalString8() = physical(Key.C2)
-    @Benchmark fun sort03PhysicalString50() = physical(Key.C7)
-    @Benchmark fun sort04IndexUint64() = index(Key.C1)
-    @Benchmark fun sort05IndexString8() = index(Key.C2)
-    @Benchmark fun sort06IndexString50() = index(Key.C7)
-}
-
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 3, time = 2)
-@Measurement(iterations = 5, time = 2)
-@Fork(1)
-open class MillionRows : Fixture(MILLION_ROWS) {
-    @Benchmark fun sort00AppendOnly() = appendOnly()
-    @Benchmark fun sort01PhysicalUint64() = physical(Key.C1)
-    @Benchmark fun sort02PhysicalString8() = physical(Key.C2)
-    @Benchmark fun sort03PhysicalString50() = physical(Key.C7)
-    @Benchmark fun sort04IndexUint64() = index(Key.C1)
-    @Benchmark fun sort05IndexString8() = index(Key.C2)
-    @Benchmark fun sort06IndexString50() = index(Key.C7)
-}
-
-/**
- * Kotlin counterpart of ../cpp/sort_methods_benchmark.cpp: a 10,000-row table with
- * every column set, sorted on each column (by C++ column number) three ways.
- */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -99,6 +28,7 @@ open class MillionRows : Fixture(MILLION_ROWS) {
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
 open class SortMethods {
+    /** The sort column, by C++ column number. */
     @Param("0", "1", "2", "3", "4", "5", "6")
     var column = 0
 
@@ -109,31 +39,17 @@ open class SortMethods {
     @Setup(Level.Trial)
     fun setUp() {
         key = Key.entries.first { it.column == column }
-        source = Table.fromSource(generateAllColumns(SORT_METHODS_ROW_COUNT))
-        target = Table(SORT_METHODS_ROW_COUNT)
+        source = Table.fromSource(generateRows(ROW_COUNT))
+        target = Table(ROW_COUNT)
     }
 
     @TearDown(Level.Trial)
     fun tearDown() = requireSorted(target, key.comparator)
 
     @Benchmark
-    fun physical(): Int {
-        target.appendFrom(source)
-        physicalSort(target, key.comparator)
-        return target.size
-    }
-
-    @Benchmark
     fun index(): Int {
         target.appendFrom(source)
         target = indexSort(target, key.comparator)
-        return target.size
-    }
-
-    @Benchmark
-    fun key(): Int {
-        target.appendFrom(source)
-        target = keySort(target, key)
         return target.size
     }
 }

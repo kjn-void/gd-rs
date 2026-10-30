@@ -16,84 +16,36 @@ internal static class Verify
 {
     public static void Run()
     {
-        CheckSorts();
+        CheckEveryColumn(Table.FromSource(Data.GenerateRows(Data.RowCount)));
         CheckDuplicatesAndShortTables();
-        CheckSortMethods();
         CheckGermanOrder();
         CheckDistribution();
         Console.WriteLine("verify: ok");
     }
 
-    private static void CheckSorts()
-    {
-        var fixture = new Fixture(Data.RowCount);
-        foreach (var sortCase in Enum.GetValues<Case>())
-        {
-            fixture.Run(sortCase);
-            fixture.RequireSorted(sortCase);
-        }
-
-        var source = Table.FromSource(Data.GenerateRows(Data.RowCount));
-        static (ulong, string, string)[] RowsOf(Table table) =>
-            Enumerable.Range(0, table.Size).Select(row => (table.C1[row], table.C2[row].Value, table.C7[row].Value)).ToArray();
-
-        var physical = new Table(Data.RowCount);
-        physical.AppendFrom(source);
-        Sorts.PhysicalSort<KeyC7>(physical);
-        var index = Sorts.IndexSort<KeyC7>(source);
-        Require(RowsOf(physical).SequenceEqual(RowsOf(index)), "physical and index sort ordered rows differently");
-        Require(RowsOf(source).Order().SequenceEqual(RowsOf(index).Order()), "index sort split or lost rows");
-    }
-
-    private static void CheckDuplicatesAndShortTables()
-    {
-        var rows = Data.GenerateRows(Data.RowCount).Select(row => row with { C1 = row.C1 % 3 }).ToArray();
-        foreach (var count in new[] { 0, 1, 2, 3, 16, 17, 100, Data.RowCount })
-        {
-            var physical = Table.FromSource(rows[..count]);
-            Sorts.PhysicalSort<KeyC1>(physical);
-            Sorts.RequireSorted<KeyC1>(physical);
-            var index = Sorts.IndexSort<KeyC1>(Table.FromSource(rows[..count]));
-            Sorts.RequireSorted<KeyC1>(index);
-            Require(index.Size == count, "index sort lost rows");
-        }
-    }
-
-    private static void CheckSortMethods()
+    /// <summary>Sorts on every column and checks the order and that no row was split or lost.</summary>
+    private static void CheckEveryColumn(Table source)
     {
         static string[] RowsOf(Table table) =>
             Enumerable.Range(0, table.Size)
                 .Select(row => $"{table.C1[row]} {table.C2[row].Value} {table.C3[row]} {table.C4[row]} {table.C5[row]} {table.C6[row]} {table.C7[row].Value}")
                 .ToArray();
 
-        var rows = Data.GenerateAllColumns(Data.SortMethodsRowCount);
-        Require(rows.All(row => row.C4 is >= 0 and < 1_000 && row.C5 is >= 0 and < 1000 && row.C6 is < 1000), "all columns set");
-        var source = Table.FromSource(rows);
         for (var column = 0; column < 7; column++)
         {
-            string[]? expected = null;
-            foreach (var method in Enum.GetValues<Method>())
-            {
-                var table = new Table(source.Size);
-                table.AppendFrom(source);
-                table = ColumnSorts.Sort(table, method, column);
-                ColumnSorts.RequireSorted(table, column);
-                var sorted = RowsOf(table);
-                expected ??= sorted;
-                Require(sorted.SequenceEqual(expected), $"{method} sort on column {column} ordered rows differently");
-            }
-            Require(expected!.Order().SequenceEqual(RowsOf(source).Order()), $"column {column} split or lost rows");
+            var sorted = ColumnSorts.Sort(source, column);
+            ColumnSorts.RequireSorted(sorted, column);
+            Require(RowsOf(sorted).Order().SequenceEqual(RowsOf(source).Order()), $"column {column} split or lost rows");
         }
+    }
 
-        var duplicates = Data.GenerateAllColumns(Data.RowCount).Select(row => row with { C1 = row.C1 % 3 }).ToArray();
-        foreach (var count in new[] { 0, 1, 2, 3, 16, 17, 100, Data.RowCount })
+    private static void CheckDuplicatesAndShortTables()
+    {
+        // C5 and C6 hold only 1,000 distinct values, and C1 is reduced to three.
+        var rows = Data.GenerateRows(1000).Select(row => row with { C1 = row.C1 % 3 }).ToArray();
+        foreach (var count in new[] { 0, 1, 2, 3, 16, 17, 100, 1000 })
         {
-            foreach (var column in new[] { 0, 5 })
-            {
-                var key = ColumnSorts.Sort(Table.FromSource(duplicates[..count]), Method.Key, column);
-                ColumnSorts.RequireSorted(key, column);
-                Require(key.Size == count, "key sort lost rows");
-            }
+            CheckEveryColumn(Table.FromSource(rows[..count]));
         }
     }
 
@@ -119,6 +71,7 @@ internal static class Verify
             Require(row.C2.Length == 8 && row.C7.Length == 45, "string lengths");
             Require(row.C7.StartsWith("01234567890123456789", StringComparison.Ordinal), "C7 prefix");
             Require((row.C2 + row.C7[20..]).All(character => character is >= 'a' and <= 'z'), "lowercase letters");
+            Require(row.C4 is >= 0 and < 1_000 && row.C5 is >= 0 and < 1000 && row.C6 < 1000, "C4 to C6 ranges");
         }
     }
 

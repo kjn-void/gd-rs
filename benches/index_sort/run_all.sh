@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # Runs every index-sort benchmark in C++, Rust, Kotlin, and C# on this host.
 #
-#   benches/index_sort/run_all.sh fast <out-dir>       every case at 1,000 and 10^6
-#                                                      rows, except GD's 10^6-row
+#   benches/index_sort/run_all.sh fast <out-dir>       C++ GD's six cases at 1,000 and
+#                                                      10^6 rows, except the 10^6-row
 #                                                      selection sorts
 #   benches/index_sort/run_all.sh selection <out-dir>  GD's 10^6-row selection sorts:
 #                                                      one timed run each, about an
 #                                                      hour in total
-#   benches/index_sort/run_all.sh methods <out-dir>    physical, index, and key sort on
-#                                                      every column of a 10,000-row
-#                                                      table, in all four languages
+#   benches/index_sort/run_all.sh methods <out-dir>    every column of a 10,000-row
+#                                                      table: GD's physical, index, and
+#                                                      key sorts, and each port's sort
 #
 # Run from the repository root. Results and toolchain versions go to <out-dir>.
 set -euo pipefail
@@ -39,19 +39,11 @@ cmake --build "$cpp_build" -j > /dev/null
 
 case "$phase" in
     fast)
-        # Earlier runs' reports would otherwise be copied along with this run's.
-        rm -rf "$bench/kotlin/build/reports/benchmarks" "$bench/csharp/BenchmarkDotNet.Artifacts"
         uptime > "$out/fast-load.txt"
         "$cpp_build/index_sort_benchmark" \
             --benchmark_filter='/1000(000)?$' \
             --benchmark_repetitions=5 --benchmark_report_aggregates_only=true \
             --benchmark_out="$out/cpp.json" --benchmark_out_format=json
-        (cd "$bench/rust" && cargo bench --bench index_sort) | tee "$out/rust.txt"
-        (cd "$bench/kotlin" && ./gradlew --quiet mainBenchmark) | tee "$out/kotlin.txt"
-        cp -R "$bench/kotlin/build/reports/benchmarks/main" "$out/kotlin-reports"
-        (cd "$bench/csharp" && dotnet bin/Release/net10.0/IndexSort.dll \
-            --filter '*ThousandRows*' '*MillionRows*' --exporters json) | tee "$out/csharp.txt"
-        cp -R "$bench/csharp/BenchmarkDotNet.Artifacts/results" "$out/csharp-reports"
         uptime >> "$out/fast-load.txt"
         ;;
     selection)
@@ -62,14 +54,15 @@ case "$phase" in
         uptime >> "$out/selection-load.txt"
         ;;
     methods)
+        # Earlier runs' reports would otherwise be copied along with this run's.
         rm -rf "$bench/kotlin/build/reports/benchmarks" "$bench/csharp/BenchmarkDotNet.Artifacts"
         uptime > "$out/methods-load.txt"
         "$cpp_build/sort_methods_benchmark" \
             --benchmark_repetitions=5 --benchmark_report_aggregates_only=true \
             --benchmark_out="$out/cpp.json" --benchmark_out_format=json
         (cd "$bench/rust" && cargo bench --bench sort_methods) | tee "$out/rust.txt"
-        (cd "$bench/kotlin" && ./gradlew --quiet mainSortMethodsBenchmark) | tee "$out/kotlin.txt"
-        cp -R "$bench/kotlin/build/reports/benchmarks/sortMethods" "$out/kotlin-reports"
+        (cd "$bench/kotlin" && ./gradlew --quiet mainBenchmark) | tee "$out/kotlin.txt"
+        cp -R "$bench/kotlin/build/reports/benchmarks/main" "$out/kotlin-reports"
         (cd "$bench/csharp" && dotnet bin/Release/net10.0/IndexSort.dll \
             --filter '*.SortMethods.*' --exporters json) | tee "$out/csharp.txt"
         cp -R "$bench/csharp/BenchmarkDotNet.Artifacts/results" "$out/csharp-reports"

@@ -1,18 +1,21 @@
 # Index sort results
 
-These are the results of the six cases described in the [README](README.md), with GD's
-selection sort replaced by `std::sort` in the C++ `std::sort` column. The README covers
-the table formats, the sort algorithms, and how to run the benchmarks.
+These are the results of the six cases and the three sort methods described in the
+[README](README.md). The README covers the table formats, the sort algorithms, and how
+to run the benchmarks.
 
-The sources are:
+The sources of the six-case tables are:
 
 - **C++:** [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), with the
   `std::sort` row iterator in
   [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h)
-- **Rust:** [`rust/src/lib.rs`](rust/src/lib.rs) and
-  [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs)
-- **C#:** [`csharp/`](csharp/)
-- **Kotlin:** [`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/)
+- **Rust, C#, and Kotlin:** the ports' six-case benchmarks at commit
+  [`8754801`](https://github.com/kjn-void/gd-rs/tree/8754801/benches/index_sort):
+  [`rust/benches/index_sort.rs`](https://github.com/kjn-void/gd-rs/blob/8754801/benches/index_sort/rust/benches/index_sort.rs)
+  with [`rust/src/lib.rs`](https://github.com/kjn-void/gd-rs/blob/8754801/benches/index_sort/rust/src/lib.rs),
+  [`csharp/`](https://github.com/kjn-void/gd-rs/tree/8754801/benches/index_sort/csharp), and
+  [`kotlin/src/main/kotlin/indexsort/`](https://github.com/kjn-void/gd-rs/tree/8754801/benches/index_sort/kotlin/src/main/kotlin/indexsort).
+  The ports no longer run these cases.
 
 ## Environment
 
@@ -41,9 +44,7 @@ the sort.
 
 In the 1,000- and 10⁶-row tables, the Rust, C#, and Kotlin index sorts (cases 04 to
 06) applied the sorted order in place by swapping rows along permutation cycles, as GD
-does. That code is at commit [`8754801`](https://github.com/kjn-void/gd-rs/tree/8754801/benches/index_sort).
-The ports now build a new table instead, after the 10,000-row comparison below, and
-these tables have not been remeasured.
+does.
 
 ## 1,000 rows (µs)
 
@@ -138,35 +139,38 @@ the environment table.
 
 ## Three sort methods in four languages, 10,000 rows (µs)
 
-GD's three sort methods next to the best of the port sorts, for every column of the
-10,000-row table with every column set. The sources are
+GD's three sort methods next to each port's sort, for every column of the 10,000-row
+table with every column set. The sources are
 [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp),
-[`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) with the sorts in
+[`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) with the sort in
 [`rust/src/lib.rs`](rust/src/lib.rs), [`csharp/SortMethods.cs`](csharp/SortMethods.cs)
-with the sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs), and the `SortMethods` class in
+with the sort in [`csharp/Sorts.cs`](csharp/Sorts.cs), and
 [`kotlin/src/main/kotlin/indexsort/Benchmarks.kt`](kotlin/src/main/kotlin/indexsort/Benchmarks.kt)
-with the sorts in [`Sorts.kt`](kotlin/src/main/kotlin/indexsort/Sorts.kt).
+with the sort in [`Sorts.kt`](kotlin/src/main/kotlin/indexsort/Sorts.kt).
 
 It was measured on 2026-10-30 on the same M6 and toolchains as above, with a load
-average between 1.0 and 2.1, using `run_all.sh methods`. C++ ran 5 repetitions; Rust
+average between 0.9 and 2.3, using `run_all.sh methods`. C++ ran 5 repetitions; Rust
 and Kotlin used the 1,000-row settings; C# used BenchmarkDotNet's default job. ± has
 the same meaning as in the environment table.
 
 | Column | Type | C++ GD physical | C++ GD index | C++ GD key | Rust key | C# index | Kotlin index |
 |---|---|---:|---:|---:|---:|---:|---:|
-| 0 | uint64 | 81,007 ± 86 | 1,117 ± 4.7 | 670 ± 17 | 130 ± 0.07 | 211 ± 0.31 | 163 ± 0.92 |
-| 1 | string(8) | 110,455 ± 220 | 1,366 ± 0.68 | 904 ± 4.0 | 173 ± 0.07 | 265 ± 0.33 | 186 ± 0.62 |
-| 2 | double | 81,401 ± 8.9 | 1,288 ± 4.2 | 715 ± 1.7 | 142 ± 0.13 | 220 ± 0.60 | 170 ± 1.5 |
-| 3 | double | 81,415 ± 41 | 1,291 ± 3.1 | 688 ± 34 | 166 ± 7.3 | 234 ± 0.39 | 191 ± 0.54 |
-| 4 | int32 | 88,555 ± 31 | 1,252 ± 2.2 | 610 ± 3.4 | 125 ± 0.05 | 217 ± 0.35 | 177 ± 0.93 |
-| 5 | uint32 | 88,605 ± 14 | 1,257 ± 1.0 | 668 ± 0.78 | 136 ± 3.1 | 223 ± 0.54 | 181 ± 1.1 |
-| 6 | string(50) | 125,027 ± 180 | 1,676 ± 3.0 | 1,020 ± 5.5 | 621 ± 1.0 | 1,031 ± 4.4 | 455 ± 33 |
+| 0 | uint64 | 81,157 ± 84 | 1,124 ± 0.91 | 635 ± 25 | 133 ± 0.06 | 198 ± 0.54 | 165 ± 0.60 |
+| 1 | string(8) | 110,451 ± 23 | 1,393 ± 0.36 | 900 ± 5.1 | 214 ± 12 | 225 ± 0.42 | 187 ± 1.1 |
+| 2 | double | 81,464 ± 9.7 | 1,283 ± 0.35 | 648 ± 3.8 | 143 ± 0.33 | 203 ± 0.77 | 167 ± 0.12 |
+| 3 | double | 81,815 ± 440 | 1,289 ± 0.42 | 726 ± 0.75 | 147 ± 0.04 | 216 ± 0.36 | 190 ± 0.93 |
+| 4 | int32 | 88,604 ± 130 | 1,246 ± 4.2 | 610 ± 3.0 | 131 ± 0.06 | 208 ± 0.38 | 176 ± 1.2 |
+| 5 | uint32 | 89,454 ± 95 | 1,252 ± 0.65 | 621 ± 3.6 | 129 ± 0.36 | 206 ± 0.54 | 180 ± 3.1 |
+| 6 | string(50) | 123,262 ± 130 | 1,677 ± 0.24 | 1,016 ± 0.85 | 639 ± 6.2 | 969 ± 4.9 | 479 ± 32 |
 
-Each port also has a physical, an index, and a key sort; the table shows the one with
-the lowest total over the seven columns. All three produce the same row order, and
-all build a new table except the physical sort.
+Each port keeps the sort with the lowest total over the seven columns in an earlier
+run, on the same M6 the same afternoon, in which every port had a physical, an index,
+and a key sort. The totals below are from that run, in µs. That code is at commit
+[`906a410`](https://github.com/kjn-void/gd-rs/tree/906a410/benches/index_sort). All
+three sorts produced the same row order, and all but the physical sort built a new
+table.
 
-| Port | Physical total | Index total | Key total | Shown |
+| Port | Physical total | Index total | Key total | Kept |
 |---|---:|---:|---:|---|
 | Rust | 1,941 | 1,618 | 1,492 | key |
 | C# | 4,118 | 2,400 | 2,441 | index |
@@ -181,8 +185,8 @@ all build a new table except the physical sort.
   German string; Kotlin copies the whole German string column and swaps its four
   arrays. Their key sorts win on numbers by up to 16% (C#) and 20% (Kotlin), but lose
   on string(8) by 60% and 39%, so the index sort has the lower total.
-- **Against GD's key sort,** the shown port sorts are 2.8 to 5.2 times faster on the
-  numeric and string(8) columns. On string(50), Rust and Kotlin are 1.6 and 2.2 times
+- **Against GD's key sort,** the port sorts are 2.9 to 4.9 times faster on the
+  numeric and string(8) columns. On string(50), Rust and Kotlin are 1.6 and 2.1 times
   faster, and C# is level.
 
 ## Three sort methods, 10,000 rows (µs)
