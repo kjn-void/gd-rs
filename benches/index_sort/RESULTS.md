@@ -136,6 +136,55 @@ the environment table.
   | C# | 96 B | 4 B index | 100 B: index plus a whole new table |
   | Kotlin | 75 B | 4 B index | 79 B: index plus a whole new table |
 
+## Three sort methods in four languages, 10,000 rows (µs)
+
+GD's three sort methods next to the best of the port sorts, for every column of the
+10,000-row table with every column set. The sources are
+[`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp),
+[`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) with the sorts in
+[`rust/src/lib.rs`](rust/src/lib.rs), [`csharp/SortMethods.cs`](csharp/SortMethods.cs)
+with the sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs), and the `SortMethods` class in
+[`kotlin/src/main/kotlin/indexsort/Benchmarks.kt`](kotlin/src/main/kotlin/indexsort/Benchmarks.kt)
+with the sorts in [`Sorts.kt`](kotlin/src/main/kotlin/indexsort/Sorts.kt).
+
+It was measured on 2026-10-30 on the same M6 and toolchains as above, with a load
+average between 1.0 and 2.1, using `run_all.sh methods`. C++ ran 5 repetitions; Rust
+and Kotlin used the 1,000-row settings; C# used BenchmarkDotNet's default job. ± has
+the same meaning as in the environment table.
+
+| Column | Type | C++ GD physical | C++ GD index | C++ GD key | Rust key | C# index | Kotlin index |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 0 | uint64 | 81,007 ± 86 | 1,117 ± 4.7 | 670 ± 17 | 130 ± 0.07 | 211 ± 0.31 | 163 ± 0.92 |
+| 1 | string(8) | 110,455 ± 220 | 1,366 ± 0.68 | 904 ± 4.0 | 173 ± 0.07 | 265 ± 0.33 | 186 ± 0.62 |
+| 2 | double | 81,401 ± 8.9 | 1,288 ± 4.2 | 715 ± 1.7 | 142 ± 0.13 | 220 ± 0.60 | 170 ± 1.5 |
+| 3 | double | 81,415 ± 41 | 1,291 ± 3.1 | 688 ± 34 | 166 ± 7.3 | 234 ± 0.39 | 191 ± 0.54 |
+| 4 | int32 | 88,555 ± 31 | 1,252 ± 2.2 | 610 ± 3.4 | 125 ± 0.05 | 217 ± 0.35 | 177 ± 0.93 |
+| 5 | uint32 | 88,605 ± 14 | 1,257 ± 1.0 | 668 ± 0.78 | 136 ± 3.1 | 223 ± 0.54 | 181 ± 1.1 |
+| 6 | string(50) | 125,027 ± 180 | 1,676 ± 3.0 | 1,020 ± 5.5 | 621 ± 1.0 | 1,031 ± 4.4 | 455 ± 33 |
+
+Each port also has a physical, an index, and a key sort; the table shows the one with
+the lowest total over the seven columns. All three produce the same row order, and
+all build a new table except the physical sort.
+
+| Port | Physical total | Index total | Key total | Shown |
+|---|---:|---:|---:|---|
+| Rust | 1,941 | 1,618 | 1,492 | key |
+| C# | 4,118 | 2,400 | 2,441 | index |
+| Kotlin | 3,405 | 1,523 | 1,579 | index |
+
+- **The physical quicksort loses in every port.** It swaps all seven columns at each
+  step.
+- **Rust's key sort wins** because its (key, row) pairs hold numbers by value and
+  strings by reference, 16 bytes each. Comparisons read the pair instead of following
+  a row number into the column.
+- **C# and Kotlin have no cheap string reference.** The C# pairs copy a 24-byte
+  German string; Kotlin copies the whole German string column and swaps its four
+  arrays. Their key sorts win on numbers by up to 16% (C#) and 20% (Kotlin), but lose
+  on string(8) by 60% and 39%, so the index sort has the lower total.
+- **Against GD's key sort,** the shown port sorts are 2.8 to 5.2 times faster on the
+  numeric and string(8) columns. On string(50), Rust and Kotlin are 1.6 and 2.2 times
+  faster, and C# is level.
+
 ## Three sort methods, 10,000 rows (µs)
 
 This reproduces the follow-up benchmark in

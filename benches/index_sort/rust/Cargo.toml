@@ -15,3 +15,7 @@ criterion = "0.8.2"
 [[bench]]
 name = "index_sort"
 harness = false
+
+[[bench]]
+name = "sort_methods"
+harness = false

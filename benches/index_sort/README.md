@@ -104,8 +104,8 @@ which was faster in every port; see
 ## Three sort methods
 
 [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) reproduces the
-follow-up benchmark in [forum post 21314807](https://www.sweclockers.com/forum/post/21314807).
-It is C++ only. Unlike the six cases above:
+follow-up benchmark in [forum post 21314807](https://www.sweclockers.com/forum/post/21314807),
+and the ports run the same cases. Unlike the six cases above:
 
 - the table has 10,000 rows;
 - every column is set, with C3 and C4 uniform doubles from 0 to 1,000, and C5 and C6
@@ -120,8 +120,22 @@ the row metadata. The post adds it to GD as `sort(column, ascending, tag_sort_ke
 but GD has not published it, so the benchmark carries the posted function rewritten
 against GD's public row accessors.
 
+In the ports, physical is the shared quicksort over rows and index is the quicksort
+over row numbers followed by building a new table, as in the six cases. Key copies
+each row's key once into (key, row number) pairs, orders the pairs with the same
+quicksort, and builds a new table:
+
+- **Rust:** numbers are copied into the pairs; strings are referenced.
+- **C#:** every key is copied, including the 24-byte `GermanString`.
+- **Kotlin:** numbers are cached as order-preserving `Long`s next to an array of row
+  numbers; strings as a copy of the German string column.
+
+All three methods produce the same row order, and the tests check that row for row.
+The `methods` phase of [`run_all.sh`](run_all.sh) runs the 21 cases in all four
+languages:
+
 ```bash
-target/index_sort/cpp/sort_methods_benchmark --benchmark_repetitions=5 --benchmark_report_aggregates_only=true
+benches/index_sort/run_all.sh methods <out-dir>
 ```
 
 ## Projects
@@ -129,8 +143,8 @@ target/index_sort/cpp/sort_methods_benchmark --benchmark_repetitions=5 --benchma
 | Port | Harness | Sources |
 |---|---|---|
 | C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h); [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) |
-| Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs) |
-| C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs) |
+| Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs), [`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) |
+| C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs), three methods in [`csharp/SortMethods.cs`](csharp/SortMethods.cs) |
 | Kotlin | Kotlin 2.4.10, kotlinx-benchmark 0.4.14 (JMH) | [`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/) |
 
 The correctness checks run with:

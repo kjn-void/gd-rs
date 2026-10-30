@@ -13,6 +13,7 @@ import org.openjdk.jmh.annotations.Level
 import org.openjdk.jmh.annotations.Measurement
 import org.openjdk.jmh.annotations.Mode
 import org.openjdk.jmh.annotations.OutputTimeUnit
+import org.openjdk.jmh.annotations.Param
 import org.openjdk.jmh.annotations.Scope
 import org.openjdk.jmh.annotations.Setup
 import org.openjdk.jmh.annotations.State
@@ -85,4 +86,54 @@ open class MillionRows : Fixture(MILLION_ROWS) {
     @Benchmark fun sort04IndexUint64() = index(Key.C1)
     @Benchmark fun sort05IndexString8() = index(Key.C2)
     @Benchmark fun sort06IndexString50() = index(Key.C7)
+}
+
+/**
+ * Kotlin counterpart of ../cpp/sort_methods_benchmark.cpp: a 10,000-row table with
+ * every column set, sorted on each column (by C++ column number) three ways.
+ */
+@State(Scope.Benchmark)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@Warmup(iterations = 5, time = 1)
+@Measurement(iterations = 5, time = 1)
+@Fork(1)
+open class SortMethods {
+    @Param("0", "1", "2", "3", "4", "5", "6")
+    var column = 0
+
+    private lateinit var key: Key
+    private lateinit var source: Table
+    private lateinit var target: Table
+
+    @Setup(Level.Trial)
+    fun setUp() {
+        key = Key.entries.first { it.column == column }
+        source = Table.fromSource(generateAllColumns(SORT_METHODS_ROW_COUNT))
+        target = Table(SORT_METHODS_ROW_COUNT)
+    }
+
+    @TearDown(Level.Trial)
+    fun tearDown() = requireSorted(target, key.comparator)
+
+    @Benchmark
+    fun physical(): Int {
+        target.appendFrom(source)
+        physicalSort(target, key.comparator)
+        return target.size
+    }
+
+    @Benchmark
+    fun index(): Int {
+        target.appendFrom(source)
+        target = indexSort(target, key.comparator)
+        return target.size
+    }
+
+    @Benchmark
+    fun key(): Int {
+        target.appendFrom(source)
+        target = keySort(target, key)
+        return target.size
+    }
 }

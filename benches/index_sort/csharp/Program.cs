@@ -18,6 +18,7 @@ internal static class Verify
     {
         CheckSorts();
         CheckDuplicatesAndShortTables();
+        CheckSortMethods();
         CheckGermanOrder();
         CheckDistribution();
         Console.WriteLine("verify: ok");
@@ -55,6 +56,44 @@ internal static class Verify
             var index = Sorts.IndexSort<KeyC1>(Table.FromSource(rows[..count]));
             Sorts.RequireSorted<KeyC1>(index);
             Require(index.Size == count, "index sort lost rows");
+        }
+    }
+
+    private static void CheckSortMethods()
+    {
+        static string[] RowsOf(Table table) =>
+            Enumerable.Range(0, table.Size)
+                .Select(row => $"{table.C1[row]} {table.C2[row].Value} {table.C3[row]} {table.C4[row]} {table.C5[row]} {table.C6[row]} {table.C7[row].Value}")
+                .ToArray();
+
+        var rows = Data.GenerateAllColumns(Data.SortMethodsRowCount);
+        Require(rows.All(row => row.C4 is >= 0 and < 1_000 && row.C5 is >= 0 and < 1000 && row.C6 is < 1000), "all columns set");
+        var source = Table.FromSource(rows);
+        for (var column = 0; column < 7; column++)
+        {
+            string[]? expected = null;
+            foreach (var method in Enum.GetValues<Method>())
+            {
+                var table = new Table(source.Size);
+                table.AppendFrom(source);
+                table = ColumnSorts.Sort(table, method, column);
+                ColumnSorts.RequireSorted(table, column);
+                var sorted = RowsOf(table);
+                expected ??= sorted;
+                Require(sorted.SequenceEqual(expected), $"{method} sort on column {column} ordered rows differently");
+            }
+            Require(expected!.Order().SequenceEqual(RowsOf(source).Order()), $"column {column} split or lost rows");
+        }
+
+        var duplicates = Data.GenerateAllColumns(Data.RowCount).Select(row => row with { C1 = row.C1 % 3 }).ToArray();
+        foreach (var count in new[] { 0, 1, 2, 3, 16, 17, 100, Data.RowCount })
+        {
+            foreach (var column in new[] { 0, 5 })
+            {
+                var key = ColumnSorts.Sort(Table.FromSource(duplicates[..count]), Method.Key, column);
+                ColumnSorts.RequireSorted(key, column);
+                Require(key.Size == count, "key sort lost rows");
+            }
         }
     }
 

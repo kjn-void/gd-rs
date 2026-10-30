@@ -1,6 +1,6 @@
-//! Rust counterpart of `../cpp/index_sort_benchmark.cpp`: the six GD "sort table"
-//! cases over a struct-of-arrays table whose string columns hold
-//! `strumbra::SharedString`.
+//! Rust counterpart of `../cpp/index_sort_benchmark.cpp` and
+//! `../cpp/sort_methods_benchmark.cpp`: GD's "sort table" cases over a
+//! struct-of-arrays table whose string columns hold `strumbra::SharedString`.
 
 use std::cmp::Ordering;
 use std::mem::ManuallyDrop;
@@ -9,25 +9,46 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use strumbra::SharedString;
 
-/// Row count in the C++ benchmark.
+/// Row count in the C++ six-case benchmark.
 pub const ROW_COUNT: usize = 1000;
 
-/// Column numbers as in the C++ table: C1 `uint64`, C2 `string(8)`, C7 `string(50)`.
+/// Row count in the C++ three-sort-method benchmark.
+pub const SORT_METHODS_ROW_COUNT: usize = 10_000;
+
+/// Column numbers as in the C++ table: C1 `uint64`, C2 `string(8)`, C3 and C4
+/// `double`, C5 `int32`, C6 `uint32`, C7 `string(50)`.
 pub const C1: usize = 0;
 pub const C2: usize = 1;
+pub const C3: usize = 2;
+pub const C4: usize = 3;
+pub const C5: usize = 4;
+pub const C6: usize = 5;
 pub const C7: usize = 6;
 
-/// Generated values for one row; C4 to C6 are never set, like the C++ test.
+/// Generated values for one row. The six-case benchmark never sets C4 to C6.
 pub struct SourceRow {
     pub c1: u64,
     pub c2: String,
     pub c3: f64,
+    pub c4: Option<f64>,
+    pub c5: Option<i32>,
+    pub c6: Option<u32>,
     pub c7: String,
 }
 
-/// Same distributions and draw order as the C++ test. The engine differs, so the
-/// values do too.
+/// Rows for the six-case benchmark, with C4 to C6 null. Same distributions and
+/// draw order as the C++ test. The engine differs, so the values do too.
 pub fn generate_rows(count: usize) -> Vec<SourceRow> {
+    generate(count, false)
+}
+
+/// Rows for the three-sort-method benchmark, with every column set: C4 a double
+/// like C3, and C5 and C6 a draw like C1 modulo 1000.
+pub fn generate_all_columns(count: usize) -> Vec<SourceRow> {
+    generate(count, true)
+}
+
+fn generate(count: usize, all_columns: bool) -> Vec<SourceRow> {
     let mut rng = StdRng::seed_from_u64(42);
     let letters = |rng: &mut StdRng, count: usize| -> String {
         (0..count)
@@ -42,7 +63,21 @@ pub fn generate_rows(count: usize) -> Vec<SourceRow> {
             let c7 = format!("01234567890123456789{suffix}");
             let c1 = rng.random_range(0..=1_000_000u64);
             let c3 = rng.random_range(0.0..1_000.0);
-            SourceRow { c1, c2, c3, c7 }
+            let (mut c4, mut c5, mut c6) = (None, None, None);
+            if all_columns {
+                c4 = Some(rng.random_range(0.0..1_000.0));
+                c5 = Some((rng.random_range(0..=1_000_000u64) % 1000) as i32);
+                c6 = Some((rng.random_range(0..=1_000_000u64) % 1000) as u32);
+            }
+            SourceRow {
+                c1,
+                c2,
+                c3,
+                c4,
+                c5,
+                c6,
+                c7,
+            }
         })
         .collect()
 }
@@ -80,9 +115,9 @@ impl Table {
             table.c1.push(row.c1);
             table.c2.push(string(&row.c2));
             table.c3.push(row.c3);
-            table.c4.push(None);
-            table.c5.push(None);
-            table.c6.push(None);
+            table.c4.push(row.c4);
+            table.c5.push(row.c5);
+            table.c6.push(row.c6);
             table.c7.push(string(&row.c7));
         }
         table
@@ -128,9 +163,27 @@ impl Table {
         match COLUMN {
             C1 => self.c1[a].cmp(&self.c1[b]),
             C2 => self.c2[a].cmp(&self.c2[b]),
+            C3 => self.c3[a].total_cmp(&self.c3[b]),
+            C4 => compare_set(self.c4[a], self.c4[b], f64::total_cmp),
+            C5 => compare_set(self.c5[a], self.c5[b], i32::cmp),
+            C6 => compare_set(self.c6[a], self.c6[b], u32::cmp),
             C7 => self.c7[a].cmp(&self.c7[b]),
-            _ => unreachable!("column {COLUMN} is not a sort key"),
+            _ => unreachable!("table has no column {COLUMN}"),
         }
+    }
+}
+
+/// Compares two values of a nullable column used as a sort key. Like GD's sorts, key
+/// values must not be null.
+#[inline]
+fn compare_set<T: Copy>(
+    a: Option<T>,
+    b: Option<T>,
+    compare: impl Fn(&T, &T) -> Ordering,
+) -> Ordering {
+    match (a, b) {
+        (Some(a), Some(b)) => compare(&a, &b),
+        _ => panic!("sort key is null"),
     }
 }
 
@@ -153,15 +206,67 @@ pub fn index_sort<const COLUMN: usize>(table: &mut Table) {
     }
 
     let index = sorted_index::<COLUMN>(table);
+    gather_table(table, &index);
+}
+
+/// Key sort, after GD's posted `sort(column, true, tag_sort_key{})`: each row's key
+/// is read once into a vector of (key, row number) pairs, the same quicksort orders
+/// the pairs, and the sorted order is applied by building a new table as in
+/// [`index_sort`]. Numbers are copied into the pairs; strings are referenced, as
+/// GD's cached `variant_view` points into the row. All three sorts produce the
+/// same row order.
+pub fn key_sort<const COLUMN: usize>(table: &mut Table) {
+    if table.len() < 2 {
+        return;
+    }
+
+    let index = match COLUMN {
+        C1 => sorted_keys(table.c1.iter().copied(), u64::cmp),
+        C2 => sorted_keys(table.c2.iter(), |a, b| a.cmp(b)),
+        C3 => sorted_keys(table.c3.iter().copied(), f64::total_cmp),
+        C4 => sorted_keys(
+            table.c4.iter().map(|v| v.expect("sort key is null")),
+            f64::total_cmp,
+        ),
+        C5 => sorted_keys(
+            table.c5.iter().map(|v| v.expect("sort key is null")),
+            i32::cmp,
+        ),
+        C6 => sorted_keys(
+            table.c6.iter().map(|v| v.expect("sort key is null")),
+            u32::cmp,
+        ),
+        C7 => sorted_keys(table.c7.iter(), |a, b| a.cmp(b)),
+        _ => unreachable!("table has no column {COLUMN}"),
+    };
+    gather_table(table, &index);
+}
+
+/// Sorts (key, row number) pairs by key and returns the row numbers in that order.
+fn sorted_keys<K: Copy>(
+    keys: impl Iterator<Item = K>,
+    compare: impl Fn(&K, &K) -> Ordering,
+) -> Vec<usize> {
+    let mut pairs = Keys {
+        pairs: keys.enumerate().map(|(row, key)| (key, row)).collect(),
+        compare,
+    };
+    let count = pairs.pairs.len();
+    quicksort(&mut pairs, 0, count);
+    pairs.pairs.into_iter().map(|(_, row)| row).collect()
+}
+
+/// Replaces `table` with a new table whose row `k` is the old row `index[k]`.
+fn gather_table(table: &mut Table, index: &[usize]) {
     let old = std::mem::replace(table, Table::with_capacity(0));
     *table = Table {
-        c1: gather(old.c1, &index),
-        c2: gather(old.c2, &index),
-        c3: gather(old.c3, &index),
-        c4: gather(old.c4, &index),
-        c5: gather(old.c5, &index),
-        c6: gather(old.c6, &index),
-        c7: gather(old.c7, &index),
+        c1: gather(old.c1, index),
+        c2: gather(old.c2, index),
+        c3: gather(old.c3, index),
+        c4: gather(old.c4, index),
+        c5: gather(old.c5, index),
+        c6: gather(old.c6, index),
+        c7: gather(old.c7, index),
     };
 }
 
@@ -218,6 +323,24 @@ impl<const COLUMN: usize> Sequence for Rows<'_, COLUMN> {
     #[inline]
     fn swap(&mut self, a: usize, b: usize) {
         self.0.swap_rows(a, b);
+    }
+}
+
+/// (key, row number) pairs, compared by key.
+struct Keys<K, F> {
+    pairs: Vec<(K, usize)>,
+    compare: F,
+}
+
+impl<K, F: Fn(&K, &K) -> Ordering> Sequence for Keys<K, F> {
+    #[inline]
+    fn compare(&self, a: usize, b: usize) -> Ordering {
+        (self.compare)(&self.pairs[a].0, &self.pairs[b].0)
+    }
+
+    #[inline]
+    fn swap(&mut self, a: usize, b: usize) {
+        self.pairs.swap(a, b);
     }
 }
 
@@ -369,6 +492,85 @@ mod tests {
         let mut sorted = rows(&index);
         sorted.sort();
         assert_eq!(sorted, original, "rows were split or lost");
+    }
+
+    /// Every column of an all-columns table, as comparable text, for row-by-row checks.
+    fn all_columns(table: &Table) -> Vec<String> {
+        (0..table.len())
+            .map(|row| {
+                format!(
+                    "{} {} {} {:?} {:?} {:?} {}",
+                    table.c1[row],
+                    table.c2[row],
+                    table.c3[row],
+                    table.c4[row],
+                    table.c5[row],
+                    table.c6[row],
+                    table.c7[row]
+                )
+            })
+            .collect()
+    }
+
+    fn check_three_methods<const COLUMN: usize>(source: &Table) {
+        let mut physical = source.clone();
+        physical_sort::<COLUMN>(&mut physical);
+        assert!(is_sorted::<COLUMN>(&physical), "physical, column {COLUMN}");
+
+        let mut index = source.clone();
+        index_sort::<COLUMN>(&mut index);
+        assert!(is_sorted::<COLUMN>(&index), "index, column {COLUMN}");
+
+        let mut key = source.clone();
+        key_sort::<COLUMN>(&mut key);
+        assert!(is_sorted::<COLUMN>(&key), "key, column {COLUMN}");
+
+        let rows = all_columns(&physical);
+        assert_eq!(rows, all_columns(&index), "column {COLUMN}");
+        assert_eq!(rows, all_columns(&key), "column {COLUMN}");
+    }
+
+    #[test]
+    fn three_methods_order_every_column_the_same_way() {
+        let source = Table::from_source(&generate_all_columns(SORT_METHODS_ROW_COUNT));
+        check_three_methods::<C1>(&source);
+        check_three_methods::<C2>(&source);
+        check_three_methods::<C3>(&source);
+        check_three_methods::<C4>(&source);
+        check_three_methods::<C5>(&source);
+        check_three_methods::<C6>(&source);
+        check_three_methods::<C7>(&source);
+
+        let mut original = all_columns(&source);
+        original.sort();
+        let mut key = source.clone();
+        key_sort::<C5>(&mut key);
+        let mut sorted = all_columns(&key);
+        sorted.sort();
+        assert_eq!(sorted, original, "rows were split or lost");
+    }
+
+    #[test]
+    fn key_sort_handles_duplicates_and_short_tables() {
+        let rows = generate_all_columns(ROW_COUNT);
+        for count in [0, 1, 2, 3, 16, 17, 100, ROW_COUNT] {
+            // C5 and C6 hold only 1,000 distinct values, and C1 is reduced to three.
+            let mut source = Table::from_source(&rows[..count]);
+            for value in &mut source.c1 {
+                *value %= 3;
+            }
+            check_three_methods::<C1>(&source);
+            check_three_methods::<C6>(&source);
+        }
+    }
+
+    #[test]
+    fn all_columns_are_set() {
+        for row in generate_all_columns(ROW_COUNT) {
+            assert!(row.c4.is_some_and(|v| (0.0..1_000.0).contains(&v)));
+            assert!(row.c5.is_some_and(|v| (0..1000).contains(&v)));
+            assert!(row.c6.is_some_and(|v| v < 1000));
+        }
     }
 
     #[test]

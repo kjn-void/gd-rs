@@ -27,6 +27,37 @@ public static class Sorts
         return table.Size < 2 ? table : table.Gather(SortedIndex<TKey>(table));
     }
 
+    /// <summary>
+    /// Key sort, after GD's posted <c>sort(column, true, tag_sort_key{})</c>: each row's
+    /// key is copied once into an array of (key, row number) pairs, the same quicksort
+    /// orders the pairs, and the sorted order is applied by building a new table as in
+    /// <see cref="IndexSort{TKey}"/>. All three sorts produce the same row order.
+    /// </summary>
+    public static Table KeySort<TKey, TValue>(Table table)
+        where TKey : struct, IKey<TValue>
+    {
+        var count = table.Size;
+        if (count < 2)
+        {
+            return table;
+        }
+
+        var pairs = new (TValue Key, int Row)[count];
+        for (var row = 0; row < count; row++)
+        {
+            pairs[row] = (TKey.Get(table, row), row);
+        }
+        var keys = new Keys<TKey, TValue>(pairs);
+        Quicksort(ref keys, 0, count);
+
+        var index = new int[count];
+        for (var position = 0; position < count; position++)
+        {
+            index[position] = pairs[position].Row;
+        }
+        return table.Gather(index);
+    }
+
     /// <summary>Row numbers in sorted order: <c>index[k]</c> is the row that belongs at position <c>k</c>.</summary>
     private static int[] SortedIndex<TKey>(Table table)
         where TKey : struct, IKey
@@ -68,6 +99,14 @@ public static class Sorts
     {
         public int Compare(int a, int b) => TKey.Compare(table, a, b);
         public void Swap(int a, int b) => table.SwapRows(a, b);
+    }
+
+    /// <summary>(key, row number) pairs, compared by key.</summary>
+    private readonly struct Keys<TKey, TValue>((TValue Key, int Row)[] pairs) : ISequence
+        where TKey : struct, IKey<TValue>
+    {
+        public int Compare(int a, int b) => TKey.CompareValues(pairs[a].Key, pairs[b].Key);
+        public void Swap(int a, int b) => (pairs[a], pairs[b]) = (pairs[b], pairs[a]);
     }
 
     /// <summary>Row numbers, compared through the rows they name.</summary>

@@ -7,12 +7,15 @@
 #   benches/index_sort/run_all.sh selection <out-dir>  GD's 10^6-row selection sorts:
 #                                                      one timed run each, about an
 #                                                      hour in total
+#   benches/index_sort/run_all.sh methods <out-dir>    physical, index, and key sort on
+#                                                      every column of a 10,000-row
+#                                                      table, in all four languages
 #
 # Run from the repository root. Results and toolchain versions go to <out-dir>.
 set -euo pipefail
 
-phase=${1:?usage: run_all.sh fast|selection <out-dir>}
-out=$(mkdir -p "${2:?usage: run_all.sh fast|selection <out-dir>}" && cd "$2" && pwd)
+phase=${1:?usage: run_all.sh fast|selection|methods <out-dir>}
+out=$(mkdir -p "${2:?usage: run_all.sh fast|selection|methods <out-dir>}" && cd "$2" && pwd)
 root=$(pwd)
 bench="$root/benches/index_sort"
 cpp_build="$root/target/index_sort/cpp"
@@ -57,6 +60,20 @@ case "$phase" in
             --benchmark_filter='/1000000/iterations:1$' \
             --benchmark_out="$out/cpp-selection.json" --benchmark_out_format=json
         uptime >> "$out/selection-load.txt"
+        ;;
+    methods)
+        rm -rf "$bench/kotlin/build/reports/benchmarks" "$bench/csharp/BenchmarkDotNet.Artifacts"
+        uptime > "$out/methods-load.txt"
+        "$cpp_build/sort_methods_benchmark" \
+            --benchmark_repetitions=5 --benchmark_report_aggregates_only=true \
+            --benchmark_out="$out/cpp.json" --benchmark_out_format=json
+        (cd "$bench/rust" && cargo bench --bench sort_methods) | tee "$out/rust.txt"
+        (cd "$bench/kotlin" && ./gradlew --quiet mainSortMethodsBenchmark) | tee "$out/kotlin.txt"
+        cp -R "$bench/kotlin/build/reports/benchmarks/sortMethods" "$out/kotlin-reports"
+        (cd "$bench/csharp" && dotnet bin/Release/net10.0/IndexSort.dll \
+            --filter '*.SortMethods.*' --exporters json) | tee "$out/csharp.txt"
+        cp -R "$bench/csharp/BenchmarkDotNet.Artifacts/results" "$out/csharp-reports"
+        uptime >> "$out/methods-load.txt"
         ;;
     *)
         echo "unknown phase $phase" >&2

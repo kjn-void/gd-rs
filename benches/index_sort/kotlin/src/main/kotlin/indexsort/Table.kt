@@ -76,6 +76,9 @@ class Table(val capacity: Int) {
                 table.c1[row] = source.c1
                 table.c2.set(row, source.c2)
                 table.c3[row] = source.c3
+                source.c4?.let { table.c4[row] = it; table.c4Valid[row] = true }
+                source.c5?.let { table.c5[row] = it; table.c5Valid[row] = true }
+                source.c6?.let { table.c6[row] = it; table.c6Valid[row] = true }
                 table.c7.set(row, source.c7)
             }
             table.size = rows.size
@@ -89,9 +92,34 @@ fun interface RowComparator {
     fun compare(table: Table, a: Int, b: Int): Int
 }
 
-/** The sort keys in the C++ benchmark: C1 `uint64`, C2 `string(8)`, C7 `string(50)`. */
-enum class Key(val comparator: RowComparator) {
-    C1(RowComparator { table, a, b -> table.c1[a].compareTo(table.c1[b]) }),
-    C2(RowComparator { table, a, b -> table.c2.compare(a, b) }),
-    C7(RowComparator { table, a, b -> table.c7.compare(a, b) }),
+/**
+ * Encodes a row's key as a `Long` whose signed order is the key's order, for the key
+ * sort's cache. String keys have none and are cached as a German string column.
+ */
+fun interface KeyEncoder {
+    fun encode(table: Table, row: Int): Long
+}
+
+/**
+ * The sort keys, by column number as in the C++ table. The six-case benchmark sorts
+ * on C1, C2, and C7. Like GD's sorts, nullable key values must be set.
+ */
+enum class Key(val column: Int, val comparator: RowComparator, val encoder: KeyEncoder?) {
+    C1(0, RowComparator { table, a, b -> java.lang.Long.compareUnsigned(table.c1[a], table.c1[b]) }, KeyEncoder { table, row -> table.c1[row] xor Long.MIN_VALUE }),
+    C2(1, RowComparator { table, a, b -> table.c2.compare(a, b) }, null),
+    C3(2, RowComparator { table, a, b -> table.c3[a].compareTo(table.c3[b]) }, KeyEncoder { table, row -> orderedBits(table.c3[row]) }),
+    C4(3, RowComparator { table, a, b -> requireSet(table.c4Valid, a, b); table.c4[a].compareTo(table.c4[b]) }, KeyEncoder { table, row -> requireSet(table.c4Valid, row, row); orderedBits(table.c4[row]) }),
+    C5(4, RowComparator { table, a, b -> requireSet(table.c5Valid, a, b); table.c5[a].compareTo(table.c5[b]) }, KeyEncoder { table, row -> requireSet(table.c5Valid, row, row); table.c5[row].toLong() }),
+    C6(5, RowComparator { table, a, b -> requireSet(table.c6Valid, a, b); Integer.compareUnsigned(table.c6[a], table.c6[b]) }, KeyEncoder { table, row -> requireSet(table.c6Valid, row, row); table.c6[row].toLong() and 0xffff_ffffL }),
+    C7(6, RowComparator { table, a, b -> table.c7.compare(a, b) }, null),
+}
+
+private fun requireSet(valid: BooleanArray, a: Int, b: Int) {
+    check(valid[a] && valid[b]) { "sort key is null" }
+}
+
+/** The bits of `value`, flipped so that signed `Long` order is `Double.compareTo` order. */
+private fun orderedBits(value: Double): Long {
+    val bits = value.toRawBits()
+    return bits xor ((bits shr 63) and Long.MAX_VALUE)
 }

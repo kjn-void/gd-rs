@@ -18,6 +18,29 @@ fun physicalSort(table: Table, key: RowComparator) {
 fun indexSort(table: Table, key: RowComparator): Table =
     if (table.size < 2) table else table.gather(sortedIndex(table, key))
 
+/**
+ * Key sort, after GD's posted `sort(column, true, tag_sort_key{})`: each row's key is
+ * copied once into a key array next to an array of row numbers, the same quicksort
+ * orders both together, and the sorted order is applied by building a new table as in
+ * [indexSort]. Numbers are cached as order-preserving `Long`s; strings as a copy of
+ * the German string column. All three sorts produce the same row order.
+ */
+fun keySort(table: Table, key: Key): Table {
+    val count = table.size
+    if (count < 2) return table
+
+    val rows = IntArray(count) { it }
+    val encoder = key.encoder
+    val keys = if (encoder != null) {
+        NumberKeys(LongArray(count) { encoder.encode(table, it) }, rows)
+    } else {
+        val column = if (key == Key.C2) table.c2 else table.c7
+        StringKeys(GermanStringColumn(count).apply { copyFrom(column, count) }, rows)
+    }
+    quicksort(keys, 0, count)
+    return table.gather(rows)
+}
+
 /** Row numbers in sorted order: `index[k]` is the row that belongs at position `k`. */
 private fun sortedIndex(table: Table, key: RowComparator): IntArray {
     val index = IntArray(table.size) { it }
@@ -35,6 +58,26 @@ private interface Sequence {
 private class Rows(private val table: Table, private val key: RowComparator) : Sequence {
     override fun compare(a: Int, b: Int) = key.compare(table, a, b)
     override fun swap(a: Int, b: Int) = table.swapRows(a, b)
+}
+
+/** Number keys next to their row numbers, compared by key. */
+private class NumberKeys(private val keys: LongArray, private val rows: IntArray) : Sequence {
+    override fun compare(a: Int, b: Int) = keys[a].compareTo(keys[b])
+
+    override fun swap(a: Int, b: Int) {
+        val key = keys[a]; keys[a] = keys[b]; keys[b] = key
+        val row = rows[a]; rows[a] = rows[b]; rows[b] = row
+    }
+}
+
+/** String keys next to their row numbers, compared by key. */
+private class StringKeys(private val keys: GermanStringColumn, private val rows: IntArray) : Sequence {
+    override fun compare(a: Int, b: Int) = keys.compare(a, b)
+
+    override fun swap(a: Int, b: Int) {
+        keys.swap(a, b)
+        val row = rows[a]; rows[a] = rows[b]; rows[b] = row
+    }
 }
 
 /** Row numbers, compared through the rows they name. */

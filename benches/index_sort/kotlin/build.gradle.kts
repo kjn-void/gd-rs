@@ -26,4 +26,14 @@ benchmark {
     targets {
         register("main")
     }
+    configurations {
+        // The six upstream cases at 1,000 and 10^6 rows.
+        named("main") {
+            exclude("SortMethods")
+        }
+        // The three-sort-method cases at 10,000 rows: ./gradlew mainSortMethodsBenchmark
+        register("sortMethods") {
+            include("SortMethods")
+        }
+    }
 }

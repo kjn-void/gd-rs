@@ -10,7 +10,7 @@ class SortTest {
     @Test
     fun bothSortsOrderEveryKeyColumn() {
         val source = Table.fromSource(rows)
-        for (key in Key.entries) {
+        for (key in listOf(Key.C1, Key.C2, Key.C7)) {
             val table = Table(ROW_COUNT)
             table.appendFrom(source)
             physicalSort(table, key.comparator)
@@ -46,6 +46,37 @@ class SortTest {
 
         val order = compareBy<Triple<Long, String, String>>({ it.first }, { it.second }, { it.third })
         assertEquals(rowsOf(source).sortedWith(order), rowsOf(index).sortedWith(order), "rows were split or lost")
+    }
+
+    @Test
+    fun threeMethodsOrderEveryColumnTheSameWay() {
+        val source = Table.fromSource(generateAllColumns(SORT_METHODS_ROW_COUNT))
+        for (key in Key.entries) {
+            val physical = Table(source.size).apply { appendFrom(source) }
+            physicalSort(physical, key.comparator)
+            val index = indexSort(source, key.comparator)
+            val keyed = keySort(source, key)
+            for (table in listOf(physical, index, keyed)) requireSorted(table, key.comparator)
+            assertEquals(allColumns(physical), allColumns(index), "index, $key")
+            assertEquals(allColumns(physical), allColumns(keyed), "key, $key")
+            assertEquals(allColumns(source).sorted(), allColumns(keyed).sorted(), "rows were split or lost, $key")
+        }
+    }
+
+    @Test
+    fun keySortHandlesDuplicatesAndShortTables() {
+        val duplicates = generateAllColumns(ROW_COUNT).map { SourceRow(it.c1 % 3, it.c2, it.c3, it.c7, it.c4, it.c5, it.c6) }
+        for (count in listOf(0, 1, 2, 3, 16, 17, 100, ROW_COUNT)) {
+            for (key in listOf(Key.C1, Key.C6)) {
+                val sorted = keySort(Table.fromSource(duplicates.take(count)), key)
+                requireSorted(sorted, key.comparator)
+                assertEquals(count, sorted.size)
+            }
+        }
+    }
+
+    private fun allColumns(table: Table) = List(table.size) {
+        listOf(table.c1[it], table.c2.get(it), table.c3[it], table.c4[it], table.c5[it], table.c6[it], table.c7.get(it)).joinToString(" ")
     }
 
     @Test
