@@ -3,25 +3,21 @@
 //! Each iteration clears the target, appends the source rows, and sorts on one
 //! column, like the C++ cases. Groups are named by row count.
 //!
-//! The 1,000-row group runs all six cases. The 1,000,000-row group skips the
-//! selection sorts: at about n²/2 = 5·10¹¹ comparisons, one iteration would take
-//! roughly 20 minutes.
+//! Both groups run all six cases.
 
 use std::hint::black_box;
 use std::time::Duration;
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
-use index_sort_bench::{C1, C2, C7, ROW_COUNT, Table, generate_rows, index_sort, selection_sort};
+use index_sort_bench::{C1, C2, C7, ROW_COUNT, Table, generate_rows, index_sort, physical_sort};
 
 const MILLION_ROWS: usize = 1_000_000;
 
 fn row_count(criterion: &mut Criterion, count: usize) {
     let source = Table::from_source(&generate_rows(count));
     let mut target = Table::with_capacity(count);
-    let with_selection_sort = count <= ROW_COUNT;
-
     let mut group = criterion.benchmark_group(count.to_string());
-    if !with_selection_sort {
+    if count > ROW_COUNT {
         group.sample_size(10);
     }
 
@@ -36,11 +32,9 @@ fn row_count(criterion: &mut Criterion, count: usize) {
     };
 
     case("00_append_only", |_| {});
-    if with_selection_sort {
-        case("01_physical_uint64", selection_sort::<C1>);
-        case("02_physical_string8", selection_sort::<C2>);
-        case("03_physical_string50", selection_sort::<C7>);
-    }
+    case("01_physical_uint64", physical_sort::<C1>);
+    case("02_physical_string8", physical_sort::<C2>);
+    case("03_physical_string50", physical_sort::<C7>);
     case("04_index_uint64", index_sort::<C1>);
     case("05_index_string8", index_sort::<C2>);
     case("06_index_string50", index_sort::<C7>);

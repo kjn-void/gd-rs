@@ -26,13 +26,13 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 36 | 10,704 | 367 | 988 | 2.69 |
 | Rust product + tests (`src`, `tests`) | 56 | 16,954 | 588 | 1,416 | 2.41 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,534 | 810 | 2,112 | 2.61 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,641 | 814 | 2,123 | 2.61 |
 | C++ product (`source`) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
-| C++ product + tests + maintained benchmarks | 175 | 69,511 | 9,001 | 21,029 | 2.34 |
+| C++ product + tests + maintained benchmarks | 175 | 69,641 | 9,030 | 21,063 | 2.33 |
 
-The Rust totals are **10,704 SLOC in `src`** and **22,534 SLOC including `tests`
-and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,580
+The Rust totals are **10,704 SLOC in `src`** and **22,641 SLOC including `tests`
+and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,687
 SLOC, including the index-sort port, the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
@@ -47,7 +47,7 @@ heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 4,473 SLOC, including the index-sort benchmark, the GD DTO row-sum test, the `string_transport` benchmark, the interned
+references add 4,603 SLOC, including the index-sort benchmark, the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
