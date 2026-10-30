@@ -69,7 +69,33 @@ public sealed class Table
         Swap(C7, a, b);
     }
 
+    /// <summary>
+    /// Builds a new table whose row <c>k</c> is this table's row <c>index[k]</c>, one
+    /// column at a time. <paramref name="index"/> must be a permutation of the rows.
+    /// </summary>
+    public Table Gather(int[] index)
+    {
+        var sorted = new Table(C1.Length);
+        Gather(C1, sorted.C1, index);
+        Gather(C2, sorted.C2, index);
+        Gather(C3, sorted.C3, index);
+        Gather(C4, sorted.C4, index);
+        Gather(C5, sorted.C5, index);
+        Gather(C6, sorted.C6, index);
+        Gather(C7, sorted.C7, index);
+        sorted.Size = Size;
+        return sorted;
+    }
+
     private static void Swap<T>(T[] values, int a, int b) => (values[a], values[b]) = (values[b], values[a]);
+
+    private static void Gather<T>(T[] from, T[] to, int[] index)
+    {
+        for (var position = 0; position < index.Length; position++)
+        {
+            to[position] = from[index[position]];
+        }
+    }
 }
 
 /// <summary>A sort key column; implemented by structs so each sort is specialized.</summary>

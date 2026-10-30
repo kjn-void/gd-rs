@@ -5,6 +5,9 @@ import kotlin.random.Random
 /** Row count in the C++ benchmark. */
 const val ROW_COUNT = 1000
 
+/** Row count in the swap versus gather comparison. */
+const val TEN_THOUSAND_ROWS = 10_000
+
 const val MILLION_ROWS = 1_000_000
 
 /** Generated values for one row; C4 to C6 are never set, like the C++ test. */

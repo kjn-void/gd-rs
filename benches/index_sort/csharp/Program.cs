@@ -43,6 +43,8 @@ internal static class Verify
         index.AppendFrom(source);
         Sorts.IndexSort<KeyC7>(index);
         Require(RowsOf(physical).SequenceEqual(RowsOf(index)), "physical and index sort ordered rows differently");
+        var gathered = Sorts.IndexGatherSort<KeyC7>(source);
+        Require(RowsOf(gathered).SequenceEqual(RowsOf(index)), "gather and swap ordered rows differently");
         Require(RowsOf(source).Order().SequenceEqual(RowsOf(index).Order()), "index sort split or lost rows");
     }
 
@@ -57,6 +59,9 @@ internal static class Verify
             var index = Table.FromSource(rows[..count]);
             Sorts.IndexSort<KeyC1>(index);
             Sorts.RequireSorted<KeyC1>(index);
+            var gathered = Sorts.IndexGatherSort<KeyC1>(Table.FromSource(rows[..count]));
+            Sorts.RequireSorted<KeyC1>(gathered);
+            Require(gathered.Size == count, "gather lost rows");
         }
     }
 

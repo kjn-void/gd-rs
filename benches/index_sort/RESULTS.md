@@ -88,6 +88,47 @@ GD's 10⁶-row selection sorts take 15 to 24 minutes each.
   - C7's prefix is the same in every row and never decides, so cases 03 and 06 follow
     the heap pointer and compare from byte 4 onward on every comparison.
 
+## Swap versus gather, 10,000 rows (µs)
+
+Cases 04 to 06 apply the index sort's permutation by swapping rows in place with the
+cycle walk. Cases 07 to 09 run the same quicksort over row numbers, then build a new
+table by gathering each column in sorted order (see the
+[README](README.md#rust-c-and-kotlin)). The sources are
+[`rust/src/lib.rs`](rust/src/lib.rs) (`index_gather_sort`),
+[`csharp/Sorts.cs`](csharp/Sorts.cs) and [`csharp/Table.cs`](csharp/Table.cs)
+(`IndexGatherSort`, `Gather`), and
+[`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/)
+(`indexGatherSort`, `Table.gather`). There is no C++ counterpart; GD's key sort below
+also gathers, but caches keys and runs on a table with every column set.
+
+It was measured on 2026-10-30 on the same M6 and toolchains as above, with a load
+average between 1.0 and 2.0, using `run_all.sh gather`. Rust and Kotlin used the
+1,000-row settings; C# used BenchmarkDotNet's default job. ± has the same meaning as in
+the environment table.
+
+| Key | Rust swap | Rust gather | C# swap | C# gather | Kotlin swap | Kotlin gather |
+|---|---:|---:|---:|---:|---:|---:|
+| C1 uint64 | 209 ± 0.4 | 138 ± 0.3 | 252 ± 0.9 | 211 ± 0.4 | 324 ± 7.0 | 169 ± 0.2 |
+| C2 string(8) | 248 ± 0.2 | 180 ± 0.1 | 315 ± 1.4 | 258 ± 0.4 | 335 ± 6.4 | 189 ± 1.3 |
+| C7 string(50) | 766 ± 0.5 | 725 ± 9.3 | 1,074 ± 4.1 | 980 ± 2.8 | 703 ± 32 | 495 ± 106 |
+
+- **Gathering is faster in every port and for every key.** It saves 28 to 48% on
+  C1 and C2. On C7 it saves 5% in Rust, 9% in C#, and about 30% in Kotlin, where the
+  error margin is wide.
+- **The saving is in applying the permutation; the sort itself is identical.** The
+  cycle walk swaps every column at two scattered positions, reading and writing
+  both. The gather reads each value once from a scattered position and writes it
+  sequentially. Kotlin swaps 16 arrays per row, so it gains the most.
+- **C7 is dominated by comparisons.** Each one follows the heap pointer past the
+  shared prefix, so the faster apply step is a small share of the total.
+- **Extra memory per row** (heap text is shared, never copied):
+
+  | Port | Row | Swap | Gather |
+  |---|---:|---:|---:|
+  | Rust | 80 B | 8 B index | 24 B: index plus one column, as each old column is freed once moved |
+  | C# | 96 B | 4 B index | 100 B: index plus a whole new table |
+  | Kotlin | 75 B | 4 B index | 79 B: index plus a whole new table |
+
 ## Three sort methods, 10,000 rows (µs)
 
 This reproduces the follow-up benchmark in

@@ -1,8 +1,9 @@
 //! Rust counterpart of `../cpp/index_sort_benchmark.cpp`: the six GD "sort table"
 //! cases over a struct-of-arrays table whose string columns hold
-//! `strumbra::SharedString`.
+//! `strumbra::SharedString`, plus an index sort that materializes a new table.
 
 use std::cmp::Ordering;
+use std::mem::ManuallyDrop;
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -150,16 +151,7 @@ pub fn index_sort<const COLUMN: usize>(table: &mut Table) {
         return;
     }
 
-    let mut index: Vec<usize> = (0..count).collect();
-    quicksort(
-        &mut RowNumbers::<COLUMN> {
-            table,
-            index: &mut index,
-        },
-        0,
-        count,
-    );
-
+    let index = sorted_index::<COLUMN>(table);
     // index[k] is the original row that should end up at position k.
     for position in 0..count {
         let mut source = index[position];
@@ -170,6 +162,63 @@ pub fn index_sort<const COLUMN: usize>(table: &mut Table) {
             table.swap_rows(position, source);
         }
     }
+}
+
+/// Cases 07 to 09: the same index sort as [`index_sort`], but the permutation is
+/// applied by building a new table instead of swapping rows in place. Each new
+/// column is filled by moving the old column's values in sorted order, and each old
+/// column is freed as soon as it has been moved.
+pub fn index_gather_sort<const COLUMN: usize>(table: &mut Table) {
+    if table.len() < 2 {
+        return;
+    }
+
+    let index = sorted_index::<COLUMN>(table);
+    let old = std::mem::replace(table, Table::with_capacity(0));
+    *table = Table {
+        c1: gather(old.c1, &index),
+        c2: gather(old.c2, &index),
+        c3: gather(old.c3, &index),
+        c4: gather(old.c4, &index),
+        c5: gather(old.c5, &index),
+        c6: gather(old.c6, &index),
+        c7: gather(old.c7, &index),
+    };
+}
+
+/// Row numbers in sorted order: `index[k]` is the row that belongs at position `k`.
+fn sorted_index<const COLUMN: usize>(table: &Table) -> Vec<usize> {
+    let count = table.len();
+    let mut index: Vec<usize> = (0..count).collect();
+    quicksort(
+        &mut RowNumbers::<COLUMN> {
+            table,
+            index: &mut index,
+        },
+        0,
+        count,
+    );
+    index
+}
+
+/// Moves `column`'s values into a new vector in `index` order. `index` must be a
+/// permutation of the column's row numbers.
+fn gather<T>(column: Vec<T>, index: &[usize]) -> Vec<T> {
+    assert_eq!(column.len(), index.len());
+    let mut column = ManuallyDrop::new(column);
+    let sorted = index
+        .iter()
+        // SAFETY: `index` is a permutation, so each value is read exactly once.
+        // `column` never drops its values, so none is dropped twice, even if
+        // indexing panics.
+        .map(|&row| unsafe { std::ptr::read(&column[row]) })
+        .collect();
+    // SAFETY: every value has been moved out; this frees only the buffer.
+    unsafe {
+        column.set_len(0);
+        ManuallyDrop::drop(&mut column);
+    }
+    sorted
 }
 
 /// What the quicksort orders: positions it can compare and swap.
@@ -296,10 +345,15 @@ mod tests {
         let mut index = source.clone();
         index_sort::<COLUMN>(&mut index);
         assert!(is_sorted::<COLUMN>(&index));
+
+        let mut gathered = source.clone();
+        index_gather_sort::<COLUMN>(&mut gathered);
+        assert!(is_sorted::<COLUMN>(&gathered));
+        assert_eq!(gathered.len(), source.len());
     }
 
     #[test]
-    fn both_sorts_order_every_key_column() {
+    fn every_sort_orders_every_key_column() {
         let table = Table::from_source(&generate_rows(ROW_COUNT));
         check_column::<C1>(&table);
         check_column::<C2>(&table);
@@ -307,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn both_sorts_handle_duplicates_and_short_tables() {
+    fn every_sort_handles_duplicates_and_short_tables() {
         let mut rows = generate_rows(ROW_COUNT);
         for row in &mut rows {
             row.c1 %= 3;
@@ -318,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn both_sorts_produce_the_same_rows() {
+    fn every_sort_produces_the_same_rows() {
         let source = Table::from_source(&generate_rows(ROW_COUNT));
         let rows = |table: &Table| -> Vec<(u64, String, String)> {
             (0..table.len())
@@ -334,6 +388,9 @@ mod tests {
         let mut index = source.clone();
         index_sort::<C7>(&mut index);
         assert_eq!(rows(&physical), rows(&index));
+        let mut gathered = source.clone();
+        index_gather_sort::<C7>(&mut gathered);
+        assert_eq!(rows(&gathered), rows(&index));
 
         let mut original = rows(&source);
         original.sort();

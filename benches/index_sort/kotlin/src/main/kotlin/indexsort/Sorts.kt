@@ -18,15 +18,28 @@ fun indexSort(table: Table, key: RowComparator) {
     val count = table.size
     if (count < 2) return
 
-    val index = IntArray(count) { it }
-    quicksort(RowNumbers(table, key, index), 0, count)
-
+    val index = sortedIndex(table, key)
     // index[k] is the original row that should end up at position k.
     for (position in 0 until count) {
         var source = index[position]
         while (source < position) source = index[source] // follow rows that were already moved
         if (source != position) table.swapRows(position, source)
     }
+}
+
+/**
+ * Cases 07 to 09: the same index sort as [indexSort], but the permutation is applied
+ * by building a new table instead of swapping rows in place. Returns the new table;
+ * `table` is left unchanged.
+ */
+fun indexGatherSort(table: Table, key: RowComparator): Table =
+    if (table.size < 2) table else table.gather(sortedIndex(table, key))
+
+/** Row numbers in sorted order: `index[k]` is the row that belongs at position `k`. */
+private fun sortedIndex(table: Table, key: RowComparator): IntArray {
+    val index = IntArray(table.size) { it }
+    quicksort(RowNumbers(table, key, index), 0, table.size)
+    return index
 }
 
 /** What the quicksort orders: positions it can compare and swap. */

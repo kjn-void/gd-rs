@@ -29,14 +29,7 @@ public static class Sorts
             return;
         }
 
-        var index = new int[count];
-        for (var row = 0; row < count; row++)
-        {
-            index[row] = row;
-        }
-        var rowNumbers = new RowNumbers<TKey>(table, index);
-        Quicksort(ref rowNumbers, 0, count);
-
+        var index = SortedIndex<TKey>(table);
         // index[k] is the original row that should end up at position k.
         for (var position = 0; position < count; position++)
         {
@@ -50,6 +43,32 @@ public static class Sorts
                 table.SwapRows(position, source);
             }
         }
+    }
+
+    /// <summary>
+    /// Cases 07 to 09: the same index sort as <see cref="IndexSort{TKey}"/>, but the
+    /// permutation is applied by building a new table instead of swapping rows in
+    /// place. Returns the new table; <paramref name="table"/> is left unchanged.
+    /// </summary>
+    public static Table IndexGatherSort<TKey>(Table table)
+        where TKey : struct, IKey
+    {
+        return table.Size < 2 ? table : table.Gather(SortedIndex<TKey>(table));
+    }
+
+    /// <summary>Row numbers in sorted order: <c>index[k]</c> is the row that belongs at position <c>k</c>.</summary>
+    private static int[] SortedIndex<TKey>(Table table)
+        where TKey : struct, IKey
+    {
+        var count = table.Size;
+        var index = new int[count];
+        for (var row = 0; row < count; row++)
+        {
+            index[row] = row;
+        }
+        var rowNumbers = new RowNumbers<TKey>(table, index);
+        Quicksort(ref rowNumbers, 0, count);
+        return index;
     }
 
     /// <summary>Throws if <paramref name="table"/> is not ordered on <typeparamref name="TKey"/>.</summary>

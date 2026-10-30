@@ -67,6 +67,17 @@ class GermanStringColumn(val capacity: Int) {
         System.arraycopy(source.heap, 0, heap, 0, count)
     }
 
+    /** Sets row `k` to `source`'s row `index[k]` for every `k` in `index`. Heap text is shared. */
+    fun gatherFrom(source: GermanStringColumn, index: IntArray) {
+        for (position in index.indices) {
+            val row = index[position]
+            lengths[position] = source.lengths[row]
+            prefixes[position] = source.prefixes[row]
+            inline[position] = source.inline[row]
+            heap[position] = source.heap[row]
+        }
+    }
+
     private fun bytes(row: Int): ByteArray {
         heap[row]?.let { return it }
         val bytes = ByteArray(lengths[row])

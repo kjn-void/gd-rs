@@ -17,6 +17,7 @@ class SortTest {
                 sort(table, key.comparator)
                 requireSorted(table, key.comparator)
             }
+            requireSorted(indexGatherSort(source, key.comparator), key.comparator)
         }
     }
 
@@ -31,6 +32,9 @@ class SortTest {
                 sort(table, Key.C1.comparator)
                 requireSorted(table, Key.C1.comparator)
             }
+            val gathered = indexGatherSort(source, Key.C1.comparator)
+            requireSorted(gathered, Key.C1.comparator)
+            assertEquals(count, gathered.size)
         }
     }
 
@@ -44,6 +48,7 @@ class SortTest {
         val index = Table(ROW_COUNT).apply { appendFrom(source) }
         indexSort(index, Key.C7.comparator)
         assertEquals(rowsOf(physical), rowsOf(index))
+        assertEquals(rowsOf(index), rowsOf(indexGatherSort(source, Key.C7.comparator)))
 
         val order = compareBy<Triple<Long, String, String>>({ it.first }, { it.second }, { it.third })
         assertEquals(rowsOf(source).sortedWith(order), rowsOf(index).sortedWith(order), "rows were split or lost")

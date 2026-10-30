@@ -49,6 +49,26 @@ class Table(val capacity: Int) {
         c7.swap(a, b)
     }
 
+    /**
+     * Builds a new table whose row `k` is this table's row `index[k]`, one column at
+     * a time. `index` must be a permutation of the rows.
+     */
+    fun gather(index: IntArray): Table {
+        val sorted = Table(capacity)
+        for (position in index.indices) sorted.c1[position] = c1[index[position]]
+        sorted.c2.gatherFrom(c2, index)
+        for (position in index.indices) sorted.c3[position] = c3[index[position]]
+        for (position in index.indices) sorted.c4[position] = c4[index[position]]
+        for (position in index.indices) sorted.c4Valid[position] = c4Valid[index[position]]
+        for (position in index.indices) sorted.c5[position] = c5[index[position]]
+        for (position in index.indices) sorted.c5Valid[position] = c5Valid[index[position]]
+        for (position in index.indices) sorted.c6[position] = c6[index[position]]
+        for (position in index.indices) sorted.c6Valid[position] = c6Valid[index[position]]
+        sorted.c7.gatherFrom(c7, index)
+        sorted.size = size
+        return sorted
+    }
+
     companion object {
         fun fromSource(rows: List<SourceRow>): Table {
             val table = Table(rows.size)

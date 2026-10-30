@@ -1,7 +1,8 @@
 // Kotlin counterpart of ../cpp/index_sort_benchmark.cpp.
 //
 // Each operation clears the target, appends the source rows, and sorts on one
-// column, like the C++ cases.
+// column, like the C++ cases. Cases 07 to 09 build a new table instead of swapping
+// rows, and run only at 10,000 rows.
 
 package indexsort
 
@@ -55,6 +56,13 @@ abstract class Fixture(private val rows: Int) {
         lastKey = key
         return target.size
     }
+
+    protected fun indexGather(key: Key): Int {
+        target.appendFrom(source)
+        target = indexGatherSort(target, key.comparator)
+        lastKey = key
+        return target.size
+    }
 }
 
 @BenchmarkMode(Mode.AverageTime)
@@ -70,6 +78,21 @@ open class ThousandRows : Fixture(ROW_COUNT) {
     @Benchmark fun sort04IndexUint64() = index(Key.C1)
     @Benchmark fun sort05IndexString8() = index(Key.C2)
     @Benchmark fun sort06IndexString50() = index(Key.C7)
+}
+
+/** Swapping rows in place versus building a new table, after the same index sort. */
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@Warmup(iterations = 5, time = 1)
+@Measurement(iterations = 5, time = 1)
+@Fork(1)
+open class TenThousandRows : Fixture(TEN_THOUSAND_ROWS) {
+    @Benchmark fun sort04IndexUint64() = index(Key.C1)
+    @Benchmark fun sort05IndexString8() = index(Key.C2)
+    @Benchmark fun sort06IndexString50() = index(Key.C7)
+    @Benchmark fun sort07IndexGatherUint64() = indexGather(Key.C1)
+    @Benchmark fun sort08IndexGatherString8() = indexGather(Key.C2)
+    @Benchmark fun sort09IndexGatherString50() = indexGather(Key.C7)
 }
 
 @BenchmarkMode(Mode.AverageTime)

@@ -36,8 +36,9 @@ one column:
 | 05 | C2 `string(8)` | `sort(1, true, tag_sort_index{})` | index quicksort |
 | 06 | C7 `string(50)` | `sort(6, true, tag_sort_index{})` | index quicksort |
 | 01s–03s | C1, C2, C7 | `std::sort` over the table's rows | – |
+| 07–09 | C1, C2, C7 | – | index quicksort, then gather into a new table |
 
-Case 00 and cases 01s to 03s are not upstream cases.
+Case 00 and cases 01s to 03s and 07 to 09 are not upstream cases.
 
 ### C++ GD
 
@@ -93,6 +94,12 @@ The two cases differ only in what the quicksort swaps:
 
 Both cases make the same comparisons and produce the same row order, and the tests
 check that row for row. Neither sort is stable.
+
+Cases 07 to 09, which run only at 10,000 rows, apply the same index sort's permutation
+by building a new table instead: each new column is filled in sorted order from the
+old one. Rust moves each column's values and frees the old column right away; C# and
+Kotlin allocate a whole new table and drop the old one. The tests check that the rows
+match the in-place index sort row for row.
 
 ## Three sort methods
 
@@ -151,6 +158,12 @@ benches/index_sort/run_all.sh fast <out-dir>
 
 ```bash
 benches/index_sort/run_all.sh selection <out-dir>
+```
+
+The `gather` phase runs cases 04 to 09 at 10,000 rows in Rust, Kotlin, and C#:
+
+```bash
+benches/index_sort/run_all.sh gather <out-dir>
 ```
 
 ## Results
