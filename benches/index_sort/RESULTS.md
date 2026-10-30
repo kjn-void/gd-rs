@@ -39,6 +39,12 @@ benches/index_sort/run_all.sh selection <out-dir>
 Every value includes clearing the target table and appending the source rows before
 the sort.
 
+In the 1,000- and 10⁶-row tables, the Rust, C#, and Kotlin index sorts (cases 04 to
+06) applied the sorted order in place by swapping rows along permutation cycles, as GD
+does. That code is at commit [`8754801`](https://github.com/kjn-void/gd-rs/tree/8754801/benches/index_sort).
+The ports now build a new table instead, after the 10,000-row comparison below, and
+these tables have not been remeasured.
+
 ## 1,000 rows (µs)
 
 | Case | C++ GD | C++ `std::sort` | Rust | C# | Kotlin |
@@ -90,19 +96,20 @@ GD's 10⁶-row selection sorts take 15 to 24 minutes each.
 
 ## Swap versus gather, 10,000 rows (µs)
 
-Cases 04 to 06 apply the index sort's permutation by swapping rows in place with the
-cycle walk. Cases 07 to 09 run the same quicksort over row numbers, then build a new
-table by gathering each column in sorted order (see the
-[README](README.md#rust-c-and-kotlin)). The sources are
-[`rust/src/lib.rs`](rust/src/lib.rs) (`index_gather_sort`),
-[`csharp/Sorts.cs`](csharp/Sorts.cs) and [`csharp/Table.cs`](csharp/Table.cs)
-(`IndexGatherSort`, `Gather`), and
-[`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/)
-(`indexGatherSort`, `Table.gather`). There is no C++ counterpart; GD's key sort below
-also gathers, but caches keys and runs on a table with every column set.
+This comparison led the ports to replace the in-place swap with a gather. Cases 04 to
+06 applied the index sort's permutation by swapping rows in place with the cycle walk.
+Cases 07 to 09 ran the same quicksort over row numbers, then built a new table by
+gathering each column in sorted order. Both variants are at commit `8754801`:
+[`rust/src/lib.rs`](https://github.com/kjn-void/gd-rs/blob/8754801/benches/index_sort/rust/src/lib.rs) (`index_sort`, `index_gather_sort`),
+[`csharp/Sorts.cs`](https://github.com/kjn-void/gd-rs/blob/8754801/benches/index_sort/csharp/Sorts.cs) and [`csharp/Table.cs`](https://github.com/kjn-void/gd-rs/blob/8754801/benches/index_sort/csharp/Table.cs)
+(`IndexSort`, `IndexGatherSort`, `Gather`), and
+[`kotlin/src/main/kotlin/indexsort/`](https://github.com/kjn-void/gd-rs/tree/8754801/benches/index_sort/kotlin/src/main/kotlin/indexsort)
+(`indexSort`, `indexGatherSort`, `Table.gather`). There is no C++ counterpart; GD's
+key sort below also gathers, but caches keys and runs on a table with every column
+set.
 
 It was measured on 2026-10-30 on the same M6 and toolchains as above, with a load
-average between 1.0 and 2.0, using `run_all.sh gather`. Rust and Kotlin used the
+average between 1.0 and 2.0, using that commit's `run_all.sh gather`. Rust and Kotlin used the
 1,000-row settings; C# used BenchmarkDotNet's default job. ± has the same meaning as in
 the environment table.
 

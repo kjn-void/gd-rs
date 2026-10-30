@@ -8,9 +8,6 @@ public static class Data
     /// <summary>Row count in the C++ benchmark.</summary>
     public const int RowCount = 1000;
 
-    /// <summary>Row count in the swap versus gather comparison.</summary>
-    public const int TenThousandRows = 10_000;
-
     public const int MillionRows = 1_000_000;
 
     /// <summary>

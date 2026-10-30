@@ -26,14 +26,4 @@ benchmark {
     targets {
         register("main")
     }
-    configurations {
-        // The upstream cases at 1,000 and 10^6 rows.
-        named("main") {
-            exclude("TenThousandRows")
-        }
-        // Swap versus gather at 10,000 rows: ./gradlew mainGatherBenchmark
-        register("gather") {
-            include("TenThousandRows")
-        }
-    }
 }

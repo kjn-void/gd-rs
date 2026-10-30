@@ -7,16 +7,12 @@
 #   benches/index_sort/run_all.sh selection <out-dir>  GD's 10^6-row selection sorts:
 #                                                      one timed run each, about an
 #                                                      hour in total
-#   benches/index_sort/run_all.sh gather <out-dir>     Rust, Kotlin, and C# at 10,000
-#                                                      rows: index sort with rows
-#                                                      swapped in place versus a new
-#                                                      table built by gathering
 #
 # Run from the repository root. Results and toolchain versions go to <out-dir>.
 set -euo pipefail
 
-phase=${1:?usage: run_all.sh fast|selection|gather <out-dir>}
-out=$(mkdir -p "${2:?usage: run_all.sh fast|selection|gather <out-dir>}" && cd "$2" && pwd)
+phase=${1:?usage: run_all.sh fast|selection <out-dir>}
+out=$(mkdir -p "${2:?usage: run_all.sh fast|selection <out-dir>}" && cd "$2" && pwd)
 root=$(pwd)
 bench="$root/benches/index_sort"
 cpp_build="$root/target/index_sort/cpp"
@@ -47,11 +43,11 @@ case "$phase" in
             --benchmark_filter='/1000(000)?$' \
             --benchmark_repetitions=5 --benchmark_report_aggregates_only=true \
             --benchmark_out="$out/cpp.json" --benchmark_out_format=json
-        (cd "$bench/rust" && cargo bench --bench index_sort -- '^1000(000)?/') | tee "$out/rust.txt"
+        (cd "$bench/rust" && cargo bench --bench index_sort) | tee "$out/rust.txt"
         (cd "$bench/kotlin" && ./gradlew --quiet mainBenchmark) | tee "$out/kotlin.txt"
         cp -R "$bench/kotlin/build/reports/benchmarks/main" "$out/kotlin-reports"
         (cd "$bench/csharp" && dotnet bin/Release/net10.0/IndexSort.dll \
-            --filter '*.ThousandRows.*' '*.MillionRows.*' --exporters json) | tee "$out/csharp.txt"
+            --filter '*ThousandRows*' '*MillionRows*' --exporters json) | tee "$out/csharp.txt"
         cp -R "$bench/csharp/BenchmarkDotNet.Artifacts/results" "$out/csharp-reports"
         uptime >> "$out/fast-load.txt"
         ;;
@@ -61,17 +57,6 @@ case "$phase" in
             --benchmark_filter='/1000000/iterations:1$' \
             --benchmark_out="$out/cpp-selection.json" --benchmark_out_format=json
         uptime >> "$out/selection-load.txt"
-        ;;
-    gather)
-        rm -rf "$bench/kotlin/build/reports/benchmarks" "$bench/csharp/BenchmarkDotNet.Artifacts"
-        uptime > "$out/gather-load.txt"
-        (cd "$bench/rust" && cargo bench --bench index_sort -- '^10000/') | tee "$out/rust.txt"
-        (cd "$bench/kotlin" && ./gradlew --quiet mainGatherBenchmark) | tee "$out/kotlin.txt"
-        cp -R "$bench/kotlin/build/reports/benchmarks/gather" "$out/kotlin-reports"
-        (cd "$bench/csharp" && dotnet bin/Release/net10.0/IndexSort.dll \
-            --filter '*.TenThousandRows.*' --exporters json) | tee "$out/csharp.txt"
-        cp -R "$bench/csharp/BenchmarkDotNet.Artifacts/results" "$out/csharp-reports"
-        uptime >> "$out/gather-load.txt"
         ;;
     *)
         echo "unknown phase $phase" >&2

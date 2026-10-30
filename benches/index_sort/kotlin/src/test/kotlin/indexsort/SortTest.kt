@@ -11,13 +11,11 @@ class SortTest {
     fun bothSortsOrderEveryKeyColumn() {
         val source = Table.fromSource(rows)
         for (key in Key.entries) {
-            for (sort in listOf(::physicalSort, ::indexSort)) {
-                val table = Table(ROW_COUNT)
-                table.appendFrom(source)
-                sort(table, key.comparator)
-                requireSorted(table, key.comparator)
-            }
-            requireSorted(indexGatherSort(source, key.comparator), key.comparator)
+            val table = Table(ROW_COUNT)
+            table.appendFrom(source)
+            physicalSort(table, key.comparator)
+            requireSorted(table, key.comparator)
+            requireSorted(indexSort(source, key.comparator), key.comparator)
         }
     }
 
@@ -26,15 +24,13 @@ class SortTest {
         val duplicates = rows.map { SourceRow(it.c1 % 3, it.c2, it.c3, it.c7) }
         for (count in listOf(0, 1, 2, 3, 16, 17, 100, ROW_COUNT)) {
             val source = Table.fromSource(duplicates.take(count))
-            for (sort in listOf(::physicalSort, ::indexSort)) {
-                val table = Table(count)
-                table.appendFrom(source)
-                sort(table, Key.C1.comparator)
-                requireSorted(table, Key.C1.comparator)
-            }
-            val gathered = indexGatherSort(source, Key.C1.comparator)
-            requireSorted(gathered, Key.C1.comparator)
-            assertEquals(count, gathered.size)
+            val table = Table(count)
+            table.appendFrom(source)
+            physicalSort(table, Key.C1.comparator)
+            requireSorted(table, Key.C1.comparator)
+            val index = indexSort(source, Key.C1.comparator)
+            requireSorted(index, Key.C1.comparator)
+            assertEquals(count, index.size)
         }
     }
 
@@ -45,10 +41,8 @@ class SortTest {
 
         val physical = Table(ROW_COUNT).apply { appendFrom(source) }
         physicalSort(physical, Key.C7.comparator)
-        val index = Table(ROW_COUNT).apply { appendFrom(source) }
-        indexSort(index, Key.C7.comparator)
+        val index = indexSort(source, Key.C7.comparator)
         assertEquals(rowsOf(physical), rowsOf(index))
-        assertEquals(rowsOf(index), rowsOf(indexGatherSort(source, Key.C7.comparator)))
 
         val order = compareBy<Triple<Long, String, String>>({ it.first }, { it.second }, { it.third })
         assertEquals(rowsOf(source).sortedWith(order), rowsOf(index).sortedWith(order), "rows were split or lost")
