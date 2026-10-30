@@ -43,3 +43,8 @@ target_compile_features(index_sort_benchmark PRIVATE cxx_std_20)
 # gd_table_row_iterator.h: std::sort over a GD table's rows, for cases 01s-03s.
 target_include_directories(index_sort_benchmark PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../cpp-reference")
 target_link_libraries(index_sort_benchmark PRIVATE gd::core benchmark::benchmark)
+
+# Physical, index, and key sort on each of the seven columns (forum post 21314807).
+add_executable(sort_methods_benchmark sort_methods_benchmark.cpp)
+target_compile_features(sort_methods_benchmark PRIVATE cxx_std_20)
+target_link_libraries(sort_methods_benchmark PRIVATE gd::core benchmark::benchmark)

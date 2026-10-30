@@ -94,11 +94,34 @@ The two cases differ only in what the quicksort swaps:
 Both cases make the same comparisons and produce the same row order, and the tests
 check that row for row. Neither sort is stable.
 
+## Three sort methods
+
+[`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) reproduces the
+follow-up benchmark in [forum post 21314807](https://www.sweclockers.com/forum/post/21314807).
+It is C++ only. Unlike the six cases above:
+
+- the table has 10,000 rows;
+- every column is set, with C3 and C4 uniform doubles from 0 to 1,000, and C5 and C6
+  uniform integers from 0 to 999;
+- every column is sorted three ways: physical (GD's selection sort), index
+  (`tag_sort_index`), and key.
+
+The key sort reads each row's key once into a vector of (`variant_view`, row number)
+pairs and sorts that vector with `std::stable_sort`. It then copies the rows, in sorted
+order, into a buffer and copies the buffer back over the table, and does the same for
+the row metadata. The post adds it to GD as `sort(column, ascending, tag_sort_key{})`,
+but GD has not published it, so the benchmark carries the posted function rewritten
+against GD's public row accessors.
+
+```bash
+target/index_sort/cpp/sort_methods_benchmark --benchmark_repetitions=5 --benchmark_report_aggregates_only=true
+```
+
 ## Projects
 
 | Port | Harness | Sources |
 |---|---|---|
-| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h) |
+| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h); [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) |
 | Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs) |
 | C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs) |
 | Kotlin | Kotlin 2.4.10, kotlinx-benchmark 0.4.14 (JMH) | [`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/) |

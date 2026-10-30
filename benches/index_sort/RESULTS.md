@@ -87,3 +87,33 @@ GD's 10⁶-row selection sorts take 15 to 24 minutes each.
     to the uint64 cases.
   - C7's prefix is the same in every row and never decides, so cases 03 and 06 follow
     the heap pointer and compare from byte 4 onward on every comparison.
+
+## Three sort methods, 10,000 rows (µs)
+
+This reproduces the follow-up benchmark in
+[forum post 21314807](https://www.sweclockers.com/forum/post/21314807), described in the
+[README](README.md#three-sort-methods). The source is
+[`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp). It is C++ only, with
+no Rust, C#, or Kotlin counterpart.
+
+It was measured on 2026-10-30 on the same M6, with the same C++ toolchain and settings
+as above, and a load average below 1.1. Each value is the mean of 5 repetitions ± the
+standard deviation. The Dell 7780 columns are the figures from the forum post.
+
+| Column | Type | M6 physical | M6 index | M6 key | Dell physical | Dell index | Dell key |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 0 | uint64 | 80,835 ± 40 | 1,106 ± 1.6 | 618 ± 6.3 | 157,747 | 2,882 | 1,835 |
+| 1 | string(8) | 110,235 ± 60 | 1,357 ± 0.9 | 896 ± 9.9 | 173,485 | 2,587 | 1,965 |
+| 2 | double | 81,329 ± 7.3 | 1,293 ± 0.6 | 734 ± 1.0 | 126,247 | 2,217 | 1,475 |
+| 3 | double | 81,350 ± 33 | 1,279 ± 9.1 | 727 ± 17 | 121,365 | 2,253 | 1,427 |
+| 4 | int32 | 88,499 ± 21 | 1,235 ± 0.4 | 605 ± 3.9 | 124,804 | 2,406 | 1,437 |
+| 5 | uint32 | 88,536 ± 27 | 1,245 ± 0.6 | 622 ± 0.6 | 113,424 | 2,188 | 1,487 |
+| 6 | string(50) | 124,299 ± 118 | 1,700 ± 0.7 | 1,033 ± 1.2 | 213,917 | 2,537 | 2,053 |
+
+- **Key sort beats index sort on every column.** It takes 34 to 51% less time on the
+  M6, and 19 to 40% less in the Dell figures.
+- **Physical selection sort is 111 to 146× slower than key sort** on the M6, and 76
+  to 104× in the Dell figures.
+- **The M6 is 1.3 to 3.0× faster than the Dell,** with the smallest gap for physical
+  sort and the largest for key sort. The shape reproduces, but the absolute times
+  do not.

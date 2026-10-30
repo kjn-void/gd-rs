@@ -5,8 +5,8 @@ addition, the fixed-string gather optimization, lazily resolved `RowMut` views, 
 matched GD DTO row-sum benchmarks and split value/validity storage for nullable numeric
 columns, direct compatible-column append, sampled low-cardinality index capacity,
 reused CSV/JSON import buffers, the opt-in German/Umbra string column layout, and the
-standalone cache-latency fixture, scoped mutable-row thread tests, and the matched
-index-sort benchmark, remeasured on 2026-10-30.
+standalone cache-latency fixture, scoped mutable-row thread tests, the matched
+index-sort benchmark, and the C++ three-sort-method benchmark, remeasured on 2026-10-30.
 The C++ product scope uses GD pinned to
 `a5b1e3e7eba69a5e2d3fbd8e6a8f057d972cd868`, exported from Git independently of the
 working-tree submodule checkout. All scopes were remeasured on 2026-10-30. It measures
@@ -29,7 +29,7 @@ divided by the number of functions recognized by Lizard.
 | Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,641 | 814 | 2,123 | 2.61 |
 | C++ product (`source`) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
-| C++ product + tests + maintained benchmarks | 176 | 69,648 | 9,032 | 21,065 | 2.33 |
+| C++ product + tests + maintained benchmarks | 177 | 69,776 | 9,039 | 21,085 | 2.33 |
 
 The Rust totals are **10,704 SLOC in `src`** and **22,641 SLOC including `tests`
 and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,687
@@ -47,12 +47,13 @@ heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 4,610 SLOC, including the index-sort benchmark and its GD table row iterator, the GD DTO row-sum test, the `string_transport` benchmark, the interned
+references add 4,738 SLOC, including the index-sort and three-sort-method benchmarks and the GD table row iterator, the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
 layout probe, projection correctness fixture, and standalone cache-latency fixture
-in this worktree. The cache-latency fixture has no matched Rust counterpart.
+in this worktree. The cache-latency fixture and the three-sort-method benchmark have no
+matched Rust counterpart.
 
 These totals do not establish the source size of an identical product. The Rust
 crate implements a deliberately smaller surface, while
