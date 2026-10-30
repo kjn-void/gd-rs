@@ -6,7 +6,8 @@ Reproduces two upstream GD sort benchmarks in C++:
   [forum post 21314377](https://www.sweclockers.com/forum/post/21314377), at the
   upstream 1,000 rows and at 10⁶ rows;
 - the follow-up in [forum post 21314807](https://www.sweclockers.com/forum/post/21314807),
-  which sorts every column of a 10,000-row table three ways.
+  which sorts every column of a 10,000-row table three ways. A fourth C++ way, not
+  upstream, sorts an index with `std::sort` and materializes a new table.
 
 Rust, C#, and Kotlin ports run the follow-up, each with one sort: the fastest of the
 physical, index, and key sorts measured in that port.
@@ -77,12 +78,21 @@ every column set, and sorts on one of the seven columns.
 ### C++ GD
 
 Every column is sorted three ways: physical (GD's selection sort), index
-(`tag_sort_index`), and key. The key sort reads each row's key once into a vector of
-(`variant_view`, row number) pairs and sorts that vector with `std::stable_sort`. It
-then copies the rows, in sorted order, into a buffer and copies the buffer back over
-the table, and does the same for the row metadata. The post adds it to GD as
+(`tag_sort_index`), and key, plus a fourth way that is not upstream.
+
+The key sort reads each row's key once into a vector of (`variant_view`, row number)
+pairs and sorts that vector with `std::stable_sort`. It then copies the rows, in
+sorted order, into a buffer and copies the buffer back over the table, and does the
+same for the row metadata. The post adds it to GD as
 `sort(column, ascending, tag_sort_key{})`, but GD has not published it, so the
 benchmark carries the posted function rewritten against GD's public row accessors.
+
+The fourth way sorts a vector of row numbers with `std::sort`, comparing keys read
+straight from the row bytes with the typed `Less<T>` from
+[`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h)
+instead of through `variant_view`. It then materializes a new table: the rows and
+their metadata are copied into it in sorted order, and it replaces the old one. It is
+not stable.
 
 ### Rust, C#, and Kotlin
 
@@ -129,7 +139,7 @@ permutation cycles; building a new table was faster in every port (see
 
 | Port | Harness | Sources |
 |---|---|---|
-| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | six cases in [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), with the row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h); three methods in [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) |
+| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | six cases in [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), with the row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h); three methods and the `std::sort` index sort, using the same header's comparator, in [`cpp/sort_methods_benchmark.cpp`](cpp/sort_methods_benchmark.cpp) |
 | Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/sort_methods.rs`](rust/benches/sort_methods.rs) |
 | C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sort in [`csharp/Sorts.cs`](csharp/Sorts.cs), benchmark in [`csharp/SortMethods.cs`](csharp/SortMethods.cs) |
 | Kotlin | Kotlin 2.4.10, kotlinx-benchmark 0.4.14 (JMH) | [`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/) |
@@ -155,7 +165,8 @@ and load average in its output directory. Run it from the repository root.
   selection sorts.
 - **`selection`:** those three selection sorts, one timed iteration each, about an
   hour in total.
-- **`methods`:** the three-method cases, in C++ and the three ports.
+- **`methods`:** the three-method cases in C++, with the `std::sort` index sort, and
+  in the three ports.
 
 ```bash
 benches/index_sort/run_all.sh fast <out-dir>

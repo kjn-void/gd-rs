@@ -9,9 +9,9 @@
 //
 // table_rows::Sort() reads keys straight from the row bytes instead of going
 // through cell_get_variant_view(). It relies on GD's row layout: a value starts
-// at its column's position(), uint64 values are stored as 8 bytes, and
-// fixed-capacity strings as a uint32 length followed by the bytes. Strings are
-// compared byte-wise.
+// at its column's position(), numbers are stored in their native representation,
+// and fixed-capacity strings as a uint32 length followed by the bytes. Strings
+// are compared byte-wise. Key columns must not be null.
 
 #pragma once
 
@@ -20,9 +20,11 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iterator>
 #include <string_view>
+#include <type_traits>
 
 #include "gd_table_column-buffer.h"
 
@@ -95,37 +97,51 @@ struct Iterator {
 inline Iterator begin(table& tableRows) { return {&tableRows, 0}; }
 inline Iterator end(table& tableRows) { return {&tableRows, tableRows.size()}; }
 
-// Orders rows by one column, reading the key straight from the row bytes. GD
-// stores uint64 values at the column offset and fixed-capacity strings as a
-// uint32 length followed by the bytes.
+// Orders rows by one column of type T, reading the key straight from the row
+// bytes: a number at the column offset, or for std::string_view a fixed-capacity
+// string stored as a uint32 length followed by the bytes.
+template <typename T>
 struct Less {
     unsigned uPosition;
-    bool bString;
 
-    std::string_view Text(const std::uint8_t* puRow) const {
-        std::uint32_t uLength;
-        std::memcpy(&uLength, puRow + uPosition, sizeof uLength);
-        return {reinterpret_cast<const char*>(puRow + uPosition + sizeof uLength), uLength};
-    }
-    std::uint64_t Number(const std::uint8_t* puRow) const {
-        std::uint64_t uValue;
-        std::memcpy(&uValue, puRow + uPosition, sizeof uValue);
-        return uValue;
+    T Key(const std::uint8_t* puRow) const {
+        if constexpr (std::is_same_v<T, std::string_view>) {
+            std::uint32_t uLength;
+            std::memcpy(&uLength, puRow + uPosition, sizeof uLength);
+            return {reinterpret_cast<const char*>(puRow + uPosition + sizeof uLength), uLength};
+        } else {
+            T value;
+            std::memcpy(&value, puRow + uPosition, sizeof value);
+            return value;
+        }
     }
 
     template <typename A, typename B>
     bool operator()(const A& a, const B& b) const {
-        if (bString) return Text(Data(a)) < Text(Data(b));
-        return Number(Data(a)) < Number(Data(b));
+        return Key(Data(a)) < Key(Data(b));
     }
 };
 
-// Sorts the table's rows in place by a uint64 or fixed-capacity string column.
+// Calls f with the Less<T> for a uint64, int32, uint32, double, or
+// fixed-capacity string column.
+template <typename F>
+void WithLess(const table& tableKey, unsigned uColumn, F f) {
+    const auto* pcolumn = tableKey.column_get(uColumn, gd::table::tag_pointer{});
+    const unsigned uPosition = pcolumn->position();
+    if (pcolumn->is_length()) return f(Less<std::string_view>{uPosition});
+    switch (pcolumn->ctype_number()) {
+        case gd::types::eTypeNumberUInt64: return f(Less<std::uint64_t>{uPosition});
+        case gd::types::eTypeNumberInt32: return f(Less<std::int32_t>{uPosition});
+        case gd::types::eTypeNumberUInt32: return f(Less<std::uint32_t>{uPosition});
+        case gd::types::eTypeNumberDouble: return f(Less<double>{uPosition});
+        default: assert(false && "unsupported key column type"); std::abort();
+    }
+}
+
+// Sorts the table's rows in place by one column.
 inline void Sort(table& tableSort, unsigned uColumn) {
     assert(tableSort.size_row() <= kMaxRowBytes && tableSort.size_row_meta() <= kMaxMetaBytes);
-    const auto* pcolumn = tableSort.column_get(uColumn, gd::table::tag_pointer{});
-    Less less{pcolumn->position(), pcolumn->is_length()};
-    std::sort(begin(tableSort), end(tableSort), less);
+    WithLess(tableSort, uColumn, [&](auto less) { std::sort(begin(tableSort), end(tableSort), less); });
 }
 
 }  // namespace table_rows

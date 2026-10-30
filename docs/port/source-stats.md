@@ -29,7 +29,7 @@ divided by the number of functions recognized by Lizard.
 | Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,636 | 814 | 2,114 | 2.60 |
 | C++ product (`source`) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
-| C++ product + tests + maintained benchmarks | 177 | 69,776 | 9,039 | 21,085 | 2.33 |
+| C++ product + tests + maintained benchmarks | 177 | 69,816 | 9,040 | 21,096 | 2.33 |
 
 The Rust totals are **10,704 SLOC in `src`** and **22,636 SLOC including `tests`
 and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,682
@@ -47,7 +47,7 @@ heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 4,738 SLOC, including the index-sort and three-sort-method benchmarks and the GD table row iterator, the GD DTO row-sum test, the `string_transport` benchmark, the interned
+references add 4,778 SLOC, including the index-sort and three-sort-method benchmarks and the GD table row iterator, the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string

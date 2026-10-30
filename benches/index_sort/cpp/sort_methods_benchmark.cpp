@@ -4,7 +4,10 @@
 //
 // Unlike the six-case benchmark, every column is set, the table has 10,000 rows,
 // and every column is sorted. Each iteration clears the target table, appends
-// the source rows, and sorts, exactly like the upstream lambdas.
+// the source rows, and sorts, exactly like the upstream lambdas. A fourth
+// method, not upstream, sorts row numbers with std::sort and a typed comparator
+// from ../../cpp-reference/gd_table_row_iterator.h, then materializes a new
+// table with the rows in that order.
 //
 // The key sort is GD's tag_sort_key overload as posted in the forum. GD has not
 // published it yet (upstream main is still a5b1e3e), so SortKey() below is that
@@ -18,6 +21,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <numeric>
 #include <random>
 #include <string>
 #include <string_view>
@@ -25,6 +29,7 @@
 #include <vector>
 
 #include "gd_table_column-buffer.h"
+#include "gd_table_row_iterator.h"
 
 namespace {
 
@@ -32,7 +37,7 @@ using gd::table::dto::table;
 
 constexpr std::int64_t kRowCount = 10'000;
 
-enum class Method { physical, index, key };
+enum class Method { physical, index, key, std_sort };
 
 table MakeEmptyTable() {
     return table(
@@ -120,6 +125,33 @@ void SortKey(table& tableSort, unsigned uColumn) {
     }
 }
 
+// Not upstream: std::sort over row numbers, comparing keys read straight from the
+// row bytes, then a new table with the rows and their metadata copied in sorted
+// order. Returns the new table; tableSort is left unchanged.
+table SortIndexMaterialize(const table& tableSort, unsigned uColumn) {
+    const std::uint64_t uCount = tableSort.size();
+    std::vector<std::uint64_t> vectorIndex(uCount);
+    std::iota(vectorIndex.begin(), vectorIndex.end(), std::uint64_t{0});
+    table_rows::WithLess(tableSort, uColumn, [&](auto less) {
+        std::sort(vectorIndex.begin(), vectorIndex.end(), [&](std::uint64_t uLeft, std::uint64_t uRight) {
+            return less.Key(tableSort.row_get(uLeft)) < less.Key(tableSort.row_get(uRight));
+        });
+    });
+
+    table tableSorted = MakeEmptyTable();
+    tableSorted.reserve(uCount);
+    tableSorted.set_row_count(uCount);
+    const std::uint64_t uRowSize = tableSort.size_row();
+    const std::uint64_t uMetaSize = tableSort.is_rowmeta() ? tableSort.size_row_meta() : 0;
+    for (std::uint64_t uPosition = 0; uPosition < uCount; uPosition++) {
+        std::memcpy(tableSorted.row_get(uPosition), tableSort.row_get(vectorIndex[uPosition]), uRowSize);
+        if (uMetaSize != 0) {
+            std::memcpy(tableSorted.row_get_meta(uPosition), tableSort.row_get_meta(vectorIndex[uPosition]), uMetaSize);
+        }
+    }
+    return tableSorted;
+}
+
 void RequireSorted(const table& tableSorted, unsigned uColumn) {
     for (std::uint64_t uRow = 1; uRow < tableSorted.size(); ++uRow) {
         auto valuePrev = tableSorted.cell_get_variant_view(uRow - 1, uColumn);
@@ -146,8 +178,10 @@ void SortTable(benchmark::State& state) {
             tableTarget.sort(uColumn, true);
         } else if constexpr (kMethod == Method::index) {
             tableTarget.sort(uColumn, true, gd::table::tag_sort_index{});
-        } else {
+        } else if constexpr (kMethod == Method::key) {
             SortKey(tableTarget, uColumn);
+        } else {
+            tableTarget = SortIndexMaterialize(tableTarget, uColumn);
         }
         benchmark::DoNotOptimize(tableTarget.size());
         benchmark::ClobberMemory();
@@ -158,11 +192,13 @@ void SortTable(benchmark::State& state) {
 }
 
 const bool bRegistered = [] {
-    // Upstream order: for each column, sort table 01 (physical), 02 (index), 03 (key).
+    // Upstream order: for each column, sort table 01 (physical), 02 (index), 03 (key);
+    // then std::sort over an index into a new table, which is not upstream.
     for (int iColumn = 0; iColumn < 7; ++iColumn) {
         benchmark::RegisterBenchmark("physical", SortTable<Method::physical>)->Arg(iColumn)->Unit(benchmark::kMicrosecond);
         benchmark::RegisterBenchmark("index", SortTable<Method::index>)->Arg(iColumn)->Unit(benchmark::kMicrosecond);
         benchmark::RegisterBenchmark("key", SortTable<Method::key>)->Arg(iColumn)->Unit(benchmark::kMicrosecond);
+        benchmark::RegisterBenchmark("std_sort", SortTable<Method::std_sort>)->Arg(iColumn)->Unit(benchmark::kMicrosecond);
     }
     return true;
 }();
