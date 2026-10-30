@@ -6,7 +6,9 @@ the table formats, the sort algorithms, and how to run the benchmarks.
 
 The sources are:
 
-- **C++:** [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp)
+- **C++:** [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), with the
+  `std::sort` row iterator in
+  [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h)
 - **Rust:** [`rust/src/lib.rs`](rust/src/lib.rs) and
   [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs)
 - **C#:** [`csharp/`](csharp/)

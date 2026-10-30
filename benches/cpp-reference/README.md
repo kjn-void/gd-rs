@@ -67,6 +67,11 @@ Each C++ source corresponds to the like-named Rust Criterion fixture:
 These files are comparison fixtures owned by `gd-rs`; update them alongside changes
 to the corresponding Rust benchmark or the C++ API being measured.
 
+`gd_table_row_iterator.h` is a shared helper, not a fixture. It provides a
+random-access iterator over a `table_column_buffer`'s rows, so `std::sort` can reorder
+them in place, and `table_rows::Sort()` to sort by a uint64 or fixed-capacity string
+column. [`../index_sort`](../index_sort/README.md) uses it for its `std::sort` cases.
+
 Run `../run_sqlite_to_table.sh` for the matched SQLite cursor-to-table comparison.
 Both sides generate three in-memory SQLite tables with a deterministic xorshift64
 schema generator, 3–5 numeric columns per table, and the same seed and SQL value

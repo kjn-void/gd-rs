@@ -51,8 +51,10 @@ and row status live in a separate region.
   row numbers, comparing through `cell_get_variant_view`. It then applies the
   permutation in place by following cycles, with at most n−1 row swaps.
 - **`std::sort`, cases 01s to 03s:** `std::sort` over a random-access iterator whose
-  elements are rows. Each element is a row's data bytes plus its metadata bytes. The
-  comparator reads the key straight from the row bytes.
+  elements are rows, from the shared
+  [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h).
+  Each element is a row's data bytes plus its metadata bytes. The comparator reads the
+  key straight from the row bytes.
 
 The upstream comparison therefore changes two things at once: selection sort becomes
 a merge sort, and row moves become index moves. Cases 01s to 03s keep physical row
@@ -96,7 +98,7 @@ check that row for row. Neither sort is stable.
 
 | Port | Harness | Sources |
 |---|---|---|
-| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp) |
+| C++ | Google Benchmark 1.9.5, CMake, GD via [`../cpp-reference/cmake/GdCore.cmake`](../cpp-reference/cmake/GdCore.cmake) | [`cpp/index_sort_benchmark.cpp`](cpp/index_sort_benchmark.cpp), row iterator in [`../cpp-reference/gd_table_row_iterator.h`](../cpp-reference/gd_table_row_iterator.h) |
 | Rust | Criterion 0.8 | [`rust/src/lib.rs`](rust/src/lib.rs), [`rust/benches/index_sort.rs`](rust/benches/index_sort.rs) |
 | C# | .NET 10, C# 14, BenchmarkDotNet 0.15.8 | [`csharp/`](csharp/), sorts in [`csharp/Sorts.cs`](csharp/Sorts.cs) |
 | Kotlin | Kotlin 2.4.10, kotlinx-benchmark 0.4.14 (JMH) | [`kotlin/src/main/kotlin/indexsort/`](kotlin/src/main/kotlin/indexsort/) |
