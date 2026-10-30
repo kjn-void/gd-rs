@@ -10,9 +10,11 @@ Current port scope, design choices and crate selection live in
 
 The analysis covers GD submodule `cb11cff90d05260a88d59a30c9da421cd4e19c34`
 and the current Rust worktree. The pinned submodule is now
-`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`, which only adds
-`gd_string_transport.{h,cpp}`; the `string_transport` finding below covers that
-revision. C++ sources are in the `external/gd`
+`a5b1e3e7eba69a5e2d3fbd8e6a8f057d972cd868`. Since `cb11cff` it adds
+`gd_string_transport.{h,cpp}`, which the `string_transport` finding below covers as of
+`1bba194`. It also adds the index-based table sort (`tag_sort_index`) and changes
+arguments, variant, and string-transport sources; those later changes have not been
+re-audited here. C++ sources are in the `external/gd`
 submodule. Tests and benchmarks are kept separate from product code in the reproducible
 counts in [`source-stats.md`](source-stats.md).
 

@@ -5,11 +5,11 @@ addition, the fixed-string gather optimization, lazily resolved `RowMut` views, 
 matched GD DTO row-sum benchmarks and split value/validity storage for nullable numeric
 columns, direct compatible-column append, sampled low-cardinality index capacity,
 reused CSV/JSON import buffers, the opt-in German/Umbra string column layout, and the
-standalone cache-latency fixture and scoped mutable-row thread tests, remeasured on
-2026-10-25.
+standalone cache-latency fixture, scoped mutable-row thread tests, and the matched
+index-sort benchmark, remeasured on 2026-10-30.
 The C++ product scope uses GD pinned to
-`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`, exported from Git independently of the
-working-tree submodule checkout. All scopes were remeasured on 2026-10-25. It measures
+`a5b1e3e7eba69a5e2d3fbd8e6a8f057d972cd868`, exported from Git independently of the
+working-tree submodule checkout. All scopes were remeasured on 2026-10-30. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include maintained
@@ -26,14 +26,14 @@ divided by the number of functions recognized by Lizard.
 |---|---:|---:|---:|---:|---:|
 | Rust product (`src`) | 36 | 10,704 | 367 | 988 | 2.69 |
 | Rust product + tests (`src`, `tests`) | 56 | 16,954 | 588 | 1,416 | 2.41 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 86 | 22,290 | 790 | 2,070 | 2.62 |
-| C++ product (`source`) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
-| C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 64,864 | 8,683 | 19,943 | 2.30 |
-| C++ product + tests + maintained benchmarks | 174 | 69,227 | 8,961 | 20,953 | 2.34 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,534 | 810 | 2,112 | 2.61 |
+| C++ product (`source`) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
+| C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
+| C++ product + tests + maintained benchmarks | 175 | 69,511 | 9,001 | 21,029 | 2.34 |
 
-The Rust totals are **10,704 SLOC in `src`** and **22,290 SLOC including `tests`
-and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,336
-SLOC, including the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
+The Rust totals are **10,704 SLOC in `src`** and **22,534 SLOC including `tests`
+and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,580
+SLOC, including the index-sort port, the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
 owning immutable selections, shared mutable projections and their
@@ -47,7 +47,7 @@ heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 4,363 SLOC, including the GD DTO row-sum test, the `string_transport` benchmark, the interned
+references add 4,473 SLOC, including the index-sort benchmark, the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
@@ -67,9 +67,9 @@ The measurement uses Lizard 1.17.31 for both languages. The selected files are:
 - Rust: `*.rs` below `src`, optionally adding `tests` and `benches`;
 - C++: `*.h`, `*.hpp`, `*.c`, `*.cc`, `*.cpp`, and `*.cxx` below the
   `external/gd/source`, optionally adding `external/gd/tests` and the matched references in
-  `benches/cpp-reference`;
+  `benches/cpp-reference` and `benches/index_sort/cpp`;
 - excluded from both: documentation, manifests, build scripts, generated build
-  output, vendored dependencies, and every directory not named above.
+  output (including any `target` directory below `benches`), vendored dependencies, and every directory not named above.
 
 Measure a clean checkout or Git export of the source being reported so unrelated
 untracked files and local edits do not enter the published totals.
@@ -84,7 +84,8 @@ PYTHONPATH=/tmp/gd-code-metrics python3 -m lizard \
 ```
 
 Add `tests` and `benches` to the `find` roots for the inclusive Rust result. For C++,
-run from `gd-rs`, replace the roots with `external/gd/source benches/cpp-reference` (add
+run from `gd-rs`, replace the roots with
+`external/gd/source benches/cpp-reference benches/index_sort/cpp` (add
 `external/gd/tests` only when that directory exists), select the C/C++ suffixes listed
 above, and use `--languages cpp`. The maintained C++ benchmark scope includes matched GD
 references and standalone host fixtures; reports identify fixtures that have no Rust

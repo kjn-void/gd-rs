@@ -2,7 +2,7 @@
 
 This describes the current gd-rs worktree and its pinned
 [`external/gd`](../../external/gd) reference at
-`1bba194909d997891c05fe5a4ce1d3d3a888e0cf`.
+`a5b1e3e7eba69a5e2d3fbd8e6a8f057d972cd868`.
 
 GD is the broader toolkit: it includes extensive table-copy
 operations, aggregate helpers, SQL construction, ODBC, and application utilities.
@@ -105,7 +105,7 @@ rules such as permitted regions or positive quantities: callers supply those rul
 | Pairwise join helper | Partial: DTO `join_s` returns only the first right match for each matched left row | Native single/composite joins return every duplicate match and `None` for unmatched left rows; lazy borrowed iterators are available |
 | Defined left-join null/deletion/type policy | Application around GD primitives | Native: nulls do not match, deleted rows are excluded, key types must match exactly |
 | Join three tables and materialize an application result | Application, demonstrated in order workflow | Application composing pairwise joins, demonstrated in order workflow |
-| Physically reorder rows by a column | Native DTO selection/bubble sort and null sorting | Application: materialize a `RowOrder`; no in-place table sort API |
+| Physically reorder rows by a column | Native DTO selection/bubble sort, index sort (`tag_sort_index`: stable index sort applied in place), and null sorting | Application: materialize a `RowOrder`; no in-place table sort API |
 | Stable borrowed sort order without moving table cells | Application | Native `RowOrder`, explicit null placement and float total order |
 | Multi-column sort / SQL-style grouping pipeline | Application | Application |
 | Column minimum, sum, null/non-null counts | Native aggregate implementations; not exercised by this audit | Application over column slices/iterators; no aggregate facade |

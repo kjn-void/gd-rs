@@ -1,0 +1,17 @@
+[package]
+name = "index-sort-bench"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.86"
+publish = false
+
+[dependencies]
+rand = "0.9"
+strumbra = "0.6"
+
+[dev-dependencies]
+criterion = "0.8.2"
+
+[[bench]]
+name = "index_sort"
+harness = false
