@@ -3,6 +3,7 @@ package indexsort
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class SortTest {
     private fun rowsOf(table: Table) = List(table.size) {
@@ -12,9 +13,20 @@ class SortTest {
     /** Sorts on every column and checks the order and that no row was split or lost. */
     private fun checkEveryColumn(source: Table) {
         for (key in Key.entries) {
-            val sorted = indexSort(source, key.comparator)
-            requireSorted(sorted, key.comparator)
-            assertEquals(rowsOf(source).sorted(), rowsOf(sorted).sorted(), "rows were split or lost, $key")
+            for (variant in listOf("index", "reuse", "validated", "cached", "optimized")) {
+                var target = Table(source.size)
+                val workspace = SortWorkspace(source.size)
+                repeat(2) {
+                    target.appendFrom(source)
+                    target = when (variant) {
+                        "index" -> indexSort(target, key.comparator)
+                        "optimized" -> optimizedSort(target, key, workspace)
+                        else -> workspace.sort(target, key, variant)
+                    }
+                    requireSorted(target, key.comparator)
+                    assertEquals(rowsOf(source).sorted(), rowsOf(target).sorted(), "rows were split or lost, $key, $variant")
+                }
+            }
         }
     }
 
@@ -30,6 +42,36 @@ class SortTest {
         for (count in listOf(0, 1, 2, 3, 16, 17, 100, 1000)) {
             checkEveryColumn(Table.fromSource(rows.take(count)))
         }
+    }
+
+    @Test
+    fun reusableSortsRejectNullKeys() {
+        for (key in listOf(Key.C4, Key.C5, Key.C6)) {
+            for (variant in listOf("reuse", "validated", "cached")) {
+                val table = Table.fromSource(generateRows(2))
+                when (key) {
+                    Key.C4 -> table.c4Valid[0] = false
+                    Key.C5 -> table.c5Valid[0] = false
+                    Key.C6 -> table.c6Valid[0] = false
+                    else -> error("not nullable")
+                }
+                assertFailsWith<IllegalStateException> { SortWorkspace(2).sort(table, key, variant) }
+            }
+        }
+    }
+
+    @Test
+    fun cachedNumbersHandleSignedUnsignedAndSpecialFloats() {
+        val table = Table.fromSource(generateRows(100))
+        val doubles = doubleArrayOf(Double.NaN, Double.NEGATIVE_INFINITY, -0.0, 0.0, Double.POSITIVE_INFINITY, -2.0)
+        for (row in 0 until table.size) {
+            table.c1[row] = if (row % 2 == 0) Long.MIN_VALUE + row else row.toLong()
+            table.c3[row] = doubles[row % doubles.size]
+            table.c4[row] = table.c3[row]
+            table.c5[row] = if (row % 2 == 0) Int.MIN_VALUE + row else row
+            table.c6[row] = if (row % 2 == 0) Int.MIN_VALUE + row else row
+        }
+        checkEveryColumn(table)
     }
 
     @Test

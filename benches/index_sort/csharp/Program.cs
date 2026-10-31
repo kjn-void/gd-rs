@@ -20,6 +20,7 @@ internal static class Verify
         CheckDuplicatesAndShortTables();
         CheckGermanOrder();
         CheckDistribution();
+        CheckNullKeys();
         Console.WriteLine("verify: ok");
     }
 
@@ -33,9 +34,23 @@ internal static class Verify
 
         for (var column = 0; column < 7; column++)
         {
-            var sorted = ColumnSorts.Sort(source, column);
-            ColumnSorts.RequireSorted(sorted, column);
-            Require(RowsOf(sorted).Order().SequenceEqual(RowsOf(source).Order()), $"column {column} split or lost rows");
+            foreach (var variant in new[] { "index", "reuse", "validated", "cached", "optimized" })
+            {
+                var target = new Table(source.Size);
+                var workspace = new SortWorkspace(source.Size);
+                for (var repeat = 0; repeat < 2; repeat++)
+                {
+                    target.AppendFrom(source);
+                    target = variant switch
+                    {
+                        "index" => ColumnSorts.Sort(target, column),
+                        "optimized" => ColumnSorts.SortOptimized(target, column, workspace),
+                        _ => workspace.Sort(target, column, variant),
+                    };
+                    ColumnSorts.RequireSorted(target, column);
+                    Require(RowsOf(target).Order().SequenceEqual(RowsOf(source).Order()), $"column {column}, {variant} split or lost rows");
+                }
+            }
         }
     }
 
@@ -46,6 +61,22 @@ internal static class Verify
         foreach (var count in new[] { 0, 1, 2, 3, 16, 17, 100, 1000 })
         {
             CheckEveryColumn(Table.FromSource(rows[..count]));
+        }
+    }
+
+    private static void CheckNullKeys()
+    {
+        foreach (var column in new[] { 3, 4, 5 })
+        foreach (var variant in new[] { "reuse", "validated", "cached" })
+        {
+            var table = Table.FromSource(Data.GenerateRows(2));
+            if (column == 3) table.C4[0] = null;
+            if (column == 4) table.C5[0] = null;
+            if (column == 5) table.C6[0] = null;
+            var rejected = false;
+            try { new SortWorkspace(2).Sort(table, column, variant); }
+            catch (InvalidOperationException) { rejected = true; }
+            Require(rejected, $"{variant} accepted a null key in column {column}");
         }
     }
 

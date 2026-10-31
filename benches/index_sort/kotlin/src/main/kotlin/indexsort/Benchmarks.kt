@@ -1,6 +1,6 @@
 // Kotlin counterpart of ../cpp/sort_methods_benchmark.cpp.
 //
-// A 10,000-row table with every column set is sorted on each of its seven columns
+// A 10,000-row table (or INDEX_SORT_ROWS) with every column set is sorted on each of its seven columns
 // with the port's index sort. Each operation clears the target, appends the source
 // rows, and sorts, like the C++ cases.
 
@@ -32,6 +32,10 @@ open class SortMethods {
     @Param("0", "1", "2", "3", "4", "5", "6")
     var column = 0
 
+    @Param("index", "reuse", "validated", "cached", "optimized")
+    var variant = "index"
+
+    private lateinit var workspace: SortWorkspace
     private lateinit var key: Key
     private lateinit var source: Table
     private lateinit var target: Table
@@ -39,8 +43,10 @@ open class SortMethods {
     @Setup(Level.Trial)
     fun setUp() {
         key = Key.entries.first { it.column == column }
-        source = Table.fromSource(generateRows(ROW_COUNT))
-        target = Table(ROW_COUNT)
+        val rows = benchmarkRowCount()
+        source = Table.fromSource(generateRows(rows))
+        target = Table(rows)
+        workspace = SortWorkspace(rows)
     }
 
     @TearDown(Level.Trial)
@@ -49,7 +55,11 @@ open class SortMethods {
     @Benchmark
     fun index(): Int {
         target.appendFrom(source)
-        target = indexSort(target, key.comparator)
+        target = when (variant) {
+            "index" -> indexSort(target, key.comparator)
+            "optimized" -> optimizedSort(target, key, workspace)
+            else -> workspace.sort(target, key, variant)
+        }
         return target.size
     }
 }

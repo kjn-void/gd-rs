@@ -8,6 +8,10 @@ public static class Data
     /// <summary>Row count in the C++ benchmark.</summary>
     public const int RowCount = 10_000;
 
+    /// <summary>Row count for the benchmark: <c>INDEX_SORT_ROWS</c>, or <see cref="RowCount"/> when it is not set.</summary>
+    public static int BenchmarkRowCount =>
+        Environment.GetEnvironmentVariable("INDEX_SORT_ROWS") is { } rows ? int.Parse(rows) : RowCount;
+
     /// <summary>
     /// Same distributions and draw order as the C++ test, with every column set: C4 a
     /// double like C3, and C5 and C6 a draw like C1 modulo 1000. The engine differs, so

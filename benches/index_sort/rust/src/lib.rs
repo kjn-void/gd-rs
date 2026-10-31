@@ -2,8 +2,8 @@
 //! seven-column table on each column, over a struct-of-arrays table whose string
 //! columns hold `strumbra::SharedString`.
 //!
-//! The port has one sort, [`key_sort`], the fastest of the physical, index, and key
-//! sorts measured at commit 906a410.
+//! The allocating key sort and reusable index/key variants materialize every
+//! column. The gd-rs variant builds a borrowing stable row order instead.
 
 use std::cmp::Ordering;
 use std::mem::ManuallyDrop;
@@ -12,8 +12,18 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use strumbra::SharedString;
 
+pub mod gd_order;
+pub mod reused;
+
 /// Row count in the C++ benchmark.
 pub const ROW_COUNT: usize = 10_000;
+
+/// Row count for the benchmark: `INDEX_SORT_ROWS`, or [`ROW_COUNT`] when it is not set.
+pub fn benchmark_row_count() -> usize {
+    std::env::var("INDEX_SORT_ROWS").map_or(ROW_COUNT, |rows| {
+        rows.parse().expect("INDEX_SORT_ROWS is a row count")
+    })
+}
 
 /// Column numbers as in the C++ table: C1 `uint64`, C2 `string(8)`, C3 and C4
 /// `double`, C5 `int32`, C6 `uint32`, C7 `string(50)`.
@@ -153,8 +163,8 @@ impl Table {
 
 /// Sorts `table` on `COLUMN`, after GD's posted `sort(column, true, tag_sort_key{})`.
 ///
-/// Each row's key is read once into a vector of (key, row number) pairs, and a
-/// quicksort orders the pairs. Numbers are copied into the pairs; strings are
+/// Each row's key is read once into a vector of (key, row number) pairs, and `sort_unstable_by`
+/// orders the pairs. Numbers are copied into the pairs; strings are
 /// referenced, as GD's cached `variant_view` points into the row. The sorted order
 /// is then applied by building a new table: each new column is filled by moving the
 /// old column's values in sorted order, and each old column is freed as soon as it
@@ -201,13 +211,9 @@ fn sorted_rows<K: Copy>(
     keys: impl Iterator<Item = K>,
     compare: impl Fn(&K, &K) -> Ordering,
 ) -> Vec<usize> {
-    let mut pairs = Keys {
-        pairs: keys.enumerate().map(|(row, key)| (key, row)).collect(),
-        compare,
-    };
-    let count = pairs.pairs.len();
-    pairs.quicksort(0, count);
-    pairs.pairs.into_iter().map(|(_, row)| row).collect()
+    let mut pairs: Vec<_> = keys.enumerate().map(|(row, key)| (key, row)).collect();
+    pairs.sort_unstable_by(|left, right| compare(&left.0, &right.0));
+    pairs.into_iter().map(|(_, row)| row).collect()
 }
 
 /// Moves `column`'s values into a new vector in `index` order. `index` must be a
@@ -228,87 +234,6 @@ fn gather<T>(column: Vec<T>, index: &[usize]) -> Vec<T> {
         ManuallyDrop::drop(&mut column);
     }
     sorted
-}
-
-/// (key, row number) pairs and the key order.
-struct Keys<K, F> {
-    pairs: Vec<(K, usize)>,
-    compare: F,
-}
-
-/// Ranges this short are finished with insertion sort.
-const INSERTION_SORT_LENGTH: usize = 16;
-
-impl<K, F: Fn(&K, &K) -> Ordering> Keys<K, F> {
-    #[inline]
-    fn less(&self, a: usize, b: usize) -> bool {
-        (self.compare)(&self.pairs[a].0, &self.pairs[b].0).is_lt()
-    }
-
-    /// Sorts positions `[from, to)`. The pivot is the median of the first, middle,
-    /// and last positions. Partitioning stops on keys equal to the pivot, so
-    /// duplicate keys still split evenly. The sort recurses into the smaller part
-    /// only and uses insertion sort for short ranges.
-    fn quicksort(&mut self, mut from: usize, mut to: usize) {
-        while to - from > INSERTION_SORT_LENGTH {
-            let pivot = self.partition(from, to);
-            if pivot - from < to - pivot {
-                self.quicksort(from, pivot);
-                from = pivot + 1;
-            } else {
-                self.quicksort(pivot + 1, to);
-                to = pivot;
-            }
-        }
-        self.insertion_sort(from, to);
-    }
-
-    /// Partitions `[from, to)` around a median-of-three pivot and returns the
-    /// pivot's final position. Needs at least three positions.
-    fn partition(&mut self, from: usize, to: usize) -> usize {
-        let middle = from + (to - from) / 2;
-        let last = to - 1;
-        if self.less(middle, from) {
-            self.pairs.swap(middle, from);
-        }
-        if self.less(last, from) {
-            self.pairs.swap(last, from);
-        }
-        if self.less(last, middle) {
-            self.pairs.swap(last, middle);
-        }
-        // The pivot moves to `from`; the smaller and larger samples bound both scans.
-        self.pairs.swap(from, middle);
-
-        let (mut left, mut right) = (from, to);
-        loop {
-            left += 1;
-            while self.less(left, from) {
-                left += 1;
-            }
-            right -= 1;
-            while self.less(from, right) {
-                right -= 1;
-            }
-            if left >= right {
-                break;
-            }
-            self.pairs.swap(left, right);
-        }
-        self.pairs.swap(from, right);
-        right
-    }
-
-    /// Sorts `[from, to)` by swapping adjacent positions.
-    fn insertion_sort(&mut self, from: usize, to: usize) {
-        for next in from + 1..to {
-            let mut position = next;
-            while position > from && self.less(position, position - 1) {
-                self.pairs.swap(position, position - 1);
-                position -= 1;
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -334,17 +259,30 @@ mod tests {
     }
 
     fn check_column<const COLUMN: usize>(source: &Table) {
-        let mut sorted = source.clone();
-        key_sort::<COLUMN>(&mut sorted);
-        assert!(
-            (1..sorted.len()).all(|row| sorted.compare_rows::<COLUMN>(row - 1, row).is_le()),
-            "column {COLUMN} is not sorted"
-        );
-
-        let (mut before, mut after) = (rows(source), rows(&sorted));
-        before.sort();
-        after.sort();
-        assert_eq!(after, before, "column {COLUMN} split or lost rows");
+        for variant in 0..3 {
+            let mut sorted = source.clone();
+            let mut workspace = reused::Workspace::new(source.len());
+            for _ in 0..2 {
+                sorted.append_from(source);
+                if variant == 0 {
+                    key_sort::<COLUMN>(&mut sorted);
+                } else {
+                    workspace.sort::<COLUMN>(&mut sorted, variant == 2);
+                }
+                assert!(
+                    (1..sorted.len())
+                        .all(|row| sorted.compare_rows::<COLUMN>(row - 1, row).is_le()),
+                    "column {COLUMN}, variant {variant} is not sorted"
+                );
+                let (mut before, mut after) = (rows(source), rows(&sorted));
+                before.sort();
+                after.sort();
+                assert_eq!(
+                    after, before,
+                    "column {COLUMN}, variant {variant} split or lost rows"
+                );
+            }
+        }
     }
 
     fn check_every_column(source: &Table) {
@@ -390,6 +328,82 @@ mod tests {
             assert!((0.0..1_000.0).contains(&row.c4));
             assert!((0..1000).contains(&row.c5));
             assert!(row.c6 < 1000);
+        }
+    }
+    #[test]
+    fn reused_sorts_reject_null_keys() {
+        for cache in [false, true] {
+            for column in [C4, C5, C6] {
+                let mut table = Table::from_source(&generate_rows(2));
+                let mut workspace = reused::Workspace::new(2);
+                match column {
+                    C4 => table.c4[0] = None,
+                    C5 => table.c5[0] = None,
+                    C6 => table.c6[0] = None,
+                    _ => unreachable!(),
+                }
+                assert!(
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match column {
+                        C4 => workspace.sort::<C4>(&mut table, cache),
+                        C5 => workspace.sort::<C5>(&mut table, cache),
+                        C6 => workspace.sort::<C6>(&mut table, cache),
+                        _ => unreachable!(),
+                    }))
+                    .is_err()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gd_order_is_a_stable_permutation_with_mixed_string_storage() {
+        let mut input = generate_rows(1000);
+        for row in &mut input {
+            row.c1 %= 3;
+        }
+        let reference = Table::from_source(&input);
+        let table = gd_order::from_source(&input);
+        assert!(table.schema().column(C2).unwrap().is_german_string());
+        assert!(!table.schema().column(C7).unwrap().is_german_string());
+        let compare: [fn(&Table, usize, usize) -> Ordering; 7] = [
+            Table::compare_rows::<C1>,
+            Table::compare_rows::<C2>,
+            Table::compare_rows::<C3>,
+            Table::compare_rows::<C4>,
+            Table::compare_rows::<C5>,
+            Table::compare_rows::<C6>,
+            Table::compare_rows::<C7>,
+        ];
+        for (column, compare) in compare.into_iter().enumerate() {
+            let order = table
+                .row_order(column, gd::SortDirection::Ascending, gd::NullOrder::Last)
+                .unwrap();
+            let materialized = table.copy_rows(order.positions()).unwrap();
+            for (position, &original) in order.positions().iter().enumerate() {
+                for column in 0..7 {
+                    assert_eq!(
+                        materialized.cell(position, column).unwrap(),
+                        table.cell(original, column).unwrap()
+                    );
+                }
+            }
+            let mut positions = order.positions().to_vec();
+            positions.sort_unstable();
+            assert_eq!(positions, (0..input.len()).collect::<Vec<_>>());
+            for pair in order.positions().windows(2) {
+                let result = compare(&reference, pair[0], pair[1]);
+                assert!(result.is_le());
+                if result.is_eq() {
+                    assert!(pair[0] < pair[1]);
+                }
+            }
+        }
+        for (row, value) in input.iter().enumerate() {
+            assert_eq!(table.cell(row, C1).unwrap(), gd::ValueRef::U64(value.c1));
+            assert_eq!(
+                table.cell(row, C7).unwrap(),
+                gd::ValueRef::String(&value.c7)
+            );
         }
     }
 }

@@ -6,10 +6,12 @@ matched GD DTO row-sum benchmarks and split value/validity storage for nullable 
 columns, direct compatible-column append, sampled low-cardinality index capacity,
 reused CSV/JSON import buffers, the opt-in German/Umbra string column layout, and the
 standalone cache-latency fixture, scoped mutable-row thread tests, the matched
-index-sort benchmark, and the three-sort-method benchmark and its ports, remeasured on 2026-10-30.
+index-sort benchmark, the three-sort-method benchmark and its ports, cached-key row ordering, gd-rs order
+views/materialization, and the maintained GD key-sort and standard-container SoA
+counterparts, remeasured on 2026-10-31.
 The C++ product scope uses GD pinned to
 `a5b1e3e7eba69a5e2d3fbd8e6a8f057d972cd868`, exported from Git independently of the
-working-tree submodule checkout. All scopes were remeasured on 2026-10-30. It measures
+working-tree submodule checkout. All scopes were remeasured on 2026-10-31. It measures
 source shape, not implementation quality or feature parity. In particular, the full C++ tree still
 contains systems that this crate does not port, including ODBC, logging, console,
 filesystem, and COM-style routing. The C++ inclusive scopes include maintained
@@ -24,15 +26,15 @@ divided by the number of functions recognized by Lizard.
 
 | Tree | Files | SLOC | Functions | Total CCN | Average CCN |
 |---|---:|---:|---:|---:|---:|
-| Rust product (`src`) | 36 | 10,704 | 367 | 988 | 2.69 |
-| Rust product + tests (`src`, `tests`) | 56 | 16,954 | 588 | 1,416 | 2.41 |
-| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 88 | 22,636 | 814 | 2,114 | 2.60 |
+| Rust product (`src`) | 36 | 10,680 | 368 | 978 | 2.66 |
+| Rust product + tests (`src`, `tests`) | 57 | 17,089 | 592 | 1,431 | 2.42 |
+| Rust product + tests + benchmarks (`src`, `tests`, `benches`) | 91 | 22,998 | 826 | 2,153 | 2.61 |
 | C++ product (`source`) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
 | C++ product + tests (`source`, `tests`; `tests` absent) | 142 | 65,038 | 8,718 | 20,006 | 2.29 |
-| C++ product + tests + maintained benchmarks | 177 | 69,816 | 9,040 | 21,096 | 2.33 |
+| C++ product + tests + maintained benchmarks | 182 | 70,466 | 9,115 | 21,276 | 2.33 |
 
-The Rust totals are **10,704 SLOC in `src`** and **22,636 SLOC including `tests`
-and `benches`**. The separate test tree adds 6,250 SLOC and benchmarks add 5,682
+The Rust totals are **10,680 SLOC in `src`** and **22,998 SLOC including `tests`
+and `benches`**. The separate test tree adds 6,409 SLOC and benchmarks add 5,909
 SLOC, including the three-sort-method port, the GD DTO row-sum port, the string-transport comparison, the lane-split float column sums, their summation-order tests and
 benchmark, the interned string timing and allocation benchmark,
 interned string storage, entry-handle copying and its integration/ownership tests,
@@ -47,7 +49,9 @@ heap-fallback tests. Inline unit tests and the
 doctest-only guide bridge inside `src` are included in
 every Rust scope. The included Markdown text is excluded from source counts. In the C++
 scopes, the pinned baseline has no test directory and the maintained benchmark
-references add 4,778 SLOC, including the index-sort and three-sort-method benchmarks and the GD table row iterator, the GD DTO row-sum test, the `string_transport` benchmark, the interned
+references add 5,428 SLOC, including the index-sort and three-sort-method benchmarks,
+the updated GD key-sort verifier, standard-container SoA iterator/cached-key gather
+and verifier, and the GD table row iterator, the GD DTO row-sum test, the `string_transport` benchmark, the interned
 string benchmark and allocation
 observer, the GD SIMD order-workflow adapter,
 the GD/std::string text-workflow cases, whole-record filter-copy benchmark, string
@@ -72,7 +76,9 @@ The measurement uses Lizard 1.17.31 for both languages. The selected files are:
   output (including any `target` directory below `benches`), vendored dependencies, and every directory not named above.
 
 Measure a clean checkout or Git export of the source being reported so unrelated
-untracked files and local edits do not enter the published totals.
+untracked files and local edits do not enter the published totals. This snapshot
+uses a Git export of the staged source tree plus a separate export of the pinned
+GD `source` tree; generated output and local editor configuration are excluded.
 
 The product-only Rust measurement can be reproduced with:
 

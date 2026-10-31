@@ -273,18 +273,6 @@ impl<T> ColumnData<T> {
     }
 
     #[inline]
-    pub(super) fn value(&self, row: usize) -> Result<Option<&T>, TableError> {
-        match self.get(row) {
-            CellValue::OutOfBounds => Err(TableError::RowOutOfBounds {
-                row,
-                row_count: self.len(),
-            }),
-            CellValue::Null => Ok(None),
-            CellValue::Value(value) => Ok(Some(value)),
-        }
-    }
-
-    #[inline]
     fn push(&mut self, value: Option<T>) -> Result<(), TableError> {
         match self {
             Self::Required(values) => {
@@ -437,18 +425,6 @@ impl<T: Copy + Default> NumericData<T> {
                 Some(false) => CellValue::Null,
                 None => CellValue::OutOfBounds,
             },
-        }
-    }
-
-    #[inline]
-    pub(super) fn value(&self, row: usize) -> Result<Option<&T>, TableError> {
-        match self.get(row) {
-            CellValue::OutOfBounds => Err(TableError::RowOutOfBounds {
-                row,
-                row_count: self.len(),
-            }),
-            CellValue::Null => Ok(None),
-            CellValue::Value(value) => Ok(Some(value)),
         }
     }
 

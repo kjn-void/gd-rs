@@ -42,6 +42,12 @@ class Table(val capacity: Int) {
      */
     fun gather(index: IntArray): Table {
         val sorted = Table(capacity)
+        gatherInto(index, sorted)
+        return sorted
+    }
+
+    fun gatherInto(index: IntArray, sorted: Table) {
+        require(this !== sorted) { "gather buffers must differ" }
         for (position in index.indices) sorted.c1[position] = c1[index[position]]
         sorted.c2.gatherFrom(c2, index)
         for (position in index.indices) sorted.c3[position] = c3[index[position]]
@@ -53,7 +59,6 @@ class Table(val capacity: Int) {
         for (position in index.indices) sorted.c6Valid[position] = c6Valid[index[position]]
         sorted.c7.gatherFrom(c7, index)
         sorted.size = size
-        return sorted
     }
 
     companion object {

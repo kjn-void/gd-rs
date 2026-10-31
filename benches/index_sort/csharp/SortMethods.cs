@@ -1,6 +1,6 @@
 // C# counterpart of ../cpp/sort_methods_benchmark.cpp.
 //
-// A 10,000-row table with every column set is sorted on each of its seven columns
+// A 10,000-row table (or INDEX_SORT_ROWS) with every column set is sorted on each of its seven columns
 // with the port's index sort. Each operation clears the target, appends the source
 // rows, and sorts, like the C++ cases.
 
@@ -24,6 +24,10 @@ public static class ColumnSorts
         _ => throw new ArgumentOutOfRangeException(nameof(column)),
     };
 
+    /// <summary>Measured policy: cached numeric keys and reusable string indexes.</summary>
+    public static Table SortOptimized(Table table, int column, SortWorkspace workspace)
+        => workspace.Sort(table, column, column is 1 or 6 ? "reuse" : "cached");
+
     /// <summary>Throws if <paramref name="table"/> is not ordered on <paramref name="column"/>.</summary>
     public static void RequireSorted(Table table, int column)
     {
@@ -45,6 +49,10 @@ public class SortMethods
 {
     private Table _source = null!;
     private Table _target = null!;
+    private SortWorkspace _workspace = null!;
+
+    [Params("index", "reuse", "validated", "cached", "optimized")]
+    public string Variant { get; set; } = "index";
 
     [Params(0, 1, 2, 3, 4, 5, 6)]
     public int Column { get; set; }
@@ -52,8 +60,9 @@ public class SortMethods
     [GlobalSetup]
     public void Setup()
     {
-        _source = Table.FromSource(Data.GenerateRows(Data.RowCount));
-        _target = new Table(Data.RowCount);
+        _source = Table.FromSource(Data.GenerateRows(Data.BenchmarkRowCount));
+        _target = new Table(Data.BenchmarkRowCount);
+        _workspace = new SortWorkspace(Data.BenchmarkRowCount);
     }
 
     [GlobalCleanup]
@@ -63,7 +72,12 @@ public class SortMethods
     public int Index()
     {
         _target.AppendFrom(_source);
-        _target = ColumnSorts.Sort(_target, Column);
+        _target = Variant switch
+        {
+            "index" => ColumnSorts.Sort(_target, Column),
+            "optimized" => ColumnSorts.SortOptimized(_target, Column, _workspace),
+            _ => _workspace.Sort(_target, Column, Variant),
+        };
         return _target.Size;
     }
 }

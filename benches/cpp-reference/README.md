@@ -74,6 +74,17 @@ comparator reads a uint64, int32, uint32, double, or fixed-capacity string key s
 from the row bytes, and `table_rows::WithLess()` picks the one for a column.
 [`../index_sort`](../index_sort/README.md) uses it for its `std::sort` cases.
 
+[`soa_table_row_iterator.h`](soa_table_row_iterator.h) provides a separate,
+standard-container SoA table: a tuple of column vectors and a templated row
+iterator. Its row proxies distinguish copying reads from explicit moves, so
+`std::sort` over an explicit moving row iterator can physically reorder owning cells
+with either libc++ or libstdc++.
+The index-sort fixture uses `std::string` and `std::optional`.
+[`soa_table_key_sort.h`](soa_table_key_sort.h) caches keys through the const iterator,
+sorts key/index pairs and gathers directly into reused output columns and string
+buffers. A standalone [verifier](soa_table_row_iterator_verify.cpp) runs through
+the fixture's CTest target and covers both iterator utilities and cached materialization.
+
 Run `../run_sqlite_to_table.sh` for the matched SQLite cursor-to-table comparison.
 Both sides generate three in-memory SQLite tables with a deterministic xorshift64
 schema generator, 3–5 numeric columns per table, and the same seed and SQL value

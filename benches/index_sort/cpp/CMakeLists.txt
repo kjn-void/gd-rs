@@ -45,8 +45,20 @@ target_include_directories(index_sort_benchmark PRIVATE "${CMAKE_CURRENT_LIST_DI
 target_link_libraries(index_sort_benchmark PRIVATE gd::core benchmark::benchmark)
 
 # Physical, index, and key sort on each of the seven columns (forum post 21314807),
-# plus std::sort over an index with gd_table_row_iterator.h's typed comparator.
+# plus std::sort over a GD row index, or cached SoA keys followed by a gather.
 add_executable(sort_methods_benchmark sort_methods_benchmark.cpp)
 target_compile_features(sort_methods_benchmark PRIVATE cxx_std_20)
 target_include_directories(sort_methods_benchmark PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../cpp-reference")
 target_link_libraries(sort_methods_benchmark PRIVATE gd::core benchmark::benchmark)
+
+enable_testing()
+add_executable(gd_key_sort_verify "${CMAKE_CURRENT_LIST_DIR}/../../cpp-reference/gd_table_key_sort_verify.cpp")
+target_compile_features(gd_key_sort_verify PRIVATE cxx_std_20)
+target_include_directories(gd_key_sort_verify PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../cpp-reference")
+target_link_libraries(gd_key_sort_verify PRIVATE gd::core)
+add_test(NAME gd_key_sort_verify COMMAND gd_key_sort_verify)
+
+add_executable(soa_row_iterator_verify "${CMAKE_CURRENT_LIST_DIR}/../../cpp-reference/soa_table_row_iterator_verify.cpp")
+target_compile_features(soa_row_iterator_verify PRIVATE cxx_std_20)
+target_include_directories(soa_row_iterator_verify PRIVATE "${CMAKE_CURRENT_LIST_DIR}/../../cpp-reference")
+add_test(NAME soa_row_iterator_verify COMMAND soa_row_iterator_verify)

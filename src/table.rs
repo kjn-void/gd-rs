@@ -49,7 +49,6 @@ pub use views::{
 };
 
 use compact_str::CompactString;
-use std::cmp::Ordering;
 use std::ops::Range;
 use std::sync::Arc;
 #[cfg(test)]
@@ -1022,22 +1021,8 @@ impl Table {
                 column,
                 column_count: self.column_count(),
             })?;
-        let mut positions: Vec<_> = (0..self.row_count).collect();
-        let mut failure: Option<TableError> = None;
-        positions.sort_by(|left, right| {
-            match storage.compare_rows(*left, *right, direction, null_order) {
-                Ok(ordering) => ordering,
-                Err(error) => {
-                    if failure.is_none() {
-                        failure = Some(error);
-                    }
-                    Ordering::Equal
-                }
-            }
-        });
-        if let Some(error) = failure {
-            return Err(error);
-        }
+        debug_assert_eq!(storage.len(), self.row_count);
+        let positions = storage.ordered_positions(direction, null_order);
         Ok(RowOrder {
             table: self,
             positions,

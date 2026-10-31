@@ -31,6 +31,14 @@ public static class Sorts
         return table.Gather(index);
     }
 
+    public static void IndexInto<TKey>(Table table, int[] index, Table destination)
+        where TKey : struct, IKey
+    {
+        for (var row = 0; row < table.Size; row++) index[row] = row;
+        if (table.Size > 1) Quicksort<TKey>(table, index, 0, table.Size);
+        table.GatherInto(index, destination);
+    }
+
     /// <summary>Throws if <paramref name="table"/> is not ordered on <typeparamref name="TKey"/>.</summary>
     public static void RequireSorted<TKey>(Table table)
         where TKey : struct, IKey

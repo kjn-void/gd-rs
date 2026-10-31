@@ -635,10 +635,15 @@ Floating-point columns use `total_cmp`, which gives deterministic positions to N
 and distinguishes negative and positive zero. A `RowOrder` immutably borrows its
 source, preventing row positions from becoming stale during iteration.
 
-This replaces destructive selection and bubble sorts with standard stable sorting of
-row indexes. Constructing an order takes **O(r log r)** time and **O(r)** space; it
-does not move payloads from unrelated columns. The C++ algorithms take **O(r²)**
-comparisons and may move complete rows after comparisons.
+Construction resolves the column layout once and caches numeric keys by value or
+borrows string, byte, and UUID keys. Null rows are separated before the stable key
+sort, so comparisons do not repeat type dispatch, cell lookup, or null handling.
+The returned view stores only row indexes. Its vector can reuse the key allocation
+and retain spare capacity; key payload borrows and the stable-sort workspace are
+discarded before return. Constructing an order takes **O(r log r)** time and **O(r)**
+space; it does not move payloads from unrelated columns. GD's default physical
+sorts take **O(r²)** comparisons and may move complete rows after comparisons;
+its index and key sort variants use **O(r log r)** comparison sorting.
 
 ## Complexity
 

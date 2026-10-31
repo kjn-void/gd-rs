@@ -80,9 +80,12 @@ ordering, so every NaN and signed-zero representation has a deterministic positi
 `positions` covers every physical row; `live_rows` skips tombstoned rows while keeping
 the same key order.
 
-Building a `RowOrder` takes O(r log r) time and O(r) space for its positions. It does
-not copy cells or change the table; iteration after construction performs no further
-allocation.
+Building a `RowOrder` takes O(r log r) time and O(r) temporary space. Construction
+resolves the storage layout once, copies numeric sort keys, and borrows other key
+payloads. Null positions are separated before a stable key sort and placed first
+or last independently of direction. The view stores one row index per row and may
+retain spare capacity from the key allocation; it does not copy the table or change
+cells. Iteration performs no further allocation.
 
 The current API orders by one column. For compound application-specific ordering,
 collect row positions and sort them with a comparator over `Table::cell`, or add a

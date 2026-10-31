@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 rand = "0.9"
 strumbra = "0.6"
+gd-rs = { path = "../../..", default-features = false, features = ["german-strings"] }
 
 [dev-dependencies]
 criterion = "0.8.2"

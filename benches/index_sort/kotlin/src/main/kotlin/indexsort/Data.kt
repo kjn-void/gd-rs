@@ -5,6 +5,9 @@ import kotlin.random.Random
 /** Row count in the C++ benchmark. */
 const val ROW_COUNT = 10_000
 
+/** Row count for the benchmark: `INDEX_SORT_ROWS`, or [ROW_COUNT] when it is not set. */
+fun benchmarkRowCount(): Int = System.getenv("INDEX_SORT_ROWS")?.toInt() ?: ROW_COUNT
+
 /** Generated values for one row. C6 is a `uint32` stored in an `Int`. */
 class SourceRow(
     val c1: Long,

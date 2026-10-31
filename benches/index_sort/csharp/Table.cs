@@ -68,6 +68,13 @@ public sealed class Table
     public Table Gather(int[] index)
     {
         var sorted = new Table(C1.Length);
+        GatherInto(index, sorted);
+        return sorted;
+    }
+
+    public void GatherInto(int[] index, Table sorted)
+    {
+        if (ReferenceEquals(this, sorted)) throw new ArgumentException("gather buffers must differ");
         Gather(C1, sorted.C1, index);
         Gather(C2, sorted.C2, index);
         Gather(C3, sorted.C3, index);
@@ -76,7 +83,6 @@ public sealed class Table
         Gather(C6, sorted.C6, index);
         Gather(C7, sorted.C7, index);
         sorted.Size = Size;
-        return sorted;
     }
 
     private static void Gather<T>(T[] from, T[] to, int[] index)

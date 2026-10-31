@@ -16,6 +16,12 @@ fun indexSort(table: Table, key: RowComparator): Table {
     return table.gather(index)
 }
 
+internal fun indexInto(table: Table, key: RowComparator, index: IntArray, destination: Table) {
+    for (row in index.indices) index[row] = row
+    if (table.size > 1) RowNumbers(table, key, index).quicksort(0, table.size)
+    table.gatherInto(index, destination)
+}
+
 /** Fails if `table` is not ordered on `key`; benchmarks call it after measuring. */
 fun requireSorted(table: Table, key: RowComparator) {
     for (row in 1 until table.size) {
@@ -24,7 +30,7 @@ fun requireSorted(table: Table, key: RowComparator) {
 }
 
 /** Ranges this short are finished with insertion sort. */
-private const val INSERTION_SORT_LENGTH = 16
+internal const val INSERTION_SORT_LENGTH = 16
 
 /** Row numbers, compared through the rows they name. */
 private class RowNumbers(

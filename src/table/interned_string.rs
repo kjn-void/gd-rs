@@ -152,12 +152,6 @@ impl InternedStringData {
         self.values.len()
     }
 
-    pub(super) fn value(&self, row: usize) -> Result<Option<&str>, TableError> {
-        self.values
-            .value(row)
-            .map(|value| value.map(|value| value.as_str()))
-    }
-
     pub(super) fn view(&self) -> InternedStrings<'_> {
         let values = match &self.values {
             ColumnData::Required(values) => StringSlots::Required(values),
@@ -643,10 +637,10 @@ mod tests {
             worker.join().unwrap();
             let (data, full, range, rows) = result.expect("copy accessed the locked cache");
             assert_eq!(full, data);
-            assert_eq!(range.value(0).unwrap(), Some(long.as_str()));
-            assert_eq!(rows.value(0).unwrap(), Some("other"));
-            assert_eq!(rows.value(1).unwrap(), Some(long.as_str()));
-            assert_eq!(rows.value(2).unwrap(), Some(long.as_str()));
+            assert_eq!(range.view().get(0).unwrap(), Some(long.as_str()));
+            assert_eq!(rows.view().get(0).unwrap(), Some("other"));
+            assert_eq!(rows.view().get(1).unwrap(), Some(long.as_str()));
+            assert_eq!(rows.view().get(2).unwrap(), Some(long.as_str()));
             assert_eq!(pool.entries().get(long.as_str()).unwrap().strong_count(), 8);
             drop((data, full, range, rows));
             assert!(pool.entries().is_empty());
